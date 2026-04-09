@@ -17,66 +17,66 @@ El frontend desarrollado en Streamlit permite al usuario visualizar todo de mane
 
 ##Arquitectura en capas:
 
--Capa de presentación → Streamlit
--Capa de negocio → Regla de cálculo, validaciones, optimización
--Capa de datos → ORM, modelos, consultas
--Capa de integración → IA (OpenAI/HuggingFace) + APIs externas
+-Capa de presentación → Streamlit <br>
+-Capa de negocio → Regla de cálculo, validaciones, optimización <br>
+-Capa de datos → ORM, modelos, consultas <br>
+-Capa de integración → IA (OpenAI/HuggingFace) + APIs externas <br>
 
 
 ##Entidades/Tablas:
 
-###Usuario:
--id_usuario
--nombre
--email
--nacionalidad
--fecha_registro
+###Usuario:<br>
+-id_usuario<br>
+-nombre<br>
+-email<br>
+-nacionalidad<br>
+-fecha_registro<br>
 
-###Viaje:
--idViaje
--destino
--fechaInicio
--fechaFin
--tipoViaje
--/costoTotalEstimado
+###Viaje:<br>
+-idViaje<br>
+-destino<br>
+-fechaInicio<br>
+-fechaFin<br>
+-tipoViaje<br>
+-/costoTotalEstimado<br>
 
-###Itinerario:
--idIntinerario
--dia
--resumenDiaIA
+###Itinerario:<br>
+-idIntinerario<br>
+-dia<br>
+-resumenDiaIA<br>
 
-###Actividad:
--idActividad
--nombre
--descripcion
--precioEstimado
--categoria
--horarioSugerido
--ubicacion
+###Actividad:<br>
+-idActividad<br>
+-nombre<br>
+-descripcion<br>
+-precioEstimado<br>
+-categoria<br>
+-horarioSugerido<br>
+-ubicacion<br>
 
 
-###Costos:
--costoAlojamiento
--costoTransporte
--costoActividades
--costoComidas
--costoTotalBase
+###Costos:<br>
+-costoAlojamiento<br>
+-costoTransporte<br>
+-costoActividades<br>
+-costoComidas<br>
+-costoTotalBase<br>
 
-###PreferenciasUsuario:
--destino
--costoMin
--costoMax
--cantidadPersonas
--grupo
--clima
--otros
+###PreferenciasUsuario:<br>
+-destino<br>
+-costoMin<br>
+-costoMax<br>
+-cantidadPersonas<br>
+-grupo<br>
+-clima<br>
+-otros<br>
 
-###tipoAlojamiento
--idTipo
--tipo
+###tipoAlojamiento:<br>
+-idTipo<br>
+-tipo<br>
 
-###RecomendacionIA:
--textoGenerado
--fechaGeneracion
--tipo
+###RecomendacionIA:<br>
+-textoGenerado<br>
+-fechaGeneracion<br>
+-tipo<br>
 
