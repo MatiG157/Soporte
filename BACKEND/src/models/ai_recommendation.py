@@ -1,4 +1,4 @@
-from app.models import db
+from src.models.init import db
 from datetime import datetime
 
 class RecomendacionIA(db.Model):

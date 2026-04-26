@@ -1,4 +1,4 @@
-from app.models import db
+from src.models.init import db
 
 # tabla intermedia many-to-many
 preferencia_tipo_alojamiento = db.Table(

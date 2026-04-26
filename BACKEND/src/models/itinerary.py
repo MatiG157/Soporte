@@ -1,4 +1,4 @@
-from app.models import db
+from src.models.init import db
 
 class Itinerario(db.Model):
     __tablename__ = "itinerarios"
