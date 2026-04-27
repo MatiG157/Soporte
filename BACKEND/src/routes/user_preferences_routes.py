@@ -1,8 +1,18 @@
 from flask import Blueprint, request, jsonify
-from src.services.user_preferences_service import crear_preferencia, eliminar_preferencia, actualizar_preferencia
+from src.services.user_preferences_service import crear_preferencia, eliminar_preferencia, actualizar_preferencia, obtener_preferencias_por_usuario
 from marshmallow import ValidationError
+from validators.user_preferences_validator import user_preferences_schema
 
 user_preferences_bp = Blueprint('user_preferences_bp', __name__)
+
+@user_preferences_bp.route('/usuario/<int:id_usuario>', methods=['GET'])
+def get_preferencias_usuario(id_usuario):
+    preferencias = obtener_preferencias_por_usuario(id_usuario)
+    if not preferencias:
+        return jsonify([]), 200
+        
+    resultado = user_preferences_schema.dump(preferencias, many=True)
+    return jsonify(resultado), 200
 
 @user_preferences_bp.route('/', methods=['POST'])
 def alta_preferencia():

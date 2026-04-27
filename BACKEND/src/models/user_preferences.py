@@ -28,6 +28,10 @@ class PreferenciasUsuario(db.Model):
     cantidad_personas = db.Column(db.Integer)
     grupo = db.Column(db.String(30))  # familiar, amigos, educativo
     clima = db.Column(db.String(50))
+    edades_viajeros = db.Column(db.String(100))   # "25, 28, 5"
+    tipo_transporte = db.Column(db.String(50))     # Plane, Train, Car, Bus
+    fecha_inicio = db.Column(db.Date)               
+    fecha_fin = db.Column(db.Date) 
     otros = db.Column(db.Text)
 
     usuario = db.relationship("Usuario", back_populates="preferencias")

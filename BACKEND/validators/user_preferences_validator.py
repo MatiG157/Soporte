@@ -21,8 +21,29 @@ class UserPreferencesSchema(Schema):
             error="Tipo de grupo no válido."
         )
     )
+    tipos_alojamiento = fields.List(
+        fields.Integer(),
+        required=False
+    )
     clima = fields.String(validate=validate.Length(max=50))
+    edades_viajeros = fields.String(validate=validate.Length(max=100))
+    tipo_transporte = fields.String(validate=validate.Length(max=50))
+    fecha_inicio = fields.Date()
+    fecha_fin = fields.Date()
     otros = fields.String()
+
+    # Validación a nivel de esquema para comparar fechas
+    @validates_schema
+    def validar_fechas(self, data, **kwargs):
+        fecha_inicio = data.get("fecha_inicio")
+        fecha_fin = data.get("fecha_fin")
+        
+        if fecha_inicio and fecha_fin:
+            if fecha_inicio >= fecha_fin:
+                raise ValidationError(
+                    "La fecha de inicio debe ser anterior a la fecha de fin.",
+                    field_name="fecha_inicio"
+                )
 
     # Validación a nivel de esquema para comparar los dos campos
     @validates_schema
