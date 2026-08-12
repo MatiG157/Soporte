@@ -85,7 +85,7 @@
                         {% endif %}
                         <div>
                             <span class="trip-date"><i class="fa-regular fa-calendar me-1"></i> {{ viaje.fecha_inicio }} - {{ viaje.fecha_fin }}</span>
-                            <div class="trip-title">{{ viaje.destino }}</div>
+                            <div class="trip-title">{{ viaje.destinos_display or (viaje.destinos | join(' → ') if viaje.destinos else 'Unknown') }}</div>
                         </div>
                     </div>
                 </a>

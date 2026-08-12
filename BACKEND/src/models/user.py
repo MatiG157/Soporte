@@ -9,6 +9,7 @@ class Usuario(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False)
     contrasena = db.Column(db.String(255), nullable=False)
     nacionalidad = db.Column(db.String(80))
+    foto = db.Column(db.String(500), nullable=True)
 
     preferencias = db.relationship(
         "PreferenciasUsuario",

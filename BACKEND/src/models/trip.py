@@ -10,7 +10,7 @@ class Viaje(db.Model):
     id_usuario = db.Column(db.Integer, db.ForeignKey(
         "usuarios.id_usuario"), nullable=False)
 
-    destino = db.Column(db.String(120), nullable=False)
+    destinos = db.Column(db.JSON, nullable=False)  # Lista de destinos ["Buenos Aires", "Mendoza"]
     fecha_inicio = db.Column(db.Date, nullable=False)
     fecha_fin = db.Column(db.Date, nullable=False)
     tipo_viaje = db.Column(db.String(20), nullable=False)
@@ -22,9 +22,12 @@ class Viaje(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     # URL de la imagen generada
     imagen = db.Column(db.String(500), nullable=True)
+    # FK a preferencias_usuario
+    id_user_preferences = db.Column(db.Integer, db.ForeignKey("preferencias_usuario.id_preferencia"), nullable=True)
 
     # Relaciones...
     usuario = db.relationship("Usuario", back_populates="viajes")
+    preferencias = db.relationship("PreferenciasUsuario", backref="viajes_generados")
     costo = db.relationship("Costo", back_populates="viaje",
                             uselist=False, cascade="all, delete-orphan")
     itinerarios = db.relationship(

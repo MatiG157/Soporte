@@ -22,7 +22,8 @@ def crear_usuario(datos):
         apellido=datos_validados['apellido'],
         email=datos_validados['email'],
         contrasena=contrasena_hasheada,  # Hasheamos la contraseña
-        nacionalidad=datos_validados.get('nacionalidad')
+        nacionalidad=datos_validados.get('nacionalidad'),
+        foto=datos_validados.get('foto')
     )
     db.session.add(nuevo_usuario)
     db.session.commit()
@@ -54,5 +55,6 @@ def actualizar_usuario(id_usuario, datos):
             datos_validados['contrasena'])
     usuario.nacionalidad = datos_validados.get(
         'nacionalidad', usuario.nacionalidad)
+    usuario.foto = datos_validados.get('foto', usuario.foto)
     db.session.commit()
     return usuario

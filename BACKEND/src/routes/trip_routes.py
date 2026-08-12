@@ -39,7 +39,7 @@ def get_viajes_usuario(id_usuario):
 
     resultado = [{
         "id_viaje": v.id_viaje,
-        "destino": v.destino,
+        "destinos": v.destinos,
         "fecha_inicio": v.fecha_inicio.isoformat(),
         "fecha_fin": v.fecha_fin.isoformat(),
         "tipo_viaje": v.tipo_viaje,
@@ -67,7 +67,8 @@ def get_viaje(id_viaje):
     return jsonify({
         "id_viaje": v.id_viaje,
         "id_usuario": v.id_usuario,
-        "destino": v.destino,
+        "id_user_preferences": v.id_user_preferences,
+        "destinos": v.destinos,
         "fecha_inicio": v.fecha_inicio.isoformat(),
         "fecha_fin": v.fecha_fin.isoformat(),
         "tipo_viaje": v.tipo_viaje,
@@ -127,11 +128,12 @@ def generate_viajes():
         return jsonify({"error": "No se enviaron datos"}), 400
     id_usuario = datos.get('id_usuario')
     opciones = datos.get('opciones')
+    id_user_preferences = datos.get('id_user_preferences')
     if not id_usuario or not opciones:
         return jsonify({"error": "Faltan datos requeridos (id_usuario, opciones)"}), 400
 
     try:
-        group_id = guardar_viajes_generados(id_usuario, opciones)
+        group_id = guardar_viajes_generados(id_usuario, opciones, id_user_preferences)
         return jsonify({"mensaje": "Viajes generados", "group_id": group_id}), 200
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -145,7 +147,7 @@ def get_drafts_usuario(id_usuario):
 
     resultado = [{
         "id_viaje": v.id_viaje,
-        "destino": v.destino,
+        "destinos": v.destinos,
         "fecha_inicio": v.fecha_inicio.isoformat(),
         "fecha_fin": v.fecha_fin.isoformat(),
         "tipo_viaje": v.tipo_viaje,

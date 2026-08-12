@@ -22,7 +22,7 @@ class PreferenciasUsuario(db.Model):
         nullable=False
     )
 
-    destino = db.Column(db.String(120))
+    destinos = db.Column(db.JSON, nullable=True)  # Lista de destinos ["Buenos Aires", "Mendoza"]
     origen = db.Column(db.String(120))
     costo_min = db.Column(db.Float)
     costo_max = db.Column(db.Float)

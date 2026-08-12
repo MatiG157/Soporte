@@ -13,7 +13,7 @@ def crear_preferencia(datos):
     nueva_preferencia = PreferenciasUsuario(
         id_usuario=datos_validados['id_usuario'],
         origen=datos_validados.get('origen'),
-        destino=datos_validados.get('destino'),
+        destinos=datos_validados.get('destinos'),
         costo_min=datos_validados.get('costo_min'),
         costo_max=datos_validados.get('costo_max'),
         cantidad_personas=datos_validados.get('cantidad_personas'),
@@ -56,7 +56,7 @@ def actualizar_preferencia(id_preferencia, datos):
         return None
 
     preferencia.origen = datos_validados.get('origen', preferencia.origen)
-    preferencia.destino = datos_validados.get('destino', preferencia.destino)
+    preferencia.destinos = datos_validados.get('destinos', preferencia.destinos)
     preferencia.costo_min = datos_validados.get(
         'costo_min', preferencia.costo_min)
     preferencia.costo_max = datos_validados.get(

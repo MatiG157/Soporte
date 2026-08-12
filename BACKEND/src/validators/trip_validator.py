@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields, validate
+from marshmallow import Schema, fields, validate, validates_schema, ValidationError
 
 
 class ViajeSchema(Schema):
@@ -6,10 +6,11 @@ class ViajeSchema(Schema):
         required=True,
         error_messages={"required": "El ID del usuario es obligatorio."}
     )
-    destino = fields.String(
+    destinos = fields.List(
+        fields.String(validate=validate.Length(min=2, max=120)),
         required=True,
-        validate=validate.Length(min=2, max=120),
-        error_messages={"required": "El destino es obligatorio."}
+        validate=validate.Length(min=1, error="Debe haber al menos un destino."),
+        error_messages={"required": "Los destinos son obligatorios."}
     )
     fecha_inicio = fields.Date(
         required=True,
@@ -31,6 +32,10 @@ class ViajeSchema(Schema):
         error_messages={"required": "El tipo de viaje es obligatorio."}
     )
     costo_total_estimado = fields.Float()
+    id_user_preferences = fields.Integer(
+        validate=validate.Range(min=1, error="El ID de preferencias debe ser un número positivo."),
+        error_messages={"invalid": "El ID de preferencias debe ser un número entero."}
+    )
 
 
 viaje_schema = ViajeSchema()

@@ -20,7 +20,8 @@ def crear_viaje(datos):
 
     nuevo_viaje = Viaje(
         id_usuario=datos_validados['id_usuario'],
-        destino=datos_validados['destino'],
+        destinos=datos_validados['destinos'],
+        id_user_preferences=datos_validados.get('id_user_preferences'),
         fecha_inicio=datos_validados['fecha_inicio'],
         fecha_fin=datos_validados['fecha_fin'],
         tipo_viaje=datos_validados['tipo_viaje'],
@@ -47,7 +48,7 @@ def actualizar_viaje(id_viaje, datos):
     if not viaje:
         return None
 
-    viaje.destino = datos_validados.get('destino', viaje.destino)
+    viaje.destinos = datos_validados.get('destinos', viaje.destinos)
     viaje.fecha_inicio = datos_validados.get(
         'fecha_inicio', viaje.fecha_inicio)
     viaje.fecha_fin = datos_validados.get('fecha_fin', viaje.fecha_fin)
@@ -68,7 +69,7 @@ def eliminar_viaje(id_viaje):
     return False
 
 
-def guardar_viajes_generados(id_usuario, opciones_generadas):
+def guardar_viajes_generados(id_usuario, opciones_generadas, id_user_preferences=None):
     # Borrar drafts previos del usuario obteniéndolos para que ORM aplique cascade
     drafts_previos = Viaje.query.filter_by(id_usuario=id_usuario, estado="draft").all()
     for draft in drafts_previos:
@@ -80,7 +81,8 @@ def guardar_viajes_generados(id_usuario, opciones_generadas):
     for opcion in opciones_generadas:
         viaje = Viaje(
             id_usuario=id_usuario,
-            destino=opcion["destino"],
+            destinos=opcion["destinos"],
+            id_user_preferences=id_user_preferences,
             fecha_inicio=opcion["fecha_inicio"],
             fecha_fin=opcion["fecha_fin"],
             tipo_viaje=opcion["tipo"],

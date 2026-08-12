@@ -43,6 +43,11 @@ class UsuariosSchema(Schema):
         error_messages={"required": "La contraseña es obligatoria."}
     )
     
+    foto = fields.Url(
+        validate=validate.Length(max=500),
+        error_messages={"invalid": "La URL de la foto no es válida."}
+    )
+    
     nacionalidad = fields.String(
         validate=validate.Length(max=80)
     )

@@ -162,6 +162,9 @@ def mytrips():
                 v['fecha_inicio'] = f_inicio.strftime('%d/%m/%Y')
                 v['fecha_fin'] = f_fin.strftime('%d/%m/%Y')
 
+                # Formatear destinos para display
+                v['destinos_display'] = ' → '.join(v.get('destinos', []))
+
             viajes = viajes_guardados
 
     except requests.exceptions.ConnectionError:
@@ -216,7 +219,7 @@ def generate_trips():
     # Crear 3 opciones genéricas
     opciones = [
         {
-            "destino": destino or "Destino Desconocido",
+            "destinos": [destino] if destino else ["Destino Desconocido"],
             "fecha_inicio": fecha_inicio or "2024-01-01",
             "fecha_fin": fecha_fin or "2024-01-07",
             "tipo": "Economy",
@@ -249,7 +252,7 @@ def generate_trips():
             ]
         },
         {
-            "destino": destino or "Destino Desconocido",
+            "destinos": [destino] if destino else ["Destino Desconocido"],
             "fecha_inicio": fecha_inicio or "2024-01-01",
             "fecha_fin": fecha_fin or "2024-01-07",
             "tipo": "Balanced",
@@ -282,7 +285,7 @@ def generate_trips():
             ]
         },
         {
-            "destino": destino or "Destino Desconocido",
+            "destinos": [destino] if destino else ["Destino Desconocido"],
             "fecha_inicio": fecha_inicio or "2024-01-01",
             "fecha_fin": fecha_fin or "2024-01-07",
             "tipo": "Luxury",
@@ -329,6 +332,167 @@ def generate_trips():
     return redirect(url_for('compare'))
 
 
+@app.route('/create_trip', methods=['POST'])
+def create_trip():
+    """Receives trip form data as JSON, saves preferences, generates trips, redirects to compare."""
+    if 'user_id' not in session:
+        return jsonify({"error": "Not logged in"}), 401
+
+    user_id = session.get('user_id')
+    data = request.get_json()
+    if not data:
+        return jsonify({"error": "No data received"}), 400
+
+    destinos = data.get('destinos', [])
+    if not destinos:
+        return jsonify({"error": "At least one destination is required"}), 400
+
+    # 1) Save user preferences
+    preferencias = {
+        'id_usuario': user_id,
+        'destinos': destinos,
+        'origen': data.get('origen'),
+        'costo_min': data.get('costo_min'),
+        'costo_max': data.get('costo_max'),
+        'cantidad_personas': data.get('cantidad_personas'),
+        'grupo': data.get('grupo'),
+        'edades_viajeros': data.get('edades_viajeros'),
+        'hospedaje': data.get('hospedaje'),
+        'tipo_transporte': data.get('tipo_transporte'),
+        'fecha_inicio': data.get('fecha_inicio'),
+        'fecha_fin': data.get('fecha_fin'),
+        'act_preferidas': data.get('act_preferidas'),
+        'otros': data.get('otros'),
+    }
+
+    id_preferencia = None
+    try:
+        resp_pref = requests.post(f'{BACKEND_URL}/preferencias/', json=preferencias)
+        if resp_pref.status_code == 201:
+            id_preferencia = resp_pref.json().get('id')
+    except requests.exceptions.ConnectionError:
+        pass
+
+    # 2) Generate 3 trip options
+    fecha_inicio = data.get('fecha_inicio') or '2024-01-01'
+    fecha_fin = data.get('fecha_fin') or '2024-01-07'
+    destino_display = ', '.join(destinos)
+
+    opciones = [
+        {
+            "destinos": destinos,
+            "fecha_inicio": fecha_inicio,
+            "fecha_fin": fecha_fin,
+            "tipo": "Economy",
+            "costo_total_estimado": 1000.0,
+            "itinerario": [
+                {
+                    "dia": 1,
+                    "resumen": "Llegada y exploración económica",
+                    "actividades": [
+                        {"nombre": "Paseo por el centro", "descripcion": "Caminata por el centro de la ciudad", "precio_estimado": 0.0, "categoria": "Caminata", "horario_sugerido": "10:00 - 12:00", "ubicacion": "Centro"},
+                        {"nombre": "Cena callejera", "descripcion": "Cena en un puesto callejero", "precio_estimado": 10.0, "categoria": "Gastronomía", "horario_sugerido": "20:00 - 21:00", "ubicacion": "Plaza Central"}
+                    ]
+                },
+                {
+                    "dia": 2,
+                    "resumen": "Trekking y picnic",
+                    "actividades": [
+                        {"nombre": "Trekking al cerro", "descripcion": "Subida a la montaña cercana", "precio_estimado": 5.0, "categoria": "Deporte", "horario_sugerido": "08:00 - 14:00", "ubicacion": "Cerro local"},
+                        {"nombre": "Picnic en el parque", "descripcion": "Comida al aire libre", "precio_estimado": 15.0, "categoria": "Gastronomía", "horario_sugerido": "14:30 - 16:00", "ubicacion": "Parque de la ciudad"}
+                    ]
+                },
+                {
+                    "dia": 3,
+                    "resumen": "Día de museos y despedida",
+                    "actividades": [
+                        {"nombre": "Museo gratuito", "descripcion": "Visita al museo histórico", "precio_estimado": 0.0, "categoria": "Cultural", "horario_sugerido": "10:00 - 13:00", "ubicacion": "Museo"},
+                        {"nombre": "Feria artesanal", "descripcion": "Compra de regalos económicos", "precio_estimado": 20.0, "categoria": "Compras", "horario_sugerido": "16:00 - 18:00", "ubicacion": "Feria central"}
+                    ]
+                }
+            ]
+        },
+        {
+            "destinos": destinos,
+            "fecha_inicio": fecha_inicio,
+            "fecha_fin": fecha_fin,
+            "tipo": "Balanced",
+            "costo_total_estimado": 2500.0,
+            "itinerario": [
+                {
+                    "dia": 1,
+                    "resumen": "Llegada y tour guiado",
+                    "actividades": [
+                        {"nombre": "Tour de la ciudad", "descripcion": "Tour guiado por los principales puntos", "precio_estimado": 25.0, "categoria": "Turismo", "horario_sugerido": "10:00 - 13:00", "ubicacion": "Centro"},
+                        {"nombre": "Cena en restaurante", "descripcion": "Cena en restaurante local tradicional", "precio_estimado": 40.0, "categoria": "Gastronomía", "horario_sugerido": "20:00 - 22:00", "ubicacion": "Restaurante típico"}
+                    ]
+                },
+                {
+                    "dia": 2,
+                    "resumen": "Aventura y relax",
+                    "actividades": [
+                        {"nombre": "Alquiler de bicicletas", "descripcion": "Recorrido en bici por la costa", "precio_estimado": 20.0, "categoria": "Deporte", "horario_sugerido": "09:00 - 12:00", "ubicacion": "Costanera"},
+                        {"nombre": "Tarde en museo", "descripcion": "Visita al museo de arte moderno", "precio_estimado": 15.0, "categoria": "Cultural", "horario_sugerido": "15:00 - 18:00", "ubicacion": "Museo de Arte"}
+                    ]
+                },
+                {
+                    "dia": 3,
+                    "resumen": "Excursión y compras",
+                    "actividades": [
+                        {"nombre": "Excursión grupal", "descripcion": "Salida a las afueras de la ciudad", "precio_estimado": 50.0, "categoria": "Aventura", "horario_sugerido": "08:00 - 14:00", "ubicacion": "Afueras"},
+                        {"nombre": "Shopping", "descripcion": "Visita a centro comercial", "precio_estimado": 50.0, "categoria": "Compras", "horario_sugerido": "16:00 - 19:00", "ubicacion": "Shopping Mall"}
+                    ]
+                }
+            ]
+        },
+        {
+            "destinos": destinos,
+            "fecha_inicio": fecha_inicio,
+            "fecha_fin": fecha_fin,
+            "tipo": "Luxury",
+            "costo_total_estimado": 5000.0,
+            "itinerario": [
+                {
+                    "dia": 1,
+                    "resumen": "Recepción VIP y cena gourmet",
+                    "actividades": [
+                        {"nombre": "Recepción en el hotel", "descripcion": "Bienvenida y spa", "precio_estimado": 150.0, "categoria": "Relax", "horario_sugerido": "14:00 - 17:00", "ubicacion": "Hotel 5 estrellas"},
+                        {"nombre": "Cena de autor", "descripcion": "Cena degustación en restaurante exclusivo", "precio_estimado": 200.0, "categoria": "Gastronomía", "horario_sugerido": "21:00 - 23:30", "ubicacion": "Restaurante Gourmet"}
+                    ]
+                },
+                {
+                    "dia": 2,
+                    "resumen": "Tour privado y yate",
+                    "actividades": [
+                        {"nombre": "Tour privado con chofer", "descripcion": "Recorrido VIP por sitios históricos", "precio_estimado": 300.0, "categoria": "Turismo", "horario_sugerido": "10:00 - 14:00", "ubicacion": "La ciudad"},
+                        {"nombre": "Paseo en Yate", "descripcion": "Atardecer en yate con champagne", "precio_estimado": 500.0, "categoria": "Exclusivo", "horario_sugerido": "16:00 - 19:00", "ubicacion": "Puerto"}
+                    ]
+                },
+                {
+                    "dia": 3,
+                    "resumen": "Día de compras exclusivas",
+                    "actividades": [
+                        {"nombre": "Personal shopper", "descripcion": "Compras guiadas en boutiques", "precio_estimado": 1000.0, "categoria": "Compras", "horario_sugerido": "10:00 - 14:00", "ubicacion": "Avenida principal"},
+                        {"nombre": "Cena despedida", "descripcion": "Cena en un lugar emblemático", "precio_estimado": 180.0, "categoria": "Gastronomía", "horario_sugerido": "20:30 - 23:00", "ubicacion": "Terraza Skyline"}
+                    ]
+                }
+            ]
+        }
+    ]
+
+    datos_viajes = {
+        "id_usuario": user_id,
+        "opciones": opciones,
+        "id_user_preferences": id_preferencia
+    }
+
+    try:
+        requests.post(f'{BACKEND_URL}/viajes/generate', json=datos_viajes)
+    except requests.exceptions.ConnectionError:
+        return jsonify({"error": "Could not connect to backend"}), 500
+
+    return jsonify({"redirect": url_for('compare')})
+
 @app.route('/select_trip/<int:id_viaje>', methods=['POST'])
 def select_trip(id_viaje):
     try:
@@ -357,6 +521,10 @@ def itinerary(id_viaje):
             if 'fecha_fin' in viaje:
                 dt_fin = datetime.fromisoformat(viaje['fecha_fin'])
                 viaje['fecha_fin_fmt'] = dt_fin.strftime('%b %d')
+                
+            # Format destinos for display
+            if 'destinos' in viaje:
+                viaje['destinos_display'] = ' → '.join(viaje.get('destinos', []))
                 
             # Calcular las fechas por día del itinerario
             if 'itinerarios' in viaje and 'fecha_inicio' in viaje:

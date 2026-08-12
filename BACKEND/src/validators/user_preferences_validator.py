@@ -5,7 +5,11 @@ class UserPreferencesSchema(Schema):
         required=True, 
         error_messages={"required": "El ID del usuario es obligatorio para asociar sus preferencias."}
     )
-    destino = fields.String(validate=validate.Length(max=120))
+    destinos = fields.List(
+        fields.String(validate=validate.Length(min=1, max=120, error="Cada destino debe tener entre 1 y 120 caracteres.")),
+        validate=validate.Length(min=1, error="Debe haber al menos un destino."),
+        error_messages={"invalid": "Los destinos deben ser una lista."}
+    )
     origen = fields.String(validate=validate.Length(max=120))
     costo_min = fields.Float(
         validate=validate.Range(min=0, error="El costo mínimo debe ser 0 o positivo.")
