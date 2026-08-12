@@ -365,12 +365,18 @@ def create_trip():
         'otros': data.get('otros'),
     }
 
+    # Filter out None and empty string values to avoid Marshmallow validation errors on optional fields
+    preferencias = {k: v for k, v in preferencias.items() if v is not None and v != ''}
+
     id_preferencia = None
     try:
         resp_pref = requests.post(f'{BACKEND_URL}/preferencias/', json=preferencias)
         if resp_pref.status_code == 201:
             id_preferencia = resp_pref.json().get('id')
+        else:
+            print(f"Error saving preferences: {resp_pref.text}")
     except requests.exceptions.ConnectionError:
+        print("Connection error saving preferences")
         pass
 
     # 2) Generate 3 trip options
