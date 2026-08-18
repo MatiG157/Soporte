@@ -24,7 +24,7 @@ class UsuariosSchema(Schema):
     )
     
     contrasena = fields.String(
-        required=True, 
+        required=False, 
         validate=[
             validate.Length(
                 min=8, 

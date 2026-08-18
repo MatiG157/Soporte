@@ -37,13 +37,22 @@
 
             <!-- Avatar Dropdown -->
             <div class="dropdown">
+                {% if session.get('user_foto') %}
+                <img src="{{ session.get('user_foto') }}" alt="Profile" class="rounded-circle cursor-pointer" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="width: 35px; height: 35px; object-fit: cover; cursor: pointer;" referrerpolicy="no-referrer">
+                {% else %}
                 <div class="rounded-circle d-flex align-items-center justify-content-center cursor-pointer" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="width: 35px; height: 35px; background-color: #ddd; cursor: pointer;">
                     <i class="fa-solid fa-user" style="color: #666;"></i>
                 </div>
+                {% endif %}
                 <ul class="dropdown-menu dropdown-menu-end shadow">
+                    {% if session.get('user_id') %}
                     <li><a class="dropdown-item" href="{{ url_for('settings') }}" data-i18n="nav_settings"><i class="fa-solid fa-gear me-2"></i>Settings</a></li>
                     <li><hr class="dropdown-divider"></li>
                     <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}" data-i18n="nav_logout"><i class="fa-solid fa-right-from-bracket me-2"></i>Logout</a></li>
+                    {% else %}
+                    <li><a class="dropdown-item" href="{{ url_for('login') }}" data-i18n="nav_login"><i class="fa-solid fa-right-to-bracket me-2"></i>Login</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('register') }}" data-i18n="nav_register"><i class="fa-solid fa-user-plus me-2"></i>Register</a></li>
+                    {% endif %}
                 </ul>
             </div>
         </div>
@@ -116,6 +125,8 @@
         "nav_mytrips": "My Trips",
         "nav_settings": "Settings",
         "nav_logout": "Logout",
+        "nav_login": "Login",
+        "nav_register": "Register",
         "sidebar_compare": "Compare",
         "sidebar_itinerary": "Itinerary",
         "sidebar_budget": "Budget",
@@ -235,6 +246,8 @@
         "nav_mytrips": "Mis Viajes",
         "nav_settings": "Configuración",
         "nav_logout": "Cerrar sesión",
+        "nav_login": "Iniciar sesión",
+        "nav_register": "Registrarse",
         "sidebar_compare": "Comparar",
         "sidebar_itinerary": "Itinerario",
         "sidebar_budget": "Presupuesto",
@@ -354,6 +367,8 @@
         "nav_mytrips": "Mes Voyages",
         "nav_settings": "Paramètres",
         "nav_logout": "Se déconnecter",
+        "nav_login": "Connexion",
+        "nav_register": "S'inscrire",
         "sidebar_compare": "Comparer",
         "sidebar_itinerary": "Itinéraire",
         "sidebar_budget": "Budget",
@@ -473,6 +488,8 @@
         "nav_mytrips": "I Miei Viaggi",
         "nav_settings": "Impostazioni",
         "nav_logout": "Esci",
+        "nav_login": "Accedi",
+        "nav_register": "Registrati",
         "sidebar_compare": "Confronta",
         "sidebar_itinerary": "Itinerario",
         "sidebar_budget": "Budget",
@@ -592,6 +609,8 @@
         "nav_mytrips": "Meine Reisen",
         "nav_settings": "Einstellungen",
         "nav_logout": "Abmelden",
+        "nav_login": "Anmelden",
+        "nav_register": "Registrieren",
         "sidebar_compare": "Vergleichen",
         "sidebar_itinerary": "Reiseplan",
         "sidebar_budget": "Budget",
@@ -711,6 +730,8 @@
         "nav_mytrips": "Мои Поездки",
         "nav_settings": "Настройки",
         "nav_logout": "Выйти",
+        "nav_login": "Войти",
+        "nav_register": "Регистрация",
         "sidebar_compare": "Сравнить",
         "sidebar_itinerary": "Маршрут",
         "sidebar_budget": "Бюджет",
@@ -830,6 +851,8 @@
         "nav_mytrips": "我的旅行",
         "nav_settings": "设置",
         "nav_logout": "登出",
+        "nav_login": "登录",
+        "nav_register": "注册",
         "sidebar_compare": "比较",
         "sidebar_itinerary": "行程",
         "sidebar_budget": "预算",
@@ -949,6 +972,8 @@
         "nav_mytrips": "私の旅行",
         "nav_settings": "設定",
         "nav_logout": "ログアウト",
+        "nav_login": "ログイン",
+        "nav_register": "登録",
         "sidebar_compare": "比較",
         "sidebar_itinerary": "旅程",
         "sidebar_budget": "予算",
@@ -1065,6 +1090,10 @@
         "iti_pro_tip": "プロのヒント"
     },
     "pt": {
+        "nav_login": "Entrar",
+        "nav_register": "Registrar",
+        "nav_settings": "Configurações",
+        "nav_logout": "Sair",
         "mytrips_all": "Todas as viagens",
         "mytrips_upcoming": "Próximas viagens",
         "mytrips_past_f": "Viagens passadas",

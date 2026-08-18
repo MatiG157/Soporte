@@ -4,6 +4,7 @@ import os
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from dotenv import load_dotenv
 import requests
+from authlib.integrations.flask_client import OAuth
 
 load_dotenv()
 
@@ -16,13 +17,24 @@ app.permanent_session_lifetime = timedelta(days=365)
 # URL base del backend
 BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:5000')
 
+oauth = OAuth(app)
+google = oauth.register(
+    name='google',
+    client_id=os.getenv('GOOGLE_CLIENT_ID'),
+    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile'
+    }
+)
 
-# ─── Rutas principales ────────────────────────────────────────────────────────
+
+# â”€â”€â”€ Rutas principales â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @app.route('/')
 def index():
     """Landing page / Home"""
-    # Pasamos el user_id para que Jinja sepa si está logueado o no
+    # Pasamos el user_id para que Jinja sepa si estÃ¡ logueado o no
     return render_template('index.html', user_id=session.get('user_id'))
 
 
@@ -57,20 +69,25 @@ def login():
         data = request.get_json() if request.is_json else request.form
         email = data.get('email')
         contrasena = data.get('contrasena')
+        remember = data.get('remember', False)
+        if isinstance(remember, str):
+            remember = remember.lower() in ['true', '1', 'on', 'yes']
+
         try:
             resp = requests.post(
                 f'{BACKEND_URL}/usuarios/login', json={'email': email, 'contrasena': contrasena})
             if resp.status_code == 200:
                 user_data = resp.json()
-                session.permanent = True  # Hace que la sesion sea permanente
+                session.permanent = bool(remember)
                 session['user_email'] = email
                 session['user_id'] = user_data.get('id_usuario')
+                session['user_foto'] = user_data.get('foto', '')
                 if request.is_json:
                     return jsonify({"success": True})
                 # dashboard or whatever main route
                 return redirect(url_for('compare'))
             else:
-                error = resp.json().get('error', 'Credenciales inválidas')
+                error = resp.json().get('error', 'Credenciales invÃ¡lidas')
                 if request.is_json:
                     return jsonify({"error": error}), 401
                 return render_template('login.html', error=error)
@@ -120,12 +137,12 @@ def mytrips():
             last_trip = None
             upcoming_trip = None
             
-            # Buscar last trip: end date más cercano a hoy en el pasado (máxima f_fin < hoy)
+            # Buscar last trip: end date mÃ¡s cercano a hoy en el pasado (mÃ¡xima f_fin < hoy)
             past_trips = [v for v in viajes_guardados if datetime.fromisoformat(v['fecha_fin']).date() < hoy]
             if past_trips:
                 last_trip = max(past_trips, key=lambda x: datetime.fromisoformat(x['fecha_fin']).date())
                 
-            # Buscar upcoming trip: start date más cercano en el futuro (mínima f_inicio > hoy)
+            # Buscar upcoming trip: start date mÃ¡s cercano en el futuro (mÃ­nima f_inicio > hoy)
             future_trips = [v for v in viajes_guardados if datetime.fromisoformat(v['fecha_inicio']).date() > hoy]
             if future_trips:
                 upcoming_trip = min(future_trips, key=lambda x: datetime.fromisoformat(x['fecha_inicio']).date())
@@ -163,7 +180,7 @@ def mytrips():
                 v['fecha_fin'] = f_fin.strftime('%d/%m/%Y')
 
                 # Formatear destinos para display
-                v['destinos_display'] = ' → '.join(v.get('destinos', []))
+                v['destinos_display'] = ' â†’ '.join(v.get('destinos', []))
 
             viajes = viajes_guardados
 
@@ -211,12 +228,12 @@ def generate_trips():
 
     user_id = session.get('user_id')
 
-    # Obtener parámetros del query
+    # Obtener parÃ¡metros del query
     destino = request.args.get('destino')
     fecha_inicio = request.args.get('fecha_inicio')
     fecha_fin = request.args.get('fecha_fin')
 
-    # Crear 3 opciones genéricas
+    # Crear 3 opciones genÃ©ricas
     opciones = [
         {
             "destinos": [destino] if destino else ["Destino Desconocido"],
@@ -227,26 +244,26 @@ def generate_trips():
             "itinerario": [
                 {
                     "dia": 1,
-                    "resumen": "Llegada y exploración económica",
+                    "resumen": "Llegada y exploraciÃ³n econÃ³mica",
                     "actividades": [
                         {"nombre": "Paseo por el centro", "descripcion": "Caminata por el centro de la ciudad", "precio_estimado": 0.0, "categoria": "Caminata", "horario_sugerido": "10:00 - 12:00", "ubicacion": "Centro"},
-                        {"nombre": "Cena callejera", "descripcion": "Cena en un puesto callejero", "precio_estimado": 10.0, "categoria": "Gastronomía", "horario_sugerido": "20:00 - 21:00", "ubicacion": "Plaza Central"}
+                        {"nombre": "Cena callejera", "descripcion": "Cena en un puesto callejero", "precio_estimado": 10.0, "categoria": "GastronomÃ­a", "horario_sugerido": "20:00 - 21:00", "ubicacion": "Plaza Central"}
                     ]
                 },
                 {
                     "dia": 2,
                     "resumen": "Trekking y picnic",
                     "actividades": [
-                        {"nombre": "Trekking al cerro", "descripcion": "Subida a la montaña cercana", "precio_estimado": 5.0, "categoria": "Deporte", "horario_sugerido": "08:00 - 14:00", "ubicacion": "Cerro local"},
-                        {"nombre": "Picnic en el parque", "descripcion": "Comida al aire libre", "precio_estimado": 15.0, "categoria": "Gastronomía", "horario_sugerido": "14:30 - 16:00", "ubicacion": "Parque de la ciudad"}
+                        {"nombre": "Trekking al cerro", "descripcion": "Subida a la montaÃ±a cercana", "precio_estimado": 5.0, "categoria": "Deporte", "horario_sugerido": "08:00 - 14:00", "ubicacion": "Cerro local"},
+                        {"nombre": "Picnic en el parque", "descripcion": "Comida al aire libre", "precio_estimado": 15.0, "categoria": "GastronomÃ­a", "horario_sugerido": "14:30 - 16:00", "ubicacion": "Parque de la ciudad"}
                     ]
                 },
                 {
                     "dia": 3,
-                    "resumen": "Día de museos y despedida",
+                    "resumen": "DÃ­a de museos y despedida",
                     "actividades": [
-                        {"nombre": "Museo gratuito", "descripcion": "Visita al museo histórico", "precio_estimado": 0.0, "categoria": "Cultural", "horario_sugerido": "10:00 - 13:00", "ubicacion": "Museo"},
-                        {"nombre": "Feria artesanal", "descripcion": "Compra de regalos económicos", "precio_estimado": 20.0, "categoria": "Compras", "horario_sugerido": "16:00 - 18:00", "ubicacion": "Feria central"}
+                        {"nombre": "Museo gratuito", "descripcion": "Visita al museo histÃ³rico", "precio_estimado": 0.0, "categoria": "Cultural", "horario_sugerido": "10:00 - 13:00", "ubicacion": "Museo"},
+                        {"nombre": "Feria artesanal", "descripcion": "Compra de regalos econÃ³micos", "precio_estimado": 20.0, "categoria": "Compras", "horario_sugerido": "16:00 - 18:00", "ubicacion": "Feria central"}
                     ]
                 }
             ]
@@ -263,7 +280,7 @@ def generate_trips():
                     "resumen": "Llegada y tour guiado",
                     "actividades": [
                         {"nombre": "Tour de la ciudad", "descripcion": "Tour guiado por los principales puntos", "precio_estimado": 25.0, "categoria": "Turismo", "horario_sugerido": "10:00 - 13:00", "ubicacion": "Centro"},
-                        {"nombre": "Cena en restaurante", "descripcion": "Cena en restaurante local tradicional", "precio_estimado": 40.0, "categoria": "Gastronomía", "horario_sugerido": "20:00 - 22:00", "ubicacion": "Restaurante típico"}
+                        {"nombre": "Cena en restaurante", "descripcion": "Cena en restaurante local tradicional", "precio_estimado": 40.0, "categoria": "GastronomÃ­a", "horario_sugerido": "20:00 - 22:00", "ubicacion": "Restaurante tÃ­pico"}
                     ]
                 },
                 {
@@ -276,9 +293,9 @@ def generate_trips():
                 },
                 {
                     "dia": 3,
-                    "resumen": "Excursión y compras",
+                    "resumen": "ExcursiÃ³n y compras",
                     "actividades": [
-                        {"nombre": "Excursión grupal", "descripcion": "Salida a las afueras de la ciudad", "precio_estimado": 50.0, "categoria": "Aventura", "horario_sugerido": "08:00 - 14:00", "ubicacion": "Afueras"},
+                        {"nombre": "ExcursiÃ³n grupal", "descripcion": "Salida a las afueras de la ciudad", "precio_estimado": 50.0, "categoria": "Aventura", "horario_sugerido": "08:00 - 14:00", "ubicacion": "Afueras"},
                         {"nombre": "Shopping", "descripcion": "Visita a centro comercial", "precio_estimado": 50.0, "categoria": "Compras", "horario_sugerido": "16:00 - 19:00", "ubicacion": "Shopping Mall"}
                     ]
                 }
@@ -293,26 +310,26 @@ def generate_trips():
             "itinerario": [
                 {
                     "dia": 1,
-                    "resumen": "Recepción VIP y cena gourmet",
+                    "resumen": "RecepciÃ³n VIP y cena gourmet",
                     "actividades": [
-                        {"nombre": "Recepción en el hotel", "descripcion": "Bienvenida y spa", "precio_estimado": 150.0, "categoria": "Relax", "horario_sugerido": "14:00 - 17:00", "ubicacion": "Hotel 5 estrellas"},
-                        {"nombre": "Cena de autor", "descripcion": "Cena degustación en restaurante exclusivo", "precio_estimado": 200.0, "categoria": "Gastronomía", "horario_sugerido": "21:00 - 23:30", "ubicacion": "Restaurante Gourmet"}
+                        {"nombre": "RecepciÃ³n en el hotel", "descripcion": "Bienvenida y spa", "precio_estimado": 150.0, "categoria": "Relax", "horario_sugerido": "14:00 - 17:00", "ubicacion": "Hotel 5 estrellas"},
+                        {"nombre": "Cena de autor", "descripcion": "Cena degustaciÃ³n en restaurante exclusivo", "precio_estimado": 200.0, "categoria": "GastronomÃ­a", "horario_sugerido": "21:00 - 23:30", "ubicacion": "Restaurante Gourmet"}
                     ]
                 },
                 {
                     "dia": 2,
                     "resumen": "Tour privado y yate",
                     "actividades": [
-                        {"nombre": "Tour privado con chofer", "descripcion": "Recorrido VIP por sitios históricos", "precio_estimado": 300.0, "categoria": "Turismo", "horario_sugerido": "10:00 - 14:00", "ubicacion": "La ciudad"},
+                        {"nombre": "Tour privado con chofer", "descripcion": "Recorrido VIP por sitios histÃ³ricos", "precio_estimado": 300.0, "categoria": "Turismo", "horario_sugerido": "10:00 - 14:00", "ubicacion": "La ciudad"},
                         {"nombre": "Paseo en Yate", "descripcion": "Atardecer en yate con champagne", "precio_estimado": 500.0, "categoria": "Exclusivo", "horario_sugerido": "16:00 - 19:00", "ubicacion": "Puerto"}
                     ]
                 },
                 {
                     "dia": 3,
-                    "resumen": "Día de compras exclusivas",
+                    "resumen": "DÃ­a de compras exclusivas",
                     "actividades": [
                         {"nombre": "Personal shopper", "descripcion": "Compras guiadas en boutiques", "precio_estimado": 1000.0, "categoria": "Compras", "horario_sugerido": "10:00 - 14:00", "ubicacion": "Avenida principal"},
-                        {"nombre": "Cena despedida", "descripcion": "Cena en un lugar emblemático", "precio_estimado": 180.0, "categoria": "Gastronomía", "horario_sugerido": "20:30 - 23:00", "ubicacion": "Terraza Skyline"}
+                        {"nombre": "Cena despedida", "descripcion": "Cena en un lugar emblemÃ¡tico", "precio_estimado": 180.0, "categoria": "GastronomÃ­a", "horario_sugerido": "20:30 - 23:00", "ubicacion": "Terraza Skyline"}
                     ]
                 }
             ]
@@ -394,26 +411,26 @@ def create_trip():
             "itinerario": [
                 {
                     "dia": 1,
-                    "resumen": "Llegada y exploración económica",
+                    "resumen": "Llegada y exploraciÃ³n econÃ³mica",
                     "actividades": [
                         {"nombre": "Paseo por el centro", "descripcion": "Caminata por el centro de la ciudad", "precio_estimado": 0.0, "categoria": "Caminata", "horario_sugerido": "10:00 - 12:00", "ubicacion": "Centro"},
-                        {"nombre": "Cena callejera", "descripcion": "Cena en un puesto callejero", "precio_estimado": 10.0, "categoria": "Gastronomía", "horario_sugerido": "20:00 - 21:00", "ubicacion": "Plaza Central"}
+                        {"nombre": "Cena callejera", "descripcion": "Cena en un puesto callejero", "precio_estimado": 10.0, "categoria": "GastronomÃ­a", "horario_sugerido": "20:00 - 21:00", "ubicacion": "Plaza Central"}
                     ]
                 },
                 {
                     "dia": 2,
                     "resumen": "Trekking y picnic",
                     "actividades": [
-                        {"nombre": "Trekking al cerro", "descripcion": "Subida a la montaña cercana", "precio_estimado": 5.0, "categoria": "Deporte", "horario_sugerido": "08:00 - 14:00", "ubicacion": "Cerro local"},
-                        {"nombre": "Picnic en el parque", "descripcion": "Comida al aire libre", "precio_estimado": 15.0, "categoria": "Gastronomía", "horario_sugerido": "14:30 - 16:00", "ubicacion": "Parque de la ciudad"}
+                        {"nombre": "Trekking al cerro", "descripcion": "Subida a la montaÃ±a cercana", "precio_estimado": 5.0, "categoria": "Deporte", "horario_sugerido": "08:00 - 14:00", "ubicacion": "Cerro local"},
+                        {"nombre": "Picnic en el parque", "descripcion": "Comida al aire libre", "precio_estimado": 15.0, "categoria": "GastronomÃ­a", "horario_sugerido": "14:30 - 16:00", "ubicacion": "Parque de la ciudad"}
                     ]
                 },
                 {
                     "dia": 3,
-                    "resumen": "Día de museos y despedida",
+                    "resumen": "DÃ­a de museos y despedida",
                     "actividades": [
-                        {"nombre": "Museo gratuito", "descripcion": "Visita al museo histórico", "precio_estimado": 0.0, "categoria": "Cultural", "horario_sugerido": "10:00 - 13:00", "ubicacion": "Museo"},
-                        {"nombre": "Feria artesanal", "descripcion": "Compra de regalos económicos", "precio_estimado": 20.0, "categoria": "Compras", "horario_sugerido": "16:00 - 18:00", "ubicacion": "Feria central"}
+                        {"nombre": "Museo gratuito", "descripcion": "Visita al museo histÃ³rico", "precio_estimado": 0.0, "categoria": "Cultural", "horario_sugerido": "10:00 - 13:00", "ubicacion": "Museo"},
+                        {"nombre": "Feria artesanal", "descripcion": "Compra de regalos econÃ³micos", "precio_estimado": 20.0, "categoria": "Compras", "horario_sugerido": "16:00 - 18:00", "ubicacion": "Feria central"}
                     ]
                 }
             ]
@@ -430,7 +447,7 @@ def create_trip():
                     "resumen": "Llegada y tour guiado",
                     "actividades": [
                         {"nombre": "Tour de la ciudad", "descripcion": "Tour guiado por los principales puntos", "precio_estimado": 25.0, "categoria": "Turismo", "horario_sugerido": "10:00 - 13:00", "ubicacion": "Centro"},
-                        {"nombre": "Cena en restaurante", "descripcion": "Cena en restaurante local tradicional", "precio_estimado": 40.0, "categoria": "Gastronomía", "horario_sugerido": "20:00 - 22:00", "ubicacion": "Restaurante típico"}
+                        {"nombre": "Cena en restaurante", "descripcion": "Cena en restaurante local tradicional", "precio_estimado": 40.0, "categoria": "GastronomÃ­a", "horario_sugerido": "20:00 - 22:00", "ubicacion": "Restaurante tÃ­pico"}
                     ]
                 },
                 {
@@ -443,9 +460,9 @@ def create_trip():
                 },
                 {
                     "dia": 3,
-                    "resumen": "Excursión y compras",
+                    "resumen": "ExcursiÃ³n y compras",
                     "actividades": [
-                        {"nombre": "Excursión grupal", "descripcion": "Salida a las afueras de la ciudad", "precio_estimado": 50.0, "categoria": "Aventura", "horario_sugerido": "08:00 - 14:00", "ubicacion": "Afueras"},
+                        {"nombre": "ExcursiÃ³n grupal", "descripcion": "Salida a las afueras de la ciudad", "precio_estimado": 50.0, "categoria": "Aventura", "horario_sugerido": "08:00 - 14:00", "ubicacion": "Afueras"},
                         {"nombre": "Shopping", "descripcion": "Visita a centro comercial", "precio_estimado": 50.0, "categoria": "Compras", "horario_sugerido": "16:00 - 19:00", "ubicacion": "Shopping Mall"}
                     ]
                 }
@@ -460,26 +477,26 @@ def create_trip():
             "itinerario": [
                 {
                     "dia": 1,
-                    "resumen": "Recepción VIP y cena gourmet",
+                    "resumen": "RecepciÃ³n VIP y cena gourmet",
                     "actividades": [
-                        {"nombre": "Recepción en el hotel", "descripcion": "Bienvenida y spa", "precio_estimado": 150.0, "categoria": "Relax", "horario_sugerido": "14:00 - 17:00", "ubicacion": "Hotel 5 estrellas"},
-                        {"nombre": "Cena de autor", "descripcion": "Cena degustación en restaurante exclusivo", "precio_estimado": 200.0, "categoria": "Gastronomía", "horario_sugerido": "21:00 - 23:30", "ubicacion": "Restaurante Gourmet"}
+                        {"nombre": "RecepciÃ³n en el hotel", "descripcion": "Bienvenida y spa", "precio_estimado": 150.0, "categoria": "Relax", "horario_sugerido": "14:00 - 17:00", "ubicacion": "Hotel 5 estrellas"},
+                        {"nombre": "Cena de autor", "descripcion": "Cena degustaciÃ³n en restaurante exclusivo", "precio_estimado": 200.0, "categoria": "GastronomÃ­a", "horario_sugerido": "21:00 - 23:30", "ubicacion": "Restaurante Gourmet"}
                     ]
                 },
                 {
                     "dia": 2,
                     "resumen": "Tour privado y yate",
                     "actividades": [
-                        {"nombre": "Tour privado con chofer", "descripcion": "Recorrido VIP por sitios históricos", "precio_estimado": 300.0, "categoria": "Turismo", "horario_sugerido": "10:00 - 14:00", "ubicacion": "La ciudad"},
+                        {"nombre": "Tour privado con chofer", "descripcion": "Recorrido VIP por sitios histÃ³ricos", "precio_estimado": 300.0, "categoria": "Turismo", "horario_sugerido": "10:00 - 14:00", "ubicacion": "La ciudad"},
                         {"nombre": "Paseo en Yate", "descripcion": "Atardecer en yate con champagne", "precio_estimado": 500.0, "categoria": "Exclusivo", "horario_sugerido": "16:00 - 19:00", "ubicacion": "Puerto"}
                     ]
                 },
                 {
                     "dia": 3,
-                    "resumen": "Día de compras exclusivas",
+                    "resumen": "DÃ­a de compras exclusivas",
                     "actividades": [
                         {"nombre": "Personal shopper", "descripcion": "Compras guiadas en boutiques", "precio_estimado": 1000.0, "categoria": "Compras", "horario_sugerido": "10:00 - 14:00", "ubicacion": "Avenida principal"},
-                        {"nombre": "Cena despedida", "descripcion": "Cena en un lugar emblemático", "precio_estimado": 180.0, "categoria": "Gastronomía", "horario_sugerido": "20:30 - 23:00", "ubicacion": "Terraza Skyline"}
+                        {"nombre": "Cena despedida", "descripcion": "Cena en un lugar emblemÃ¡tico", "precio_estimado": 180.0, "categoria": "GastronomÃ­a", "horario_sugerido": "20:30 - 23:00", "ubicacion": "Terraza Skyline"}
                     ]
                 }
             ]
@@ -530,9 +547,9 @@ def itinerary(id_viaje):
                 
             # Format destinos for display
             if 'destinos' in viaje:
-                viaje['destinos_display'] = ' → '.join(viaje.get('destinos', []))
+                viaje['destinos_display'] = ' â†’ '.join(viaje.get('destinos', []))
                 
-            # Calcular las fechas por día del itinerario
+            # Calcular las fechas por dÃ­a del itinerario
             if 'itinerarios' in viaje and 'fecha_inicio' in viaje:
                 for idx, itin in enumerate(viaje['itinerarios']):
                     dt_dia = dt_inicio + timedelta(days=idx)
@@ -621,7 +638,7 @@ def detalle_viaje(id_viaje):
                            itinerarios=itinerarios)
 
 
-# ─── Error handlers ───────────────────────────────────────────────────────────
+# â”€â”€â”€ Error handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @app.errorhandler(404)
 def not_found(e):
@@ -631,6 +648,41 @@ def not_found(e):
 @app.errorhandler(500)
 def server_error(e):
     return render_template('500.html'), 500
+
+
+# â”€â”€â”€ Run â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+
+
+
+# ─── Google OAuth ─────────────────────────────────────────────────────────────
+
+@app.route('/login/google')
+def login_google():
+    redirect_uri = url_for('authorize_google', _external=True)
+    return google.authorize_redirect(redirect_uri)
+
+
+@app.route('/login/google/callback')
+def authorize_google():
+    token = google.authorize_access_token()
+    resp = google.get('https://openidconnect.googleapis.com/v1/userinfo')
+    user_info = resp.json()
+    
+    # Enviar al backend
+    try:
+        backend_resp = requests.post(f'{BACKEND_URL}/usuarios/google-login', json=user_info)
+        backend_data = backend_resp.json()
+        
+        if backend_resp.status_code == 200:
+            session.permanent = True
+            session['user_id'] = backend_data.get('id_usuario')
+            session['user_foto'] = user_info.get('picture', '')
+            return redirect(url_for('index'))
+        else:
+            return render_template('login.html', error=backend_data.get('error', 'Error en login con Google'))
+    except requests.exceptions.RequestException as e:
+        return render_template('login.html', error='Error de conexión con el servidor')
 
 
 # ─── Run ──────────────────────────────────────────────────────────────────────

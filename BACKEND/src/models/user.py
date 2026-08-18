@@ -7,7 +7,9 @@ class Usuario(db.Model):
     nombre = db.Column(db.String(80), nullable=False)
     apellido = db.Column(db.String(80), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    contrasena = db.Column(db.String(255), nullable=False)
+    contrasena = db.Column(db.String(255), nullable=True)
+    google_id = db.Column(db.String(255), unique=True, nullable=True)
+    auth_provider = db.Column(db.String(50), nullable=False, default='local')
     nacionalidad = db.Column(db.String(80))
     foto = db.Column(db.String(500), nullable=True)
 

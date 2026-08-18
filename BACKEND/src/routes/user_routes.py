@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify
-from src.services.user_service import crear_usuario, eliminar_usuario, actualizar_usuario, verificar_login
+from src.services.user_service import crear_usuario, eliminar_usuario, actualizar_usuario, verificar_login, obtener_o_crear_usuario_google
 from marshmallow import ValidationError
 
 user_bp = Blueprint('user_bp', __name__)
@@ -12,7 +12,7 @@ def login_usuario():
     
     usuario = verificar_login(datos['email'], datos['contrasena'])
     if usuario:
-        return jsonify({"mensaje": "Login exitoso", "id_usuario": usuario.id_usuario}), 200
+        return jsonify({"mensaje": "Login exitoso", "id_usuario": usuario.id_usuario, "foto": usuario.foto}), 200
     else:
         return jsonify({"error": "Credenciales inválidas"}), 401
 
@@ -70,4 +70,13 @@ def modificar_usuario(id_usuario):
         return jsonify({"error": f"Ocurrió un error interno: {str(e)}"}), 500
 
 
-
+@user_bp.route('/google-login', methods=['POST'])
+def google_login():
+    datos = request.get_json()
+    if not datos or 'email' not in datos:
+        return jsonify({'error': 'Datos de Google invalidos'}), 400
+    try:
+        usuario = obtener_o_crear_usuario_google(datos)
+        return jsonify({'mensaje': 'Login exitoso', 'id_usuario': usuario.id_usuario}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
