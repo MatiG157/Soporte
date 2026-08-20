@@ -12,14 +12,19 @@
     </div>
 
     <!-- Form Card -->
-    <form class="card bg-white p-4 rounded-4 shadow-lg w-100" style="max-width: 800px;" id="trip-form">
+    <form class="card bg-white p-4 rounded-4 shadow-lg w-100 position-relative" style="max-width: 800px;" id="trip-form">
+        
+        <!-- Clear all button -->
+        <button type="button" class="btn btn-sm text-secondary position-absolute" style="top: 15px; right: 15px; z-index: 10;" onclick="clearTripForm()" title="Clear all">
+            <i class="fa-solid fa-broom"></i>
+        </button>
 
-        <div id="form-alert-container" class="mb-3"></div>
+        <div id="form-alert-container" class="mb-3 mt-4"></div>
 
         <!-- Destino -->
         <div class="row g-3 mb-3">
             <div class="col-sm-6">
-                <div class="d-flex align-items-center bg-light rounded p-2">
+                <div class="d-flex align-items-center bg-light rounded p-2 h-100">
                     <i class="fa-solid fa-location-dot fs-5 text-center" style="width: 30px;"></i>
                     <div class="flex-grow-1 ms-2">
                         <label class="form-label-small mb-1 d-block text-uppercase fw-bold"
@@ -35,8 +40,8 @@
 
             <div class="col-sm-6">
                 <div id="destinations-container">
-                    <!-- First destination (cannot be removed) -->
-                    <div class="dest-entry d-flex align-items-center bg-light rounded p-2 h-100 mb-2">
+                    <!-- First destination -->
+                    <div class="dest-entry d-flex align-items-center bg-light rounded p-2 h-100 mb-2 position-relative">
                         <i class="fa-solid fa-location-dot fs-5 text-center" style="width: 30px;"></i>
                         <div class="flex-grow-1 ms-2">
                             <label class="form-label-small mb-1 d-block text-uppercase fw-bold"
@@ -47,6 +52,9 @@
                                 <ul class="dest-options custom-autocomplete-list"></ul>
                             </div>
                         </div>
+                        <button type="button" class="btn btn-sm remove-dest-btn" onclick="this.closest('.dest-entry').remove()" title="Remove">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
                     </div>
                 </div>
                 <!-- Add Destination Button -->
@@ -289,7 +297,7 @@
         {% else %}
         <button type="button" class="btn btn-brand w-100 py-3 fw-bold rounded-3 mt-2 fs-5 text-white"
             style="background-color: var(--brand-color, #006d5b);"
-            data-bs-toggle="modal" data-bs-target="#loginRequiredModal">
+            data-bs-toggle="modal" data-bs-target="#loginRequiredModal" onclick="saveTripFormToSession()">
             <i class="fa-regular fa-compass me-2"></i> <span data-i18n="index_create">Create Trip</span>
         </button>
         {% endif %}
@@ -427,7 +435,152 @@
                 }
             });
         });
+        
+        const tripForm = document.getElementById('trip-form');
+        if (tripForm) {
+            tripForm.addEventListener('input', saveTripFormToSession);
+            tripForm.addEventListener('change', saveTripFormToSession);
+        }
+
+        loadTripFormFromSession();
     });
+
+    // Funciones para guardar y cargar del sessionStorage
+    function saveTripFormToSession() {
+        const origin = document.getElementById('origin-input') ? document.getElementById('origin-input').value.trim() : '';
+        const destInputs = document.querySelectorAll('.dest-input');
+        const destinations = [];
+        destInputs.forEach(input => {
+            if (input.value.trim()) destinations.push(input.value.trim());
+        });
+        const dateInputs = document.querySelectorAll('input[type="date"]');
+        const startDate = dateInputs[0] ? dateInputs[0].value : '';
+        const endDate = dateInputs[1] ? dateInputs[1].value : '';
+        
+        const travelersInput = document.querySelector('input[type="number"][placeholder="Count"], input[data-i18n-placeholder="index_ph_count"]');
+        const travelers = travelersInput ? travelersInput.value : '';
+        
+        const budgetMin = document.getElementById('budgetMin') ? document.getElementById('budgetMin').value : '';
+        const budgetMax = document.getElementById('budgetMax') ? document.getElementById('budgetMax').value : '';
+        
+        const tripTypeRadio = document.querySelector('input[name="tripType"]:checked');
+        const tripType = tripTypeRadio ? tripTypeRadio.id : null;
+        
+        const agesInput = document.querySelector('#moreDetailsCollapse input[type="text"]');
+        const ages = agesInput ? agesInput.value : '';
+        
+        const checkedBoxes = [];
+        document.querySelectorAll('#acc_hotel, #acc_hostel, #acc_airbnb, #acc_resort, #trans_plane, #trans_train, #trans_car, #trans_bus, #act_sightseeing, #act_adventure, #act_relaxation, #act_cultural').forEach(cb => {
+            if (cb.checked) checkedBoxes.push(cb.id);
+        });
+        
+        const extrasTextarea = document.getElementById('extras');
+        const extras = extrasTextarea ? extrasTextarea.value : '';
+
+        const savedData = {
+            origin, destinations, startDate, endDate, travelers, budgetMin, budgetMax, tripType, ages, checkedBoxes, extras
+        };
+        sessionStorage.setItem('pendingTripForm', JSON.stringify(savedData));
+    }
+
+    function loadTripFormFromSession() {
+        const dataStr = sessionStorage.getItem('pendingTripForm');
+        if (!dataStr) return;
+        
+        try {
+            const data = JSON.parse(dataStr);
+            if (data.origin) document.getElementById('origin-input').value = data.origin;
+            
+            if (data.destinations && data.destinations.length > 0) {
+                const destInputs = document.querySelectorAll('.dest-input');
+                if (destInputs.length > 0) destInputs[0].value = data.destinations[0];
+                for (let i = 1; i < data.destinations.length; i++) {
+                    const addBtn = document.getElementById('add-dest-btn');
+                    if (addBtn) addBtn.click();
+                    const newDestInputs = document.querySelectorAll('.dest-input');
+                    if (newDestInputs.length > 0) newDestInputs[newDestInputs.length - 1].value = data.destinations[i];
+                }
+            }
+            
+            const dateInputs = document.querySelectorAll('input[type="date"]');
+            if (data.startDate && dateInputs[0]) dateInputs[0].value = data.startDate;
+            if (data.endDate && dateInputs[1]) dateInputs[1].value = data.endDate;
+            
+            const travelersInput = document.querySelector('input[type="number"][placeholder="Count"], input[data-i18n-placeholder="index_ph_count"]');
+            if (data.travelers && travelersInput) travelersInput.value = data.travelers;
+            
+            if (data.budgetMin && document.getElementById('budgetMin')) document.getElementById('budgetMin').value = data.budgetMin;
+            if (data.budgetMax && document.getElementById('budgetMax')) document.getElementById('budgetMax').value = data.budgetMax;
+            
+            if (data.tripType) {
+                const r = document.getElementById(data.tripType);
+                if (r) r.checked = true;
+            }
+            
+            if (data.ages) {
+                const agesInput = document.querySelector('#moreDetailsCollapse input[type="text"]');
+                if (agesInput) agesInput.value = data.ages;
+                // If there are extra details, we could optionally open the collapse
+                const collapseElement = document.getElementById('moreDetailsCollapse');
+                if (collapseElement && window.bootstrap) {
+                    new bootstrap.Collapse(collapseElement, {toggle: false}).show();
+                }
+            }
+            
+            if (data.checkedBoxes) {
+                data.checkedBoxes.forEach(id => {
+                    const cb = document.getElementById(id);
+                    if (cb) cb.checked = true;
+                });
+                if (data.checkedBoxes.length > 0) {
+                    const collapseElement = document.getElementById('moreDetailsCollapse');
+                    if (collapseElement && window.bootstrap) {
+                        new bootstrap.Collapse(collapseElement, {toggle: false}).show();
+                    }
+                }
+            }
+            
+            if (data.extras) {
+                const extrasTextarea = document.getElementById('extras');
+                if (extrasTextarea) extrasTextarea.value = data.extras;
+                const collapseElement = document.getElementById('moreDetailsCollapse');
+                if (collapseElement && window.bootstrap) {
+                    new bootstrap.Collapse(collapseElement, {toggle: false}).show();
+                }
+            }
+            
+            // Si el usuario ya está logueado, limpiamos el sessionStorage para que no se quede guardado para siempre
+            {% if user_id %}
+                sessionStorage.removeItem('pendingTripForm');
+            {% endif %}
+        } catch (e) {
+            console.error("Error loading saved form data", e);
+        }
+    }
+
+    function clearTripForm() {
+        document.getElementById('trip-form').reset();
+        
+        // Remove extra destinations
+        const destEntries = document.querySelectorAll('.dest-entry');
+        if (destEntries.length > 0) {
+            for (let i = 1; i < destEntries.length; i++) {
+                destEntries[i].remove();
+            }
+            destEntries[0].querySelector('.dest-input').value = '';
+        } else {
+            // If the user removed all destinations including the first, add one empty one back
+            document.getElementById('add-dest-btn').click();
+        }
+        
+        // Close collapse if it is open
+        const collapseElement = document.getElementById('moreDetailsCollapse');
+        if (collapseElement && collapseElement.classList.contains('show')) {
+            new bootstrap.Collapse(collapseElement, {toggle: false}).hide();
+        }
+
+        sessionStorage.removeItem('pendingTripForm');
+    }
 
     // Submit trip form via POST JSON
     function showCustomAlert(message) {
@@ -570,6 +723,7 @@
         .then(resp => resp.json())
         .then(data => {
             if (data.redirect) {
+                sessionStorage.removeItem('pendingTripForm');
                 window.location.href = data.redirect;
             } else if (data.error) {
                 showCustomAlert(data.error);
