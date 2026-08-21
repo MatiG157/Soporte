@@ -1,0 +1,312 @@
+{% extends "layout.html" %}
+{% block title %}Budget · Travel Planner{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='budget.css') }}">
+<style>
+    body { background-color: #ffffff !important; background-image: none !important; }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="page-wrapper">
+    {% set active_page = 'budget' %}
+    {% include 'sidebar.html' %}
+
+    <div class="main-content">
+        <main class="container py-4">
+
+            {% if not viaje %}
+            <!-- Sin viajes guardados -->
+            <div class="text-center py-5 my-5">
+                <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-4"
+                     style="width: 96px; height: 96px; background-color: #ccfbf1;">
+                    <i class="fa-solid fa-piggy-bank fs-1" style="color: #006d5b;"></i>
+                </div>
+                <h2 class="fw-bold mb-2" data-i18n="budget_empty">You don't have any saved trips yet.</h2>
+                <p class="text-secondary mb-4" data-i18n="budget_empty_sub">Plan one and the cost breakdown shows up here.</p>
+                <a href="{{ url_for('index') }}" class="btn px-4 py-2 fw-bold rounded-3 text-white"
+                   style="background-color: var(--brand-color, #006d5b);" data-i18n="mytrips_plan">Plan a New Adventure</a>
+            </div>
+
+            {% else %}
+
+            <!-- Encabezado -->
+            <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4">
+                <div>
+                    <h1 class="fw-bold mb-1" data-i18n="budget_title">Budget</h1>
+                    <p class="text-secondary mb-0" data-i18n="budget_sub">
+                        How the estimated cost of your trip breaks down.
+                    </p>
+                </div>
+
+                {% if viajes|length > 1 %}
+                <div style="min-width: 260px;">
+                    <label for="trip-select" class="form-label small fw-bold text-uppercase text-secondary"
+                           data-i18n="budget_pick_trip">Trip</label>
+                    <select id="trip-select" class="form-select">
+                        {% for v in viajes %}
+                        <option value="{{ v.id_viaje }}" {% if v.id_viaje == viaje.id_viaje %}selected{% endif %}>
+                            {{ v.destinos | join(' → ') }} · {{ v.tipo_viaje }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Resumen del viaje -->
+            <div class="card border rounded-4 shadow-sm mb-4 overflow-hidden">
+                <div class="row g-0">
+                    <div class="col-md-4" style="background-image: url('{{ viaje.imagen }}'); background-size: cover; background-position: center; min-height: 160px;"></div>
+                    <div class="col-md-8 p-4">
+                        <span class="badge rounded-pill mb-2 px-3 py-1"
+                              style="background-color: #ccfbf1; color: #065f46;">{{ viaje.tipo_viaje }}</span>
+                        <h4 class="fw-bold mb-1">{{ viaje.destinos_display }}</h4>
+                        <p class="text-secondary mb-3">
+                            <i class="fa-regular fa-calendar me-1"></i>
+                            {{ viaje.fecha_inicio_fmt }} – {{ viaje.fecha_fin_fmt }}
+                            · {{ viaje.dias_totales }} <span data-i18n="compare_days">days</span>
+                        </p>
+                        <a href="{{ url_for('itinerary', id_viaje=viaje.id_viaje) }}"
+                           class="btn btn-outline-secondary btn-sm fw-bold">
+                            <i class="fa-solid fa-map me-1"></i> <span data-i18n="sidebar_itinerary">Itinerary</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            {% if not costos %}
+            <div class="alert alert-warning" data-i18n="budget_no_costs">
+                This trip has no cost breakdown loaded.
+            </div>
+            {% else %}
+
+            <!-- Totales -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card border rounded-4 shadow-sm p-3 h-100">
+                        <span class="text-secondary fw-bold" style="font-size: 0.75rem; letter-spacing: .5px;"
+                              data-i18n="budget_base">Base total</span>
+                        <div class="fs-3 fw-bold mt-2">${{ '{:,.0f}'.format(costos.get('costo_total_base') or 0) }}</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border rounded-4 shadow-sm p-3 h-100"
+                         style="border-color: #006d5b !important; border-width: 2px !important;">
+                        <span class="text-secondary fw-bold" style="font-size: 0.75rem; letter-spacing: .5px;"
+                              data-i18n="budget_total">Adjusted total</span>
+                        <div class="fs-3 fw-bold mt-2" style="color: #006d5b;">
+                            ${{ '{:,.0f}'.format(costos.get('costo_total_ajustado') or viaje.costo_total_estimado or 0) }}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border rounded-4 shadow-sm p-3 h-100">
+                        <span class="text-secondary fw-bold" style="font-size: 0.75rem; letter-spacing: .5px;"
+                              data-i18n="budget_adjustment">Adjustment applied</span>
+                        {% set base = costos.get('costo_total_base') or 0 %}
+                        {% set ajustado = costos.get('costo_total_ajustado') or base %}
+                        {% set factor = (ajustado / base) if base else 1 %}
+                        <div class="fs-3 fw-bold mt-2 {% if factor > 1 %}text-danger{% elif factor < 1 %}text-success{% endif %}">
+                            ×{{ '%.2f'|format(factor) }}
+                        </div>
+                        <small class="text-secondary">{{ viaje.tipo_viaje }}</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráficos -->
+            <div class="row g-4 mb-4">
+                <div class="col-lg-5">
+                    <div class="card border rounded-4 shadow-sm p-4 h-100">
+                        <h5 class="fw-bold mb-4" data-i18n="budget_breakdown">Cost breakdown</h5>
+                        <canvas id="chart-breakdown" height="220"></canvas>
+
+                        <ul class="list-unstyled mt-4 mb-0">
+                            {% set categorias = [
+                                ('budget_lodging',    'Accommodation', costos.get('costo_alojamiento') or 0, '#0f766e'),
+                                ('budget_transport',  'Transport',     costos.get('costo_transporte')  or 0, '#0369a1'),
+                                ('budget_activities', 'Activities',    costos.get('costo_actividades') or 0, '#7c3aed'),
+                                ('budget_food',       'Food',          costos.get('costo_comidas')     or 0, '#b45309')
+                            ] %}
+                            {% for clave, etiqueta, monto, color in categorias %}
+                            <li class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                                <span>
+                                    <span class="d-inline-block rounded-circle me-2"
+                                          style="width: 10px; height: 10px; background-color: {{ color }};"></span>
+                                    <span data-i18n="{{ clave }}">{{ etiqueta }}</span>
+                                </span>
+                                <strong>${{ '{:,.0f}'.format(monto) }}</strong>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="col-lg-7">
+                    <div class="card border rounded-4 shadow-sm p-4 h-100">
+                        <h5 class="fw-bold mb-4" data-i18n="budget_per_day">Spending per day</h5>
+                        <canvas id="chart-per-day" height="200"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            {% if por_categoria %}
+            <div class="card border rounded-4 shadow-sm p-4 mb-5">
+                <h5 class="fw-bold mb-4" data-i18n="budget_by_category">Activities by category</h5>
+                <canvas id="chart-by-category" height="120"></canvas>
+            </div>
+            {% endif %}
+
+            {% endif %}
+            {% endif %}
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if viaje and costos %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+const DATOS = {
+    desglose: {
+        // [clave i18n, texto por defecto] para no mostrar la clave cruda
+        // en el primer render, antes de que cargue el diccionario.
+        etiquetas: [
+            ['budget_lodging', 'Accommodation'],
+            ['budget_transport', 'Transport'],
+            ['budget_activities', 'Activities'],
+            ['budget_food', 'Food']
+        ],
+        valores: [
+            {{ costos.get('costo_alojamiento') or 0 }},
+            {{ costos.get('costo_transporte') or 0 }},
+            {{ costos.get('costo_actividades') or 0 }},
+            {{ costos.get('costo_comidas') or 0 }}
+        ],
+        colores: ['#0f766e', '#0369a1', '#7c3aed', '#b45309']
+    },
+    porDia: {{ por_dia | tojson }},
+    porCategoria: {{ por_categoria | tojson }}
+};
+
+let graficos = [];
+
+function construirGraficos() {
+    graficos.forEach(g => g.destroy());
+    graficos = [];
+
+    Chart.defaults.font.family = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+
+    // Desglose de costos (dona).
+    graficos.push(new Chart(document.getElementById('chart-breakdown'), {
+        type: 'doughnut',
+        data: {
+            labels: DATOS.desglose.etiquetas.map(([clave, defecto]) => t(clave, defecto)),
+            datasets: [{
+                data: DATOS.desglose.valores,
+                backgroundColor: DATOS.desglose.colores,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            cutout: '62%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ` ${ctx.label}: $${ctx.parsed.toLocaleString()}`
+                    }
+                }
+            }
+        }
+    }));
+
+    // Gasto por día (barras).
+    graficos.push(new Chart(document.getElementById('chart-per-day'), {
+        type: 'bar',
+        data: {
+            labels: DATOS.porDia.map(d => `${t('iti_day', 'Day')} ${d.dia}`),
+            datasets: [{
+                label: t('budget_activities', 'Activities'),
+                data: DATOS.porDia.map(d => d.total),
+                backgroundColor: '#0f766e',
+                borderRadius: 6,
+                maxBarThickness: 42
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { callback: valor => '$' + valor },
+                    grid: { color: '#f1f5f9' }
+                },
+                x: { grid: { display: false } }
+            }
+        }
+    }));
+
+    // Actividades por categoría (barras horizontales).
+    const lienzoCategorias = document.getElementById('chart-by-category');
+    if (lienzoCategorias && DATOS.porCategoria.length) {
+        graficos.push(new Chart(lienzoCategorias, {
+            type: 'bar',
+            data: {
+                labels: DATOS.porCategoria.map(par => par[0]),
+                datasets: [{
+                    data: DATOS.porCategoria.map(par => par[1]),
+                    backgroundColor: '#7c3aed',
+                    borderRadius: 6,
+                    maxBarThickness: 26
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: { callback: valor => '$' + valor },
+                        grid: { color: '#f1f5f9' }
+                    },
+                    y: { grid: { display: false } }
+                }
+            }
+        }));
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    construirGraficos();
+
+    // Al cambiar el idioma se redibujan las etiquetas de los gráficos.
+    document.addEventListener('idiomaCambiado', construirGraficos);
+
+    const selector = document.getElementById('trip-select');
+    if (selector) {
+        selector.addEventListener('change', () => {
+            window.location.href = '/budget/' + selector.value;
+        });
+    }
+});
+</script>
+{% else %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const selector = document.getElementById('trip-select');
+    if (selector) {
+        selector.addEventListener('change', () => {
+            window.location.href = '/budget/' + selector.value;
+        });
+    }
+});
+</script>
+{% endif %}
+{% endblock %}

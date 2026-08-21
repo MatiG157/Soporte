@@ -1,178 +1,193 @@
 {% extends "layout.html" %}
+{% block title %}My Trips · Travel Planner{% endblock %}
 
 {% block body %}
-
-<!-- Offcanvas Sidebar -->
-<div class="offcanvas offcanvas-start" tabindex="-1" id="sidebarOffcanvas" aria-labelledby="sidebarLabel">
-    <div class="offcanvas-header pb-0 mt-3 px-4">
-        <h5 class="offcanvas-title d-none" id="sidebarLabel">Menu</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-    </div>
-    <div class="offcanvas-body px-4 pb-4 d-flex flex-column">
-        
-        <!-- Perfil -->
-        <div class="sidebar-user mt-2">
-            <img src="https://ui-avatars.com/api/?name=Alex+Rivers&background=0D8ABC&color=fff" alt="Avatar" class="rounded-circle me-3">
-            <div>
-                <h6 class="mb-0 fw-bold">Alex Rivers</h6>
-                <small class="text-secondary">Explorer Tier</small>
-            </div>
-        </div>
-
-        <!-- Links de navegación -->
-        <div class="nav flex-column gap-2 mb-auto">
-            <a href="#" class="sidebar-link compare-btn py-2 mb-2" data-i18n="sidebar_compare">
-                <i class="bi bi-arrow-left-right me-3 fs-5"></i> Compare
-            </a>
-            <a href="#" class="sidebar-link" data-i18n="sidebar_itinerary">
-                <i class="bi bi-map me-3 fs-5 text-secondary"></i> Itinerary
-            </a>
-            <a href="#" class="sidebar-link" data-i18n="sidebar_budget">
-                <i class="bi bi-piggy-bank me-3 fs-5 text-secondary"></i> Budget
-            </a>
-            <a href="#" class="sidebar-link" data-i18n="sidebar_settings">
-                <i class="bi bi-gear me-3 fs-5 text-secondary"></i> Settings
-            </a>
-        </div>
-
-        <!-- Upgrade Button -->
-        <button class="btn btn-upgrade w-100 mt-4 border-0">
-            Upgrade to Pro
-        </button>
-    </div>
-</div>
-
-<!-- Main Content -->
 <main class="container pt-5 mt-5 pb-5 px-lg-5">
-    <div class="d-flex align-items-center mt-5">
+
+    <div class="d-flex align-items-center mt-5 flex-wrap gap-2">
         <h1 class="trips-title mt-0 mb-0" data-i18n="mytrips_title">My Trips</h1>
+
         <div class="dropdown ms-3">
-            <button class="btn dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="color: var(--brand-color, #006d5b); border-color: var(--brand-color, #006d5b);">
-                <i class="fa-solid fa-filter"></i> Filter
+            <button class="btn dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown"
+                    aria-expanded="false" style="color: var(--brand-color, #006d5b); border-color: var(--brand-color, #006d5b);">
+                <i class="fa-solid fa-filter"></i> <span data-i18n="mytrips_filter">Filter</span>
             </button>
             <ul class="dropdown-menu border-0 shadow-sm" aria-labelledby="filterDropdown">
-                <li><a class="dropdown-item filter-opt" href="#" data-filter="all" data-label="All trips" data-i18n="mytrips_all">All trips</a></li>
-                <li><a class="dropdown-item filter-opt" href="#" data-filter="current-trip" data-label="Current trips" data-i18n="mytrips_current">Current trips</a></li>
-                <li><a class="dropdown-item filter-opt" href="#" data-filter="past-trip" data-label="Past trips" data-i18n="mytrips_past_f">Past trips</a></li>
-                <li><a class="dropdown-item filter-opt" href="#" data-filter="next-trip" data-label="Next trips" data-i18n="mytrips_upcoming">Next trips</a></li>
+                <li><a class="dropdown-item filter-opt" href="#" data-filter="all" data-i18n="mytrips_all">All trips</a></li>
+                <li><a class="dropdown-item filter-opt" href="#" data-filter="current-trip" data-i18n="mytrips_current">Current trips</a></li>
+                <li><a class="dropdown-item filter-opt" href="#" data-filter="past-trip" data-i18n="mytrips_past_f">Past trips</a></li>
+                <li><a class="dropdown-item filter-opt" href="#" data-filter="next-trip" data-i18n="mytrips_upcoming">Next trips</a></li>
             </ul>
         </div>
     </div>
-    <p class="trips-subtitle-mod mb-2 text-secondary" style="font-size: 1.1rem;" data-i18n="mytrips_subtitle">Your upcoming, current and past adventures.</p>
 
-    <!-- Filtros de viajes (Chips) -->
+    <p class="trips-subtitle-mod mb-2 text-secondary" style="font-size: 1.1rem;" data-i18n="mytrips_subtitle">
+        Your upcoming, current and past adventures.
+    </p>
+
     <div class="mb-4" id="filter-chip-container" style="min-height: 32px;">
-        <span class="badge rounded-pill align-items-center px-3 py-2 text-white" id="active-chip" style="background-color: rgba(0, 109, 91, 0.7); backdrop-filter: blur(6px); font-weight: 500; font-size: 0.9rem;">
-            <i class="fa-solid fa-xmark me-2 text-white" style="cursor:pointer; display:none;" id="clear-filter-btn"></i>
+        <span class="badge rounded-pill align-items-center px-3 py-2 text-white" id="active-chip"
+              style="background-color: rgba(0, 109, 91, 0.7); backdrop-filter: blur(6px); font-weight: 500; font-size: 0.9rem;">
+            <i class="fa-solid fa-xmark me-2 text-white" style="cursor: pointer; display: none;" id="clear-filter-btn"></i>
             <span id="chip-text" data-i18n="mytrips_all">All trips</span>
         </span>
     </div>
 
+    <div id="trips-alert"></div>
+
     <div class="row g-4 mt-1" id="trips-container">
         {% for viaje in viajes %}
-        <!-- Trip Card -->
-        <div class="col-12 col-md-6 col-lg-4 trip-item {{ viaje.filter_class }}">
+        <div class="col-12 col-md-6 col-lg-4 trip-item {{ viaje.filter_class }}" data-id="{{ viaje.id_viaje }}">
             <div class="trip-card d-block position-relative {% if viaje.is_past %}past-trip{% endif %}">
-                <a href="/itinerary/{{ viaje.id_viaje }}" class="text-decoration-none">
-                    <div class="trip-card-bg" style="background-image: url('{{ viaje.imagen or 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' }}');"></div>
+
+                <a href="{{ url_for('itinerary', id_viaje=viaje.id_viaje) }}" class="text-decoration-none">
+                    <div class="trip-card-bg" style="background-image: url('{{ viaje.imagen }}');"></div>
                     <div class="trip-card-overlay">
                         {% if viaje.status_label == 'current trip' %}
-                            <span class="badge-custom mb-2 d-inline-block text-white fw-bold" style="background-color: rgba(13, 202, 240, 0.7); backdrop-filter: blur(6px); padding: 2px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;"><i class="fa-solid fa-plane me-1"></i><span data-i18n="mytrips_current">Current Trip</span></span>
+                        <span class="badge-custom mb-2 d-inline-block text-white fw-bold"
+                              style="background-color: rgba(13, 202, 240, 0.7); backdrop-filter: blur(6px); padding: 2px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;">
+                            <i class="fa-solid fa-plane me-1"></i><span data-i18n="mytrips_current">Current Trip</span>
+                        </span>
                         {% elif viaje.status_label == 'upcoming trip' %}
-                            <span class="badge-custom mb-2 d-inline-block text-white" style="background-color: rgba(25, 135, 84, 0.7); backdrop-filter: blur(6px); padding: 2px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;"><i class="fa-solid fa-plane-departure me-1"></i><span data-i18n="mytrips_upcoming">Upcoming Trip</span></span>
+                        <span class="badge-custom mb-2 d-inline-block text-white"
+                              style="background-color: rgba(25, 135, 84, 0.7); backdrop-filter: blur(6px); padding: 2px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;">
+                            <i class="fa-solid fa-plane-departure me-1"></i><span data-i18n="mytrips_upcoming">Upcoming Trip</span>
+                        </span>
                         {% elif viaje.status_label == 'last trip' %}
-                            <span class="badge-custom mb-2 d-inline-block text-white" style="background-color: rgba(108, 117, 125, 0.7); backdrop-filter: blur(6px); padding: 2px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;"><i class="fa-solid fa-plane-arrival me-1"></i><span data-i18n="mytrips_past_f">Last Trip</span></span>
+                        <span class="badge-custom mb-2 d-inline-block text-white"
+                              style="background-color: rgba(108, 117, 125, 0.7); backdrop-filter: blur(6px); padding: 2px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;">
+                            <i class="fa-solid fa-plane-arrival me-1"></i><span data-i18n="mytrips_past_f">Last Trip</span>
+                        </span>
                         {% endif %}
+
                         <div>
-                            <span class="trip-date"><i class="fa-regular fa-calendar me-1"></i> {{ viaje.fecha_inicio }} - {{ viaje.fecha_fin }}</span>
-                            <div class="trip-title">{{ viaje.destinos_display or (viaje.destinos | join(' → ') if viaje.destinos else 'Unknown') }}</div>
+                            <span class="trip-date">
+                                <i class="fa-regular fa-calendar me-1"></i>
+                                {{ viaje.fecha_inicio_fmt }} - {{ viaje.fecha_fin_fmt }}
+                            </span>
+                            <div class="trip-title">{{ viaje.destinos_display }}</div>
+                            <span class="trip-date d-block mt-1">
+                                <i class="fa-solid fa-wallet me-1"></i>
+                                ${{ '{:,.0f}'.format(viaje.costo_total_estimado or 0) }} · {{ viaje.tipo_viaje }}
+                            </span>
                         </div>
                     </div>
                 </a>
+
                 <div class="dropdown position-absolute top-0 end-0 m-3 z-3">
-                    <button class="btn btn-sm text-white rounded-circle border-0 shadow-none d-flex align-items-center justify-content-center" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="background: rgba(0,0,0,0.5); width: 32px; height: 32px;">
+                    <button class="btn btn-sm text-white rounded-circle border-0 shadow-none d-flex align-items-center justify-content-center"
+                            type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                            style="background: rgba(0,0,0,0.5); width: 32px; height: 32px;">
                         <i class="fa-solid fa-ellipsis-vertical text-white"></i>
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
-                        <li><a class="dropdown-item py-2" href="#"><i class="fa-solid fa-eye me-2" style="color: var(--brand-color, #006d5b);"></i> <span data-i18n="mytrips_view">Ver viaje</span></a></li>
-                        <li><a class="dropdown-item py-2" href="#"><i class="fa-solid fa-pen me-2" style="color: var(--brand-color, #006d5b);"></i> <span data-i18n="mytrips_edit">Editar viaje</span></a></li>
+                        <li>
+                            <a class="dropdown-item py-2" href="{{ url_for('itinerary', id_viaje=viaje.id_viaje) }}">
+                                <i class="fa-solid fa-eye me-2" style="color: var(--brand-color, #006d5b);"></i>
+                                <span data-i18n="mytrips_view">View trip</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item py-2" href="{{ url_for('budget', id_viaje=viaje.id_viaje) }}">
+                                <i class="fa-solid fa-piggy-bank me-2" style="color: var(--brand-color, #006d5b);"></i>
+                                <span data-i18n="mytrips_budget">Budget</span>
+                            </a>
+                        </li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item py-2 text-danger" href="#"><i class="fa-solid fa-trash me-2 text-danger"></i> <span data-i18n="mytrips_delete">Eliminar viaje</span></a></li>
+                        <li>
+                            <button type="button" class="dropdown-item py-2 text-danger delete-trip-btn"
+                                    data-id="{{ viaje.id_viaje }}">
+                                <i class="fa-solid fa-trash me-2 text-danger"></i>
+                                <span data-i18n="mytrips_delete">Delete trip</span>
+                            </button>
+                        </li>
                     </ul>
                 </div>
             </div>
         </div>
         {% endfor %}
 
-        <!-- Card: Plan New -->
         <div class="col-12 col-md-6 col-lg-4">
-            <div class="add-trip-card cursor-pointer" onclick="window.location.href='{{ url_for('index') }}'" style="cursor: pointer;">
-                <div class="add-icon-wrapper rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 60px; height: 60px; background-color: #88eed0;">
+            <div class="add-trip-card" onclick="window.location.href='{{ url_for('index') }}'" style="cursor: pointer;">
+                <div class="add-icon-wrapper rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3"
+                     style="width: 60px; height: 60px; background-color: #88eed0;">
                     <i class="fa-solid fa-plus fs-3 text-white"></i>
                 </div>
                 <div class="add-title" data-i18n="mytrips_plan">Plan a New Adventure</div>
                 <div class="add-subtitle" data-i18n="mytrips_plan_sub">Start building your next unforgettable journey.</div>
             </div>
         </div>
-
     </div>
 </main>
+{% endblock %}
 
+{% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const filterOpts = document.querySelectorAll('.filter-opt');
-        const tripItems = document.querySelectorAll('.trip-item');
-        const chipText = document.getElementById('chip-text');
-        const clearFilterBtn = document.getElementById('clear-filter-btn');
+document.addEventListener('DOMContentLoaded', () => {
+    const opciones = document.querySelectorAll('.filter-opt');
+    const tarjetas = document.querySelectorAll('.trip-item');
+    const textoChip = document.getElementById('chip-text');
+    const limpiar = document.getElementById('clear-filter-btn');
 
-        function applyFilter(filter, label, el=null) {
-            const lang = localStorage.getItem('app_lang') || 'en';
-            // Update Chip UI
-            if (el) {
-                const dictKey = el.getAttribute('data-i18n');
-                if(dictKey) chipText.setAttribute('data-i18n', dictKey);
-                chipText.textContent = el.textContent.trim();
-            } else {
-                if(filter === 'all') {
-                    chipText.setAttribute('data-i18n', 'mytrips_all');
-                    if(window.translations && window.translations[lang] && window.translations[lang]['mytrips_all']) {
-                        chipText.textContent = window.translations[lang]['mytrips_all'];
-                    } else {
-                        chipText.textContent = label;
-                    }
-                } else {
-                    chipText.textContent = label;
-                }
-            }
-            if (filter === 'all') {
-                clearFilterBtn.style.display = 'none';
-            } else {
-                clearFilterBtn.style.display = 'inline-block';
-            }
+    let filtroActivo = 'all';
 
-            // Filter items
-            tripItems.forEach(item => {
-                if (filter === 'all' || item.classList.contains(filter)) {
-                    item.style.display = 'block';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        }
+    function aplicarFiltro(filtro, clave) {
+        filtroActivo = filtro;
 
-        filterOpts.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                const filter = btn.getAttribute('data-filter');
-                const label = btn.getAttribute('data-label');
-                applyFilter(filter, label, btn);
-            });
+        textoChip.setAttribute('data-i18n', clave);
+        textoChip.textContent = t(clave);
+        limpiar.style.display = filtro === 'all' ? 'none' : 'inline-block';
+
+        tarjetas.forEach(tarjeta => {
+            const visible = filtro === 'all' || tarjeta.classList.contains(filtro);
+            tarjeta.style.display = visible ? 'block' : 'none';
         });
+    }
 
-        clearFilterBtn.addEventListener('click', () => {
-            applyFilter('all', 'All trips');
+    opciones.forEach(opcion => {
+        opcion.addEventListener('click', e => {
+            e.preventDefault();
+            aplicarFiltro(opcion.dataset.filter, opcion.getAttribute('data-i18n'));
         });
     });
-</script>
 
+    limpiar.addEventListener('click', () => aplicarFiltro('all', 'mytrips_all'));
+
+    // Al cambiar de idioma el chip también se retraduce.
+    document.addEventListener('idiomaCambiado', () => {
+        textoChip.textContent = t(textoChip.getAttribute('data-i18n'));
+    });
+
+    // ─── Eliminar viaje ──────────────────────────────────────────────────────
+
+    document.querySelectorAll('.delete-trip-btn').forEach(boton => {
+        boton.addEventListener('click', async () => {
+            if (!confirm(t('mytrips_confirm_delete', 'Delete this trip permanently?'))) return;
+
+            const id = boton.dataset.id;
+            try {
+                const resp = await apiFetch(`/trips/${id}`, { method: 'DELETE' });
+                const datos = await resp.json();
+
+                if (resp.ok) {
+                    const tarjeta = document.querySelector(`.trip-item[data-id="${id}"]`);
+                    if (tarjeta) tarjeta.remove();
+                } else {
+                    mostrarError(datos.error || t('err_server'));
+                }
+            } catch (err) {
+                mostrarError(t('err_server'));
+            }
+        });
+    });
+
+    function mostrarError(mensaje) {
+        document.getElementById('trips-alert').innerHTML =
+            `<div class="alert alert-danger alert-dismissible fade show" role="alert">
+                ${mensaje}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+             </div>`;
+    }
+});
+</script>
 {% endblock %}

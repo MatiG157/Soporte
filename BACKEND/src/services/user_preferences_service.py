@@ -1,37 +1,70 @@
+from src.models.accommodation_type import TipoAlojamiento
 from src.models.init import db
 from src.models.user_preferences import PreferenciasUsuario
 from src.validators.user_preferences_validator import user_preferences_schema
-from src.models.accommodation_type import TipoAlojamiento
+
+# Los nombres que usa el formulario web contra los del catálogo en base.
+ALIAS_ALOJAMIENTO = {
+    "hotel": "Hotel",
+    "hostel": "Hostal",
+    "hostal": "Hostal",
+    "airbnb": "Airbnb",
+    "departamento": "Apartamento",
+    "apartamento": "Apartamento",
+    "resort": "Resort",
+    "camping": "Camping",
+}
+
+CAMPOS_SIMPLES = (
+    "origen", "destinos", "costo_min", "costo_max", "cantidad_personas",
+    "grupo", "hospedaje", "edades_viajeros", "tipo_transporte",
+    "fecha_inicio", "fecha_fin", "act_preferidas", "otros",
+)
+
+
+def _resolver_tipos_alojamiento(ids_alojamientos, hospedaje_texto):
+    """Devuelve las filas de TipoAlojamiento a asociar.
+
+    Acepta tanto una lista de ids como el string separado por comas que manda
+    el formulario ("hotel, airbnb"), creando el tipo en el catálogo si falta.
+    """
+    if ids_alojamientos:
+        return TipoAlojamiento.query.filter(
+            TipoAlojamiento.id_tipo.in_(ids_alojamientos)
+        ).all()
+
+    if not hospedaje_texto:
+        return []
+
+    encontrados = []
+    for crudo in str(hospedaje_texto).split(","):
+        clave = crudo.strip().lower()
+        if not clave:
+            continue
+        nombre = ALIAS_ALOJAMIENTO.get(clave, crudo.strip().capitalize())
+        tipo = TipoAlojamiento.query.filter_by(tipo=nombre).first()
+        if tipo is None:
+            tipo = TipoAlojamiento(tipo=nombre)
+            db.session.add(tipo)
+            db.session.flush()
+        if tipo not in encontrados:
+            encontrados.append(tipo)
+
+    return encontrados
 
 
 def crear_preferencia(datos):
     datos_validados = user_preferences_schema.load(datos)
-
-    # Extraemos la lista de IDs (si no viene, queda como lista vacía)
     ids_alojamientos = datos_validados.get('tipos_alojamiento', [])
 
     nueva_preferencia = PreferenciasUsuario(
         id_usuario=datos_validados['id_usuario'],
-        origen=datos_validados.get('origen'),
-        destinos=datos_validados.get('destinos'),
-        costo_min=datos_validados.get('costo_min'),
-        costo_max=datos_validados.get('costo_max'),
-        cantidad_personas=datos_validados.get('cantidad_personas'),
-        grupo=datos_validados.get('grupo'),
-        hospedaje=datos_validados.get('hospedaje'),
-        edades_viajeros=datos_validados.get('edades_viajeros'),
-        tipo_transporte=datos_validados.get('tipo_transporte'),
-        fecha_inicio=datos_validados.get('fecha_inicio'),
-        fecha_fin=datos_validados.get('fecha_fin'),
-        act_preferidas=datos_validados.get('act_preferidas'),
-        otros=datos_validados.get('otros')
+        **{campo: datos_validados.get(campo) for campo in CAMPOS_SIMPLES}
     )
 
-    # Buscamos los alojamientos en la base de datos y los asociamos
-    if ids_alojamientos:
-        alojamientos_encontrados = TipoAlojamiento.query.filter(
-            TipoAlojamiento.id_tipo.in_(ids_alojamientos)).all()
-        nueva_preferencia.tipos_alojamiento = alojamientos_encontrados
+    nueva_preferencia.tipos_alojamiento = _resolver_tipos_alojamiento(
+        ids_alojamientos, datos_validados.get('hospedaje')
+    )
 
     db.session.add(nueva_preferencia)
     db.session.commit()
@@ -39,7 +72,7 @@ def crear_preferencia(datos):
 
 
 def eliminar_preferencia(id_preferencia):
-    preferencia = PreferenciasUsuario.query.get(id_preferencia)
+    preferencia = db.session.get(PreferenciasUsuario, id_preferencia)
     if preferencia:
         db.session.delete(preferencia)
         db.session.commit()
@@ -48,48 +81,30 @@ def eliminar_preferencia(id_preferencia):
 
 
 def actualizar_preferencia(id_preferencia, datos):
-    # partial=True para soportar actualizaciones parciales en PUT/PATCH
     datos_validados = user_preferences_schema.load(datos, partial=True)
-    preferencia = PreferenciasUsuario.query.get(id_preferencia)
+    preferencia = db.session.get(PreferenciasUsuario, id_preferencia)
 
     if not preferencia:
         return None
 
-    preferencia.origen = datos_validados.get('origen', preferencia.origen)
-    preferencia.destinos = datos_validados.get('destinos', preferencia.destinos)
-    preferencia.costo_min = datos_validados.get(
-        'costo_min', preferencia.costo_min)
-    preferencia.costo_max = datos_validados.get(
-        'costo_max', preferencia.costo_max)
-    preferencia.cantidad_personas = datos_validados.get(
-        'cantidad_personas', preferencia.cantidad_personas)
-    preferencia.grupo = datos_validados.get('grupo', preferencia.grupo)
-    preferencia.hospedaje = datos_validados.get('hospedaje', preferencia.hospedaje)
-    preferencia.edades_viajeros = datos_validados.get(
-        'edades_viajeros', preferencia.edades_viajeros)
-    preferencia.tipo_transporte = datos_validados.get(
-        'tipo_transporte', preferencia.tipo_transporte)
-    preferencia.fecha_inicio = datos_validados.get(
-        'fecha_inicio', preferencia.fecha_inicio)
-    preferencia.fecha_fin = datos_validados.get(
-        'fecha_fin', preferencia.fecha_fin)
-    preferencia.act_preferidas = datos_validados.get('act_preferidas', preferencia.act_preferidas)
-    preferencia.otros = datos_validados.get('otros', preferencia.otros)
+    for campo in CAMPOS_SIMPLES:
+        if campo in datos_validados:
+            setattr(preferencia, campo, datos_validados[campo])
 
-    # Si viene el arreglo en la petición, actualizamos la relación
-    if 'tipos_alojamiento' in datos_validados:
-        ids_alojamientos = datos_validados['tipos_alojamiento']
-        if ids_alojamientos:
-            nuevos_alojamientos = TipoAlojamiento.query.filter(
-                TipoAlojamiento.id_tipo.in_(ids_alojamientos)).all()
-            preferencia.tipos_alojamiento = nuevos_alojamientos
-        else:
-            # Si mandan una lista vacía [], le borramos los alojamientos asociados
-            preferencia.tipos_alojamiento = []
+    if 'tipos_alojamiento' in datos_validados or 'hospedaje' in datos_validados:
+        preferencia.tipos_alojamiento = _resolver_tipos_alojamiento(
+            datos_validados.get('tipos_alojamiento', []),
+            datos_validados.get('hospedaje', preferencia.hospedaje),
+        )
 
     db.session.commit()
     return preferencia
 
 
 def obtener_preferencias_por_usuario(id_usuario):
-    return PreferenciasUsuario.query.filter_by(id_usuario=id_usuario).all()
+    return (
+        PreferenciasUsuario.query
+        .filter_by(id_usuario=id_usuario)
+        .order_by(PreferenciasUsuario.id_preferencia.desc())
+        .all()
+    )

@@ -12,6 +12,7 @@ class Usuario(db.Model):
     auth_provider = db.Column(db.String(50), nullable=False, default='local')
     nacionalidad = db.Column(db.String(80))
     foto = db.Column(db.String(500), nullable=True)
+    idioma = db.Column(db.String(5), nullable=False, default='en')
 
     preferencias = db.relationship(
         "PreferenciasUsuario",

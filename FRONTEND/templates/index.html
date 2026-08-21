@@ -1,37 +1,36 @@
 {% extends "layout.html" %}
+{% block title %}Travel Planner{% endblock %}
 
 {% block body %}
-<!-- Capa para oscurecer y centrar todo (le añadimos min-vh-100 para que ocupe toda la pantalla) -->
 <main class="bg-overlay d-flex flex-column align-items-center justify-content-center py-5 px-3 min-vh-100">
 
-    <!-- Header Text -->
     <div class="text-center text-white mb-5 mx-auto mt-5" style="max-width: 600px;">
         <h1 class="display-3 fw-bold" data-i18n="index_title">Design Your Perfect Escape</h1>
         <p class="lead" data-i18n="index_subtitle">Plan, budget, and explore with guided discovery. Every detail of your journey, seamlessly
             organized in one place.</p>
     </div>
 
-    <!-- Form Card -->
-    <form class="card bg-white p-4 rounded-4 shadow-lg w-100 position-relative" style="max-width: 800px;" id="trip-form">
-        
-        <!-- Clear all button -->
-        <button type="button" class="btn btn-sm text-secondary position-absolute" style="top: 15px; right: 15px; z-index: 10;" onclick="clearTripForm()" title="Clear all">
+    <form class="card bg-white p-4 rounded-4 shadow-lg w-100 position-relative" style="max-width: 800px;" id="trip-form" novalidate>
+
+        <button type="button" class="btn btn-sm text-secondary position-absolute"
+                style="top: 15px; right: 15px; z-index: 10;" onclick="clearTripForm()"
+                data-i18n-title="index_clear" title="Clear all">
             <i class="fa-solid fa-broom"></i>
         </button>
 
         <div id="form-alert-container" class="mb-3 mt-4"></div>
 
-        <!-- Destino -->
+        <!-- Origen y destinos -->
         <div class="row g-3 mb-3">
             <div class="col-sm-6">
                 <div class="d-flex align-items-center bg-light rounded p-2 h-100">
                     <i class="fa-solid fa-location-dot fs-5 text-center" style="width: 30px;"></i>
                     <div class="flex-grow-1 ms-2">
-                        <label class="form-label-small mb-1 d-block text-uppercase fw-bold"
-                            style="font-size: 0.75rem;" data-i18n="index_origin">Origin</label>
+                        <label for="origin-input" class="form-label-small mb-1 d-block text-uppercase fw-bold"
+                               style="font-size: 0.75rem;" data-i18n="index_origin">Origin</label>
                         <div class="position-relative">
                             <input type="text" id="origin-input" class="form-control input-clean p-0 border-0 bg-transparent shadow-none"
-                                placeholder="From?" data-i18n-placeholder="index_ph_origin" autocomplete="off">
+                                   placeholder="From?" data-i18n-placeholder="index_ph_origin" autocomplete="off">
                             <ul id="origin-options" class="custom-autocomplete-list"></ul>
                         </div>
                     </div>
@@ -40,24 +39,23 @@
 
             <div class="col-sm-6">
                 <div id="destinations-container">
-                    <!-- First destination -->
                     <div class="dest-entry d-flex align-items-center bg-light rounded p-2 h-100 mb-2 position-relative">
                         <i class="fa-solid fa-location-dot fs-5 text-center" style="width: 30px;"></i>
                         <div class="flex-grow-1 ms-2">
                             <label class="form-label-small mb-1 d-block text-uppercase fw-bold"
-                                style="font-size: 0.75rem;" data-i18n="index_dest">Destination</label>
+                                   style="font-size: 0.75rem;" data-i18n="index_dest">Destination</label>
                             <div class="position-relative">
                                 <input type="text" class="dest-input form-control input-clean p-0 border-0 bg-transparent shadow-none"
-                                    placeholder="Where to?" data-i18n-placeholder="index_ph_dest" autocomplete="off">
+                                       placeholder="Where to?" data-i18n-placeholder="index_ph_dest" autocomplete="off">
                                 <ul class="dest-options custom-autocomplete-list"></ul>
                             </div>
                         </div>
-                        <button type="button" class="btn btn-sm remove-dest-btn" onclick="this.closest('.dest-entry').remove()" title="Remove">
+                        <button type="button" class="btn btn-sm remove-dest-btn"
+                                data-i18n-title="index_remove_dest" title="Remove">
                             <i class="fa-solid fa-xmark"></i>
                         </button>
                     </div>
                 </div>
-                <!-- Add Destination Button -->
                 <button type="button" id="add-dest-btn" class="btn btn-sm w-100 mt-1 fw-bold add-dest-btn">
                     <i class="fa-solid fa-plus me-1"></i> <span data-i18n="index_add_dest">Add Destination</span>
                 </button>
@@ -70,9 +68,9 @@
                 <div class="d-flex align-items-center bg-light rounded p-2 h-100">
                     <i class="fa-solid fa-plane-departure fs-5 text-center" style="width: 30px;"></i>
                     <div class="flex-grow-1 ms-2">
-                        <label class="form-label-small mb-1 d-block text-uppercase fw-bold"
-                            style="font-size: 0.75rem;" data-i18n="index_dep">Departure</label>
-                        <input type="date" class="form-control input-clean p-0 border-0 bg-transparent shadow-none">
+                        <label for="date-start" class="form-label-small mb-1 d-block text-uppercase fw-bold"
+                               style="font-size: 0.75rem;" data-i18n="index_dep">Departure</label>
+                        <input type="date" id="date-start" class="form-control input-clean p-0 border-0 bg-transparent shadow-none">
                     </div>
                 </div>
             </div>
@@ -80,41 +78,36 @@
                 <div class="d-flex align-items-center bg-light rounded p-2 h-100">
                     <i class="fa-solid fa-plane-arrival fs-5 text-center" style="width: 30px;"></i>
                     <div class="flex-grow-1 ms-2">
-                        <label class="form-label-small mb-1 d-block text-uppercase fw-bold"
-                            style="font-size: 0.75rem;" data-i18n="index_arr">Arrival</label>
-                        <input type="date" class="form-control input-clean p-0 border-0 bg-transparent shadow-none">
+                        <label for="date-end" class="form-label-small mb-1 d-block text-uppercase fw-bold"
+                               style="font-size: 0.75rem;" data-i18n="index_arr">Arrival</label>
+                        <input type="date" id="date-end" class="form-control input-clean p-0 border-0 bg-transparent shadow-none">
                     </div>
                 </div>
-            </div>            
+            </div>
         </div>
 
-        <!-- Presupuesto y Viajeros -->
+        <!-- Presupuesto y viajeros -->
         <div class="row g-3 mb-3">
             <div class="col-sm-6">
                 <div class="d-flex align-items-center bg-light rounded p-2 h-100">
                     <i class="fa-solid fa-money-bill-wave fs-5 text-center" style="width: 30px;"></i>
                     <div class="flex-grow-1 ms-2">
                         <label class="form-label-small mb-1 d-block text-uppercase fw-bold"
-                            style="font-size: 0.75rem;" data-i18n="index_budget">Budget</label>
+                               style="font-size: 0.75rem;" data-i18n="index_budget">Budget</label>
 
                         <div class="d-flex align-items-center">
-                            <!-- Grupo Min -->
                             <div class="budget-group">
                                 <span class="v-separator"></span>
-                                <input type="number" id="budgetMin"
-                                    class="form-control input-clean p-0 border-0 bg-transparent shadow-none w-100"
-                                    placeholder="Min $" step="100" data-i18n-placeholder="index_ph_min">
+                                <input type="number" id="budgetMin" min="0" step="100"
+                                       class="form-control input-clean p-0 border-0 bg-transparent shadow-none w-100"
+                                       placeholder="Min $" data-i18n-placeholder="index_ph_min">
                             </div>
-
-                            <!-- Espaciador entre los dos campos (opcional) -->
                             <div class="mx-2"></div>
-
-                            <!-- Grupo Max -->
                             <div class="budget-group">
                                 <span class="v-separator"></span>
-                                <input type="number" id="budgetMax"
-                                    class="form-control input-clean p-0 border-0 bg-transparent shadow-none w-100"
-                                    placeholder="Max $" data-i18n-placeholder="index_ph_max">
+                                <input type="number" id="budgetMax" min="0" step="100"
+                                       class="form-control input-clean p-0 border-0 bg-transparent shadow-none w-100"
+                                       placeholder="Max $" data-i18n-placeholder="index_ph_max">
                             </div>
                         </div>
                     </div>
@@ -124,93 +117,80 @@
                 <div class="d-flex align-items-center bg-light rounded p-2 h-100">
                     <i class="fa-solid fa-user-group fs-5 text-center" style="width: 30px;"></i>
                     <div class="flex-grow-1 ms-2">
-                        <label class="form-label-small mb-1 d-block text-uppercase fw-bold"
-                            style="font-size: 0.75rem;" data-i18n="index_travelers">Travelers</label>
-                        <input type="number" class="form-control input-clean p-0 border-0 bg-transparent shadow-none"
-                            placeholder="Count" data-i18n-placeholder="index_ph_count">
+                        <label for="travelers" class="form-label-small mb-1 d-block text-uppercase fw-bold"
+                               style="font-size: 0.75rem;" data-i18n="index_travelers">Travelers</label>
+                        <input type="number" id="travelers" min="1" step="1"
+                               class="form-control input-clean p-0 border-0 bg-transparent shadow-none"
+                               placeholder="Count" data-i18n-placeholder="index_ph_count">
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Más Detalles (Con Collapse) -->
+        <!-- Más detalles -->
         <div class="mt-4">
-
-            <!-- Botón que activa el collapse -->
             <h6 class="text-uppercase fw-bold mb-3 d-inline-flex align-items-center user-select-none"
                 style="color: var(--brand-color, #006d5b); cursor: pointer;" data-bs-toggle="collapse"
-                data-bs-target="#moreDetailsCollapse" aria-expanded="false" aria-controls="moreDetailsCollapse" data-i18n="index_more">
-                <i class="fa-solid fa-chevron-down me-2 transition-transform"></i> More Details
+                data-bs-target="#moreDetailsCollapse" aria-expanded="false" aria-controls="moreDetailsCollapse">
+                <i class="fa-solid fa-chevron-down me-2"></i> <span data-i18n="index_more">More Details</span>
             </h6>
 
-            <!-- Contenedor que se colapsa -->
             <div class="collapse" id="moreDetailsCollapse">
 
                 <div class="bg-light rounded p-3 mb-3">
-                    <label class="form-label-small mb-1 d-block text-uppercase fw-bold" style="font-size: 0.75rem;"><span data-i18n="index_ages">Ages
-                        of Travelers</span></label>
-                    <input type="text" class="form-control input-clean p-0 border-0 bg-transparent shadow-none"
-                        placeholder="e.g. 25, 28, 5">
+                    <label for="ages" class="form-label-small mb-1 d-block text-uppercase fw-bold" style="font-size: 0.75rem;">
+                        <span data-i18n="index_ages">Ages of Travelers</span>
+                    </label>
+                    <input type="text" id="ages" class="form-control input-clean p-0 border-0 bg-transparent shadow-none"
+                           placeholder="e.g. 25, 28, 5">
                 </div>
 
-                <!-- Fila invertida: <span data-i18n="index_acc_title">Accommodation</span> a la izquierda, Trip Type a la derecha -->
                 <div class="row g-3 mb-3">
-                    <!-- <span data-i18n="index_acc_title">Accommodation</span> Checkboxes -->
                     <div class="col-sm-6">
                         <div class="bg-light rounded p-3 h-100">
                             <label class="text-uppercase fw-bold d-block mb-2" style="font-size: 0.8rem;">
                                 <span data-i18n="index_acc_title">Accommodation</span>
                             </label>
-                            <div class="d-flex flex-column gap-2">
+                            <div class="d-flex flex-column gap-2" id="acc-group">
                                 <div class="form-check">
-                                    <input class="form-check-input custom-checkbox" type="checkbox" value="hotel"
-                                        id="acc_hotel">
+                                    <input class="form-check-input custom-checkbox" type="checkbox" value="hotel" id="acc_hotel">
                                     <label class="form-check-label" for="acc_hotel" data-i18n="index_hotel">Hotel</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input custom-checkbox" type="checkbox" value="hostel"
-                                        id="acc_hostel">
+                                    <input class="form-check-input custom-checkbox" type="checkbox" value="hostel" id="acc_hostel">
                                     <label class="form-check-label" for="acc_hostel" data-i18n="index_hostel">Hostel</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input custom-checkbox" type="checkbox" value="airbnb"
-                                        id="acc_airbnb">
+                                    <input class="form-check-input custom-checkbox" type="checkbox" value="airbnb" id="acc_airbnb">
                                     <label class="form-check-label" for="acc_airbnb" data-i18n="index_airbnb">Airbnb</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input custom-checkbox" type="checkbox" value="resort"
-                                        id="acc_resort">
+                                    <input class="form-check-input custom-checkbox" type="checkbox" value="resort" id="acc_resort">
                                     <label class="form-check-label" for="acc_resort" data-i18n="index_resort">Resort</label>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Trip Type Radios -->
                     <div class="col-sm-6">
                         <div class="bg-light rounded p-3 h-100">
-                            <label class="text-uppercase fw-bold d-block mb-2" style="font-size: 0.8rem;" data-i18n="index_trip_type">
-                                Trip Type
-                            </label>
+                            <label class="text-uppercase fw-bold d-block mb-2" style="font-size: 0.8rem;"
+                                   data-i18n="index_trip_type">Trip Type</label>
                             <div class="d-flex flex-column gap-2">
                                 <div class="form-check">
-                                    <input class="form-check-input custom-checkbox" type="radio" name="tripType" value="educational"
-                                        id="trip_educational">
+                                    <input class="form-check-input custom-checkbox" type="radio" name="tripType" value="educational" id="trip_educational">
                                     <label class="form-check-label" for="trip_educational" data-i18n="index_edu">Educational</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input custom-checkbox" type="radio" name="tripType" value="family"
-                                        id="trip_family">
+                                    <input class="form-check-input custom-checkbox" type="radio" name="tripType" value="family" id="trip_family">
                                     <label class="form-check-label" for="trip_family" data-i18n="index_family">Family</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input custom-checkbox" type="radio" name="tripType" value="friends"
-                                        id="trip_friends">
+                                    <input class="form-check-input custom-checkbox" type="radio" name="tripType" value="friends" id="trip_friends">
                                     <label class="form-check-label" for="trip_friends" data-i18n="index_friends">Friends</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input custom-checkbox" type="radio" name="tripType" value="solo"
-                                        id="trip_solo">
+                                    <input class="form-check-input custom-checkbox" type="radio" name="tripType" value="solo" id="trip_solo">
                                     <label class="form-check-label" for="trip_solo" data-i18n="index_solo">Solo</label>
                                 </div>
                             </div>
@@ -218,16 +198,12 @@
                     </div>
                 </div>
 
-                                <!-- Fila: Transport (Izquierda) y Preferred Activities (Derecha) -->
                 <div class="row g-3 mb-3">
-                    
-                    <!-- Transport Checkboxes -->
                     <div class="col-sm-6">
                         <div class="bg-light rounded p-3 h-100">
-                            <label class="text-uppercase fw-bold d-block mb-2" style="font-size: 0.8rem;" data-i18n="index_transport">
-                                Transport
-                            </label>
-                            <div class="d-flex flex-column gap-2">
+                            <label class="text-uppercase fw-bold d-block mb-2" style="font-size: 0.8rem;"
+                                   data-i18n="index_transport">Transport</label>
+                            <div class="d-flex flex-column gap-2" id="trans-group">
                                 <div class="form-check">
                                     <input class="form-check-input custom-checkbox" type="checkbox" value="plane" id="trans_plane">
                                     <label class="form-check-label" for="trans_plane" data-i18n="index_plane">Plane</label>
@@ -248,13 +224,11 @@
                         </div>
                     </div>
 
-                    <!-- Preferred Activities Checkboxes -->
                     <div class="col-sm-6">
                         <div class="bg-light rounded p-3 h-100">
-                            <label class="text-uppercase fw-bold d-block mb-2" style="font-size: 0.8rem;" data-i18n="index_activities">
-                                Preferred Activities
-                            </label>
-                            <div class="d-flex flex-column gap-2">
+                            <label class="text-uppercase fw-bold d-block mb-2" style="font-size: 0.8rem;"
+                                   data-i18n="index_activities">Preferred Activities</label>
+                            <div class="d-flex flex-column gap-2" id="act-group">
                                 <div class="form-check">
                                     <input class="form-check-input custom-checkbox" type="checkbox" value="sightseeing" id="act_sightseeing">
                                     <label class="form-check-label" for="act_sightseeing" data-i18n="index_act_sight">Sightseeing</label>
@@ -274,468 +248,348 @@
                             </div>
                         </div>
                     </div>
-
                 </div>
 
-                <!-- Extras (Texto Libre) -->
                 <div class="bg-light rounded p-3 mb-3">
-                    <label for="extras" class="text-uppercase fw-bold d-block mb-2"
-                        style="font-size: 0.8rem;" data-i18n="index_extras">Extras / Special Requests</label>
-                    <textarea id="extras" class="form-control input-clean p-0 border-0 bg-transparent shadow-none"
-                        rows="2" data-i18n-placeholder="index_extras_ph" placeholder="Any extra destination or requirement? (e.g. Needs Vegan Food)"></textarea>
+                    <label for="extras" class="text-uppercase fw-bold d-block mb-2" style="font-size: 0.8rem;"
+                           data-i18n="index_extras">Extras / Special Requests</label>
+                    <textarea id="extras" rows="2" class="form-control input-clean p-0 border-0 bg-transparent shadow-none"
+                              data-i18n-placeholder="index_extras_ph"
+                              placeholder="Any extra destination or requirement? (e.g. Needs Vegan Food)"></textarea>
                 </div>
 
-            </div> <!-- Fin del Collapse -->
+            </div>
         </div>
 
-        <!-- Submit Button -->
         {% if user_id %}
-        <button type="button" id="create-trip-btn" class="btn btn-brand w-100 py-3 fw-bold rounded-3 mt-2 fs-5 text-white"
-            style="background-color: var(--brand-color, #006d5b);" onclick="submitTripForm()">
+        <button type="submit" id="create-trip-btn" class="btn btn-brand w-100 py-3 fw-bold rounded-3 mt-2 fs-5 text-white"
+                style="background-color: var(--brand-color, #006d5b);">
             <i class="fa-regular fa-compass me-2"></i> <span data-i18n="index_create">Create Trip</span>
         </button>
         {% else %}
         <button type="button" class="btn btn-brand w-100 py-3 fw-bold rounded-3 mt-2 fs-5 text-white"
-            style="background-color: var(--brand-color, #006d5b);"
-            data-bs-toggle="modal" data-bs-target="#loginRequiredModal" onclick="saveTripFormToSession()">
+                style="background-color: var(--brand-color, #006d5b);"
+                data-bs-toggle="modal" data-bs-target="#loginRequiredModal" onclick="saveTripFormToSession()">
             <i class="fa-regular fa-compass me-2"></i> <span data-i18n="index_create">Create Trip</span>
         </button>
         {% endif %}
     </form>
 </main>
 
-<!-- Login Required Modal -->
+<!-- Modal: hace falta iniciar sesión -->
 <div class="modal fade" id="loginRequiredModal" tabindex="-1" aria-labelledby="loginRequiredModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content rounded-4 border-0 shadow-lg">
             <div class="modal-header border-0 pb-0">
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" data-i18n-title="common_close" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center px-5 pb-5 mt-2">
                 <div class="mb-4">
-                    <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle mb-3" style="width: 80px; height: 80px;">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-light rounded-circle mb-3"
+                         style="width: 80px; height: 80px;">
                         <i class="fa-solid fa-lock fs-1" style="color: var(--brand-color, #006d5b);"></i>
                     </div>
-                    <h3 class="fw-bold mb-2">Sign in Required</h3>
-                    <p class="text-secondary">Please sign in or create a free account to start planning your next journey with TravelPlanner.</p>
+                    <h3 class="fw-bold mb-2" id="loginRequiredModalLabel" data-i18n="modal_signin_title">Sign in required</h3>
+                    <p class="text-secondary" data-i18n="modal_signin_text">
+                        Sign in or create a free account to start planning your next journey.
+                    </p>
                 </div>
                 <div class="d-grid gap-3">
-                    <a href="{{ url_for('login') }}" class="btn py-3 fw-bold rounded-3 text-white" style="background-color: var(--brand-color, #006d5b);">Sign In Now</a>
-                    <a href="{{ url_for('register') }}" class="btn btn-outline-secondary py-3 fw-bold rounded-3">Create Free Account</a>
+                    <a href="{{ url_for('login') }}" class="btn py-3 fw-bold rounded-3 text-white"
+                       style="background-color: var(--brand-color, #006d5b);" data-i18n="auth_signin">Sign in</a>
+                    <a href="{{ url_for('register') }}" class="btn btn-outline-secondary py-3 fw-bold rounded-3"
+                       data-i18n="reg_submit">Create account</a>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const originInput = document.getElementById('origin-input');
-        const originList = document.getElementById('origin-options');
+// ─── Autocompletado de ciudades (Photon / Komoot) ────────────────────────────
 
-        let timeoutId;
-        let destCounter = 1;
+const temporizadores = new WeakMap();
 
-        // Función para buscar ciudades en la API de Photon
-        function fetchCities(query, listElement, inputElement) {
-            if (!query || query.length < 3) {
-                listElement.innerHTML = '';
-                listElement.classList.remove('show');
-                return;
-            }
-            
-            clearTimeout(timeoutId);
-            
-            timeoutId = setTimeout(() => {
-                const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&osm_tag=place:city&osm_tag=place:town&limit=5`;
-                
-                fetch(url)
-                    .then(response => response.json())
-                    .then(data => {
-                        listElement.innerHTML = '';
-                        if (data.features && data.features.length > 0) {
-                            data.features.forEach(feature => {
-                                const props = feature.properties;
-                                const city = props.name;
-                                const state = props.state ? `, ${props.state}` : '';
-                                const country = props.country ? `, ${props.country}` : '';
-                                const fullName = `${city}${state}${country}`;
-                                
-                                const li = document.createElement('li');
-                                li.innerHTML = `<i class="fa-solid fa-location-dot me-2"></i> ${fullName}`;
-                                li.addEventListener('click', function() {
-                                    inputElement.value = fullName;
-                                    listElement.innerHTML = '';
-                                    listElement.classList.remove('show');
-                                });
-                                listElement.appendChild(li);
-                            });
-                            listElement.classList.add('show');
-                        } else {
-                            listElement.classList.remove('show');
-                        }
-                    })
-                    .catch(err => console.error("Error cargando ciudades: ", err));
-            }, 500);
-        }
+function buscarCiudades(query, lista, input) {
+    if (!query || query.length < 3) {
+        lista.innerHTML = '';
+        lista.classList.remove('show');
+        return;
+    }
 
-        // Origin autocomplete
-        originInput.addEventListener('input', (e) => fetchCities(e.target.value, originList, originInput));
+    clearTimeout(temporizadores.get(input));
+    temporizadores.set(input, setTimeout(() => {
+        const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}`
+                  + `&osm_tag=place:city&osm_tag=place:town&limit=5`;
 
-        // Event delegation for destination autocomplete
-        document.getElementById('destinations-container').addEventListener('input', function(e) {
-            if (e.target.classList.contains('dest-input')) {
-                const optionsList = e.target.closest('.dest-entry').querySelector('.dest-options');
-                fetchCities(e.target.value, optionsList, e.target);
-            }
-        });
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                lista.innerHTML = '';
+                const features = data.features || [];
+                if (!features.length) { lista.classList.remove('show'); return; }
 
-        // Add destination button
-        document.getElementById('add-dest-btn').addEventListener('click', function() {
-            destCounter++;
-            const container = document.getElementById('destinations-container');
-            const newDest = document.createElement('div');
-            newDest.className = 'dest-entry d-flex align-items-center bg-light rounded p-2 h-100 mb-2 position-relative';
-            newDest.innerHTML = `
-                <i class="fa-solid fa-location-dot fs-5 text-center" style="width: 30px;"></i>
-                <div class="flex-grow-1 ms-2">
-                    <label class="form-label-small mb-1 d-block text-uppercase fw-bold"
-                        style="font-size: 0.75rem;" data-i18n="index_dest">Destination ${destCounter}</label>
-                    <div class="position-relative">
-                        <input type="text" class="dest-input form-control input-clean p-0 border-0 bg-transparent shadow-none"
-                            placeholder="Where to?" autocomplete="off">
-                        <ul class="dest-options custom-autocomplete-list"></ul>
-                    </div>
-                </div>
-                <button type="button" class="btn btn-sm remove-dest-btn" onclick="this.closest('.dest-entry').remove()" title="Remove">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            `;
-            container.appendChild(newDest);
-        });
+                features.forEach(feature => {
+                    const p = feature.properties;
+                    const nombre = [p.name, p.state, p.country].filter(Boolean).join(', ');
 
-        // Prevent Enter submit
-        const preventEnter = function(e) {
-            if (e.keyCode === 13) e.preventDefault();
-        };
-        originInput.addEventListener("keydown", preventEnter);
-        document.getElementById('destinations-container').addEventListener('keydown', function(e) {
-            if (e.target.classList.contains('dest-input') && e.keyCode === 13) e.preventDefault();
-        });
+                    const li = document.createElement('li');
+                    li.innerHTML = `<i class="fa-solid fa-location-dot me-2"></i> ${nombre}`;
+                    li.addEventListener('click', () => {
+                        input.value = nombre;
+                        lista.innerHTML = '';
+                        lista.classList.remove('show');
+                        saveTripFormToSession();
+                    });
+                    lista.appendChild(li);
+                });
+                lista.classList.add('show');
+            })
+            .catch(err => console.error('Error cargando ciudades:', err));
+    }, 400));
+}
 
-        // Hide autocomplete lists on click outside
-        document.addEventListener('click', function(e) {
-            if (!originInput.contains(e.target) && !originList.contains(e.target)) {
-                originList.classList.remove('show');
-            }
-            document.querySelectorAll('.dest-options.show').forEach(list => {
-                const entry = list.closest('.dest-entry');
-                if (entry && !entry.contains(e.target)) {
-                    list.classList.remove('show');
-                }
-            });
-        });
-        
-        const tripForm = document.getElementById('trip-form');
-        if (tripForm) {
-            tripForm.addEventListener('input', saveTripFormToSession);
-            tripForm.addEventListener('change', saveTripFormToSession);
-        }
+// ─── Persistencia del formulario en sessionStorage ───────────────────────────
 
-        loadTripFormFromSession();
+function leerFormulario() {
+    const marcados = id => document.getElementById(id) && document.getElementById(id).checked;
+    const valores = selector => Array.from(document.querySelectorAll(selector))
+        .filter(cb => cb.checked).map(cb => cb.value);
+
+    return {
+        origen: document.getElementById('origin-input').value.trim(),
+        destinos: Array.from(document.querySelectorAll('.dest-input'))
+            .map(i => i.value.trim()).filter(Boolean),
+        fecha_inicio: document.getElementById('date-start').value,
+        fecha_fin: document.getElementById('date-end').value,
+        cantidad_personas: parseInt(document.getElementById('travelers').value, 10) || null,
+        costo_min: parseFloat(document.getElementById('budgetMin').value) || null,
+        costo_max: parseFloat(document.getElementById('budgetMax').value) || null,
+        grupo: (document.querySelector('input[name="tripType"]:checked') || {}).value || null,
+        edades_viajeros: document.getElementById('ages').value.trim(),
+        hospedaje: valores('#acc-group input[type="checkbox"]').join(', '),
+        tipo_transporte: valores('#trans-group input[type="checkbox"]').join(', '),
+        act_preferidas: valores('#act-group input[type="checkbox"]').join(', '),
+        otros: document.getElementById('extras').value.trim(),
+        _marcados: ['acc_hotel','acc_hostel','acc_airbnb','acc_resort','trans_plane','trans_train',
+                    'trans_car','trans_bus','act_sightseeing','act_adventure','act_relaxation','act_cultural']
+                    .filter(marcados)
+    };
+}
+
+function saveTripFormToSession() {
+    sessionStorage.setItem('pendingTripForm', JSON.stringify(leerFormulario()));
+}
+
+function agregarDestino(valor) {
+    const contenedor = document.getElementById('destinations-container');
+    const entrada = document.createElement('div');
+    entrada.className = 'dest-entry d-flex align-items-center bg-light rounded p-2 h-100 mb-2 position-relative';
+    entrada.innerHTML = `
+        <i class="fa-solid fa-location-dot fs-5 text-center" style="width: 30px;"></i>
+        <div class="flex-grow-1 ms-2">
+            <label class="form-label-small mb-1 d-block text-uppercase fw-bold"
+                   style="font-size: 0.75rem;" data-i18n="index_dest">Destination</label>
+            <div class="position-relative">
+                <input type="text" class="dest-input form-control input-clean p-0 border-0 bg-transparent shadow-none"
+                       placeholder="Where to?" data-i18n-placeholder="index_ph_dest" autocomplete="off">
+                <ul class="dest-options custom-autocomplete-list"></ul>
+            </div>
+        </div>
+        <button type="button" class="btn btn-sm remove-dest-btn" data-i18n-title="index_remove_dest" title="Remove">
+            <i class="fa-solid fa-xmark"></i>
+        </button>`;
+    contenedor.appendChild(entrada);
+
+    if (valor) entrada.querySelector('.dest-input').value = valor;
+    cargarIdioma(window.IDIOMA_ACTUAL);  // traduce los nodos recién creados
+    return entrada;
+}
+
+function loadTripFormFromSession() {
+    const crudo = sessionStorage.getItem('pendingTripForm');
+    if (!crudo) return;
+
+    let datos;
+    try { datos = JSON.parse(crudo); } catch (e) { return; }
+
+    const asignar = (id, valor) => { if (valor) document.getElementById(id).value = valor; };
+
+    asignar('origin-input', datos.origen);
+    asignar('date-start', datos.fecha_inicio);
+    asignar('date-end', datos.fecha_fin);
+    asignar('travelers', datos.cantidad_personas);
+    asignar('budgetMin', datos.costo_min);
+    asignar('budgetMax', datos.costo_max);
+    asignar('ages', datos.edades_viajeros);
+    asignar('extras', datos.otros);
+
+    const destinos = datos.destinos || [];
+    if (destinos.length) {
+        document.querySelector('.dest-input').value = destinos[0];
+        destinos.slice(1).forEach(d => agregarDestino(d));
+    }
+
+    if (datos.grupo) {
+        const radio = document.querySelector(`input[name="tripType"][value="${datos.grupo}"]`);
+        if (radio) radio.checked = true;
+    }
+
+    (datos._marcados || []).forEach(id => {
+        const cb = document.getElementById(id);
+        if (cb) cb.checked = true;
     });
 
-    // Funciones para guardar y cargar del sessionStorage
-    function saveTripFormToSession() {
-        const origin = document.getElementById('origin-input') ? document.getElementById('origin-input').value.trim() : '';
-        const destInputs = document.querySelectorAll('.dest-input');
-        const destinations = [];
-        destInputs.forEach(input => {
-            if (input.value.trim()) destinations.push(input.value.trim());
-        });
-        const dateInputs = document.querySelectorAll('input[type="date"]');
-        const startDate = dateInputs[0] ? dateInputs[0].value : '';
-        const endDate = dateInputs[1] ? dateInputs[1].value : '';
-        
-        const travelersInput = document.querySelector('input[type="number"][placeholder="Count"], input[data-i18n-placeholder="index_ph_count"]');
-        const travelers = travelersInput ? travelersInput.value : '';
-        
-        const budgetMin = document.getElementById('budgetMin') ? document.getElementById('budgetMin').value : '';
-        const budgetMax = document.getElementById('budgetMax') ? document.getElementById('budgetMax').value : '';
-        
-        const tripTypeRadio = document.querySelector('input[name="tripType"]:checked');
-        const tripType = tripTypeRadio ? tripTypeRadio.id : null;
-        
-        const agesInput = document.querySelector('#moreDetailsCollapse input[type="text"]');
-        const ages = agesInput ? agesInput.value : '';
-        
-        const checkedBoxes = [];
-        document.querySelectorAll('#acc_hotel, #acc_hostel, #acc_airbnb, #acc_resort, #trans_plane, #trans_train, #trans_car, #trans_bus, #act_sightseeing, #act_adventure, #act_relaxation, #act_cultural').forEach(cb => {
-            if (cb.checked) checkedBoxes.push(cb.id);
-        });
-        
-        const extrasTextarea = document.getElementById('extras');
-        const extras = extrasTextarea ? extrasTextarea.value : '';
-
-        const savedData = {
-            origin, destinations, startDate, endDate, travelers, budgetMin, budgetMax, tripType, ages, checkedBoxes, extras
-        };
-        sessionStorage.setItem('pendingTripForm', JSON.stringify(savedData));
+    // Si había detalles cargados, abrimos el panel para que se vean.
+    const tieneDetalles = datos.edades_viajeros || datos.otros || datos.grupo
+                       || (datos._marcados || []).length;
+    if (tieneDetalles && window.bootstrap) {
+        new bootstrap.Collapse(document.getElementById('moreDetailsCollapse'), { toggle: false }).show();
     }
 
-    function loadTripFormFromSession() {
-        const dataStr = sessionStorage.getItem('pendingTripForm');
-        if (!dataStr) return;
-        
-        try {
-            const data = JSON.parse(dataStr);
-            if (data.origin) document.getElementById('origin-input').value = data.origin;
-            
-            if (data.destinations && data.destinations.length > 0) {
-                const destInputs = document.querySelectorAll('.dest-input');
-                if (destInputs.length > 0) destInputs[0].value = data.destinations[0];
-                for (let i = 1; i < data.destinations.length; i++) {
-                    const addBtn = document.getElementById('add-dest-btn');
-                    if (addBtn) addBtn.click();
-                    const newDestInputs = document.querySelectorAll('.dest-input');
-                    if (newDestInputs.length > 0) newDestInputs[newDestInputs.length - 1].value = data.destinations[i];
-                }
-            }
-            
-            const dateInputs = document.querySelectorAll('input[type="date"]');
-            if (data.startDate && dateInputs[0]) dateInputs[0].value = data.startDate;
-            if (data.endDate && dateInputs[1]) dateInputs[1].value = data.endDate;
-            
-            const travelersInput = document.querySelector('input[type="number"][placeholder="Count"], input[data-i18n-placeholder="index_ph_count"]');
-            if (data.travelers && travelersInput) travelersInput.value = data.travelers;
-            
-            if (data.budgetMin && document.getElementById('budgetMin')) document.getElementById('budgetMin').value = data.budgetMin;
-            if (data.budgetMax && document.getElementById('budgetMax')) document.getElementById('budgetMax').value = data.budgetMax;
-            
-            if (data.tripType) {
-                const r = document.getElementById(data.tripType);
-                if (r) r.checked = true;
-            }
-            
-            if (data.ages) {
-                const agesInput = document.querySelector('#moreDetailsCollapse input[type="text"]');
-                if (agesInput) agesInput.value = data.ages;
-                // If there are extra details, we could optionally open the collapse
-                const collapseElement = document.getElementById('moreDetailsCollapse');
-                if (collapseElement && window.bootstrap) {
-                    new bootstrap.Collapse(collapseElement, {toggle: false}).show();
-                }
-            }
-            
-            if (data.checkedBoxes) {
-                data.checkedBoxes.forEach(id => {
-                    const cb = document.getElementById(id);
-                    if (cb) cb.checked = true;
-                });
-                if (data.checkedBoxes.length > 0) {
-                    const collapseElement = document.getElementById('moreDetailsCollapse');
-                    if (collapseElement && window.bootstrap) {
-                        new bootstrap.Collapse(collapseElement, {toggle: false}).show();
-                    }
-                }
-            }
-            
-            if (data.extras) {
-                const extrasTextarea = document.getElementById('extras');
-                if (extrasTextarea) extrasTextarea.value = data.extras;
-                const collapseElement = document.getElementById('moreDetailsCollapse');
-                if (collapseElement && window.bootstrap) {
-                    new bootstrap.Collapse(collapseElement, {toggle: false}).show();
-                }
-            }
-            
-            // Si el usuario ya está logueado, limpiamos el sessionStorage para que no se quede guardado para siempre
-            {% if user_id %}
-                sessionStorage.removeItem('pendingTripForm');
-            {% endif %}
-        } catch (e) {
-            console.error("Error loading saved form data", e);
-        }
+    {% if user_id %}sessionStorage.removeItem('pendingTripForm');{% endif %}
+}
+
+function clearTripForm() {
+    document.getElementById('trip-form').reset();
+
+    document.querySelectorAll('.dest-entry').forEach((entrada, i) => {
+        if (i === 0) entrada.querySelector('.dest-input').value = '';
+        else entrada.remove();
+    });
+
+    const panel = document.getElementById('moreDetailsCollapse');
+    if (panel.classList.contains('show') && window.bootstrap) {
+        new bootstrap.Collapse(panel, { toggle: false }).hide();
     }
 
-    function clearTripForm() {
-        document.getElementById('trip-form').reset();
-        
-        // Remove extra destinations
-        const destEntries = document.querySelectorAll('.dest-entry');
-        if (destEntries.length > 0) {
-            for (let i = 1; i < destEntries.length; i++) {
-                destEntries[i].remove();
-            }
-            destEntries[0].querySelector('.dest-input').value = '';
-        } else {
-            // If the user removed all destinations including the first, add one empty one back
-            document.getElementById('add-dest-btn').click();
-        }
-        
-        // Close collapse if it is open
-        const collapseElement = document.getElementById('moreDetailsCollapse');
-        if (collapseElement && collapseElement.classList.contains('show')) {
-            new bootstrap.Collapse(collapseElement, {toggle: false}).hide();
-        }
+    document.getElementById('form-alert-container').innerHTML = '';
+    sessionStorage.removeItem('pendingTripForm');
+}
 
-        sessionStorage.removeItem('pendingTripForm');
+// ─── Envío ───────────────────────────────────────────────────────────────────
+
+function mostrarAlerta(mensaje) {
+    const contenedor = document.getElementById('form-alert-container');
+    contenedor.innerHTML = `
+        <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert" style="border-radius: 12px;">
+            <i class="fa-solid fa-triangle-exclamation fs-4 me-3"></i>
+            <div>${mensaje}</div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>`;
+    contenedor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function restaurarBoton(boton) {
+    boton.disabled = false;
+    boton.innerHTML = `<i class="fa-regular fa-compass me-2"></i> <span data-i18n="index_create">${t('index_create', 'Create Trip')}</span>`;
+}
+
+async function submitTripForm(evento) {
+    if (evento) evento.preventDefault();
+
+    const boton = document.getElementById('create-trip-btn');
+    document.getElementById('form-alert-container').innerHTML = '';
+
+    const datos = leerFormulario();
+    delete datos._marcados;
+
+    // Validaciones antes de molestar al servidor.
+    if (!datos.origen)        return mostrarAlerta(t('err_origin'));
+    if (!datos.destinos.length) return mostrarAlerta(t('err_dest'));
+    if (!datos.fecha_inicio)  return mostrarAlerta(t('err_dep'));
+    if (!datos.fecha_fin)     return mostrarAlerta(t('err_arr'));
+    if (new Date(datos.fecha_inicio) > new Date(datos.fecha_fin)) return mostrarAlerta(t('err_dates'));
+    if (!datos.cantidad_personas || datos.cantidad_personas < 1)  return mostrarAlerta(t('err_travelers'));
+    if (datos.costo_min && datos.costo_max && datos.costo_min > datos.costo_max) {
+        return mostrarAlerta(t('err_budget'));
     }
 
-    // Submit trip form via POST JSON
-    function showCustomAlert(message) {
-        const container = document.getElementById('form-alert-container');
-        container.innerHTML = `
-            <div class="alert alert-danger alert-dismissible fade show d-flex align-items-center" role="alert" style="border-radius: 12px;">
-                <i class="fa-solid fa-triangle-exclamation fs-4 me-3"></i>
-                <div>
-                    <strong>Oops!</strong> ${message}
-                </div>
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        `;
-        // Scroll to the alert
-        container.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
+    boton.disabled = true;
+    boton.innerHTML = `<i class="fa-solid fa-spinner fa-spin me-2"></i> ${t('index_creating', 'Creating…')}`;
 
-    // Submit trip form via POST JSON
-    function submitTripForm() {
-        const btn = document.getElementById('create-trip-btn');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-2"></i> Creating...';
-
-        // Clear previous alerts
-        document.getElementById('form-alert-container').innerHTML = '';
-
-        // Collect origin
-        const origen = document.getElementById('origin-input') ? document.getElementById('origin-input').value.trim() : '';
-
-        // Collect destinations
-        const destInputs = document.querySelectorAll('.dest-input');
-        const destinos = [];
-        destInputs.forEach(input => {
-            if (input.value.trim()) destinos.push(input.value.trim());
-        });
-
-        // Collect dates
-        const dateInputs = document.querySelectorAll('input[type="date"]');
-        const fecha_inicio = dateInputs[0] ? dateInputs[0].value : '';
-        const fecha_fin = dateInputs[1] ? dateInputs[1].value : '';
-
-        // Collect travelers count
-        const travelersInput = document.querySelector('input[type="number"][placeholder="Count"], input[data-i18n-placeholder="index_ph_count"]');
-        const cantidad_personas = travelersInput ? parseInt(travelersInput.value) || null : null;
-
-        // Validations
-        if (!origen) {
-            showCustomAlert('El origen es obligatorio.');
-            resetBtn(btn);
-            return;
-        }
-
-        if (destinos.length === 0) {
-            showCustomAlert('Por favor, ingresa al menos un destino.');
-            resetBtn(btn);
-            return;
-        }
-
-        if (!fecha_inicio) {
-            showCustomAlert('La fecha de salida es obligatoria.');
-            resetBtn(btn);
-            return;
-        }
-
-        if (!fecha_fin) {
-            showCustomAlert('La fecha de llegada es obligatoria.');
-            resetBtn(btn);
-            return;
-        }
-
-        if (new Date(fecha_inicio) >= new Date(fecha_fin)) {
-            showCustomAlert('La fecha de salida debe ser anterior a la de llegada.');
-            resetBtn(btn);
-            return;
-        }
-
-        if (!cantidad_personas || cantidad_personas < 1) {
-            showCustomAlert('La cantidad de viajeros debe ser al menos 1.');
-            resetBtn(btn);
-            return;
-        }
-
-        function resetBtn(b) {
-            b.disabled = false;
-            b.innerHTML = '<i class="fa-regular fa-compass me-2"></i> Create Trip';
-        }
-
-        // Collect budget
-        const costo_min = document.getElementById('budgetMin') ? parseFloat(document.getElementById('budgetMin').value) || null : null;
-        const costo_max = document.getElementById('budgetMax') ? parseFloat(document.getElementById('budgetMax').value) || null : null;
-
-        // Collect trip type (radio)
-        const tripTypeRadio = document.querySelector('input[name="tripType"]:checked');
-        const grupo = tripTypeRadio ? tripTypeRadio.value : null;
-
-        // Collect ages
-        const agesInput = document.querySelector('#moreDetailsCollapse input[type="text"]');
-        const edades_viajeros = agesInput ? agesInput.value.trim() : '';
-
-        // Collect accommodation checkboxes
-        const accCheckboxes = document.querySelectorAll('#acc_hotel, #acc_hostel, #acc_airbnb, #acc_resort');
-        const hospedaje = [];
-        accCheckboxes.forEach(cb => { if (cb.checked) hospedaje.push(cb.value); });
-
-        // Collect transport checkboxes
-        const transCheckboxes = document.querySelectorAll('#trans_plane, #trans_train, #trans_car, #trans_bus');
-        const tipo_transporte = [];
-        transCheckboxes.forEach(cb => { if (cb.checked) tipo_transporte.push(cb.value); });
-
-        // Collect activities checkboxes
-        const actCheckboxes = document.querySelectorAll('#act_sightseeing, #act_adventure, #act_relaxation, #act_cultural');
-        const act_preferidas = [];
-        actCheckboxes.forEach(cb => { if (cb.checked) act_preferidas.push(cb.value); });
-
-        // Collect extras
-        const extrasTextarea = document.getElementById('extras');
-        const otros = extrasTextarea ? extrasTextarea.value.trim() : '';
-
-        const payload = {
-            destinos: destinos,
-            origen: origen || null,
-            fecha_inicio: fecha_inicio || null,
-            fecha_fin: fecha_fin || null,
-            costo_min: costo_min,
-            costo_max: costo_max,
-            cantidad_personas: cantidad_personas,
-            grupo: grupo,
-            edades_viajeros: edades_viajeros || null,
-            hospedaje: hospedaje.join(', ') || null,
-            tipo_transporte: tipo_transporte.join(', ') || null,
-            act_preferidas: act_preferidas.join(', ') || null,
-            otros: otros || null
-        };
-
-        fetch('/create_trip', {
+    try {
+        const resp = await apiFetch("{{ url_for('create_trip') }}", {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        })
-        .then(resp => resp.json())
-        .then(data => {
-            if (data.redirect) {
-                sessionStorage.removeItem('pendingTripForm');
-                window.location.href = data.redirect;
-            } else if (data.error) {
-                showCustomAlert(data.error);
-                resetBtn(btn);
-            }
-        })
-        .catch(err => {
-            console.error('Error:', err);
-            showCustomAlert('Error conectando con el servidor.');
-            resetBtn(btn);
+            body: JSON.stringify(datos)
         });
-    }
-</script>
+        const respuesta = await resp.json();
 
+        if (resp.ok && respuesta.redirect) {
+            sessionStorage.removeItem('pendingTripForm');
+            window.location.href = respuesta.redirect;
+        } else {
+            mostrarAlerta(respuesta.error || t('err_server'));
+            restaurarBoton(boton);
+        }
+    } catch (err) {
+        console.error(err);
+        mostrarAlerta(t('err_server'));
+        restaurarBoton(boton);
+    }
+}
+
+// ─── Inicialización ──────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+    const origen = document.getElementById('origin-input');
+    const listaOrigen = document.getElementById('origin-options');
+    const contenedorDestinos = document.getElementById('destinations-container');
+
+    origen.addEventListener('input', e => buscarCiudades(e.target.value, listaOrigen, origen));
+
+    contenedorDestinos.addEventListener('input', e => {
+        if (!e.target.classList.contains('dest-input')) return;
+        buscarCiudades(e.target.value, e.target.closest('.dest-entry').querySelector('.dest-options'), e.target);
+    });
+
+    // Quitar destino (delegación: sirve también para los agregados después).
+    contenedorDestinos.addEventListener('click', e => {
+        const boton = e.target.closest('.remove-dest-btn');
+        if (!boton) return;
+        // Siempre queda al menos un campo de destino.
+        if (document.querySelectorAll('.dest-entry').length > 1) boton.closest('.dest-entry').remove();
+        else boton.closest('.dest-entry').querySelector('.dest-input').value = '';
+        saveTripFormToSession();
+    });
+
+    document.getElementById('add-dest-btn').addEventListener('click', () => agregarDestino());
+
+    // Enter no debe enviar el formulario desde los autocompletados.
+    [origen, contenedorDestinos].forEach(el => {
+        el.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && (e.target === origen || e.target.classList.contains('dest-input'))) {
+                e.preventDefault();
+            }
+        });
+    });
+
+    document.addEventListener('click', e => {
+        if (!origen.contains(e.target) && !listaOrigen.contains(e.target)) {
+            listaOrigen.classList.remove('show');
+        }
+        document.querySelectorAll('.dest-options.show').forEach(lista => {
+            const entrada = lista.closest('.dest-entry');
+            if (entrada && !entrada.contains(e.target)) lista.classList.remove('show');
+        });
+    });
+
+    // Las fechas no pueden ser anteriores a hoy, y el regreso no antes de la salida.
+    const hoy = new Date().toISOString().split('T')[0];
+    const inicio = document.getElementById('date-start');
+    const fin = document.getElementById('date-end');
+    inicio.min = hoy;
+    fin.min = hoy;
+    inicio.addEventListener('change', () => { fin.min = inicio.value || hoy; });
+
+    const formulario = document.getElementById('trip-form');
+    formulario.addEventListener('input', saveTripFormToSession);
+    formulario.addEventListener('change', saveTripFormToSession);
+    {% if user_id %}formulario.addEventListener('submit', submitTripForm);{% endif %}
+
+    loadTripFormFromSession();
+});
+</script>
 {% endblock %}

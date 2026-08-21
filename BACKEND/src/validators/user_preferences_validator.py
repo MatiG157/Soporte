@@ -1,8 +1,46 @@
-from marshmallow import Schema, fields, validate, validates_schema, ValidationError
+from marshmallow import Schema, ValidationError, fields, validate, validates_schema
+
+# Valores aceptados para el tipo de grupo.
+# El formulario web usa las claves en inglés; el dominio las guarda en español.
+# Este mapa se aplica en el servicio antes de persistir.
+GRUPOS_VALIDOS = ["familiar", "amigos", "educativo", "pareja", "solo"]
+
+MAPA_GRUPOS = {
+    "family": "familiar",
+    "familiar": "familiar",
+    "friends": "amigos",
+    "amigos": "amigos",
+    "educational": "educativo",
+    "educativo": "educativo",
+    "couple": "pareja",
+    "pareja": "pareja",
+    "solo": "solo",
+}
+
+
+def normalizar_grupo(valor):
+    """Traduce el valor que llega del formulario al valor del dominio."""
+    if valor is None:
+        return None
+    return MAPA_GRUPOS.get(str(valor).strip().lower(), None)
+
+
+class GrupoField(fields.String):
+    """Campo que acepta las claves en inglés del form y las normaliza."""
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        crudo = super()._deserialize(value, attr, data, **kwargs)
+        normalizado = normalizar_grupo(crudo)
+        if normalizado is None:
+            raise ValidationError(
+                f"Tipo de grupo no válido. Opciones: {', '.join(GRUPOS_VALIDOS)}."
+            )
+        return normalizado
+
 
 class UserPreferencesSchema(Schema):
     id_usuario = fields.Integer(
-        required=True, 
+        required=True,
         error_messages={"required": "El ID del usuario es obligatorio para asociar sus preferencias."}
     )
     destinos = fields.List(
@@ -20,50 +58,38 @@ class UserPreferencesSchema(Schema):
     cantidad_personas = fields.Integer(
         validate=validate.Range(min=1, error="La cantidad de personas debe ser mayor a 0.")
     )
-    grupo = fields.String(
-        validate=validate.OneOf(
-            ["familiar", "amigos", "educativo", "pareja", "solo"],
-            error="Tipo de grupo no válido."
-        )
-    )
-    tipos_alojamiento = fields.List(
-        fields.Integer(),
-        required=False
-    )
+    grupo = GrupoField()
+    tipos_alojamiento = fields.List(fields.Integer(), required=False)
     hospedaje = fields.String(validate=validate.Length(max=100))
     edades_viajeros = fields.String(validate=validate.Length(max=100))
-    tipo_transporte = fields.String(validate=validate.Length(max=50))
+    tipo_transporte = fields.String(validate=validate.Length(max=100))
     fecha_inicio = fields.Date()
     fecha_fin = fields.Date()
     act_preferidas = fields.String(validate=validate.Length(max=100))
     otros = fields.String()
 
-    # Validación a nivel de esquema para comparar fechas
     @validates_schema
     def validar_fechas(self, data, **kwargs):
         fecha_inicio = data.get("fecha_inicio")
         fecha_fin = data.get("fecha_fin")
-        
-        if fecha_inicio and fecha_fin:
-            if fecha_inicio >= fecha_fin:
-                raise ValidationError(
-                    "La fecha de inicio debe ser anterior a la fecha de fin.",
-                    field_name="fecha_inicio"
-                )
 
-    # Validación a nivel de esquema para comparar los dos campos
+        if fecha_inicio and fecha_fin and fecha_inicio > fecha_fin:
+            raise ValidationError(
+                "La fecha de inicio no puede ser posterior a la fecha de fin.",
+                field_name="fecha_inicio"
+            )
+
     @validates_schema
     def validar_costos(self, data, **kwargs):
         costo_min = data.get("costo_min")
         costo_max = data.get("costo_max")
-        
-        # Validar solo si ambos campos están presentes en la petición
-        if costo_min is not None and costo_max is not None:
-            if costo_min >= costo_max:
-                raise ValidationError(
-                    "El costo mínimo debe ser estrictamente menor que el costo máximo.",
-                    field_name="costo_min" # Esto asignará el error a este campo en la respuesta JSON
-                )
 
-# Instanciamos el validador
+        # Se permite que sean iguales (presupuesto cerrado).
+        if costo_min is not None and costo_max is not None and costo_min > costo_max:
+            raise ValidationError(
+                "El costo mínimo no puede ser mayor que el costo máximo.",
+                field_name="costo_min"
+            )
+
+
 user_preferences_schema = UserPreferencesSchema()

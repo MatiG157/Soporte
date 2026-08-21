@@ -1,145 +1,156 @@
 {% extends "layout.html" %}
+{% block title %}Sign in · Travel Planner{% endblock %}
 {% block header %}{% endblock %}
-{% block body %}
+
+{% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
+{% endblock %}
+
+{% block body %}
 <div class="split-screen">
-<div class="left-pane">
-            <div class="left-content">
-                <span class="badge-custom">NEW FEATURES AVAILABLE</span>
-                <h1>Your next adventure starts with a single plan.</h1>
-                <p>Join over 500,000 travelers using TravelPlanner to design, budget, and organize their dream itineraries with mathematical precision.</p>
-                
-                <div class="stats">
-                    <div class="stat">
-                        <h3>12k+</h3>
-                        <p>DESTINATIONS</p>
-                    </div>
-                    <div class="stat divider">
-                        <h3>4.6/5</h3>
-                        <p>USER RATING</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="right-pane">
-            <div class="right-content">
-                <h2>TravelPlanner</h2>
-                <p class="subtitle">Sign in to access your itineraries and budgets.</p>
+    <div class="left-pane">
+        <div class="left-content">
+            <span class="badge-custom">TRAVELPLANNER</span>
+            <h1 data-i18n="auth_welcome">Welcome back</h1>
+            <p data-i18n="auth_login_sub">Sign in to keep planning your journeys.</p>
 
-                <div class="social-login">
-                    <button type="button" class="btn btn-outline-secondary social-btn" onclick="window.location.href='{{ url_for('login_google') }}'">
-                        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg> 
-                        Google
-                    </button>
+            <div class="stats">
+                <div class="stat">
+                    <h3>9</h3>
+                    <p data-i18n="settings_language">LANGUAGES</p>
                 </div>
-                
-                <div class="divider-text">
-                    <span>OR CONTINUE WITH EMAIL</span>
-                </div>
-                
-                <form id="loginForm">
-                    <div class="form-group mb-3">
-                        <label for="email">Email Address</label>
-                        <div class="input-with-icon">
-                            <i class="fa-regular fa-envelope"></i>
-                            <input type="email" id="email" class="form-control" placeholder="alex.rivers@explorer.com" required>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group mb-3">
-                        <div class="d-flex justify-content-between">
-                            <label for="password">Password</label>
-                            <a href="#" class="forgot-link">Forgot Password?</a>
-                        </div>
-                        <div class="input-with-icon" style="position: relative;">
-                            <i class="fa-solid fa-lock"></i>
-                            <input type="password" id="password" class="form-control" placeholder="••••••••" required>
-                            <i class="fa-solid fa-eye-slash toggle-password" style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #999; left: auto;"></i>
-                        </div>
-                    </div>
-                    
-                    <div class="form-check mb-4">
-                        <input class="form-check-input" type="checkbox" id="remember">
-                        <label class="form-check-label" for="remember">
-                            Remember me permanently
-                        </label>
-                    </div>
-                    
-                    <div id="loginMessage" class="mb-3 text-center" style="font-size: 0.9rem;"></div>
-
-                    <button type="submit" class="btn btn-primary w-100 signin-btn">Sign In to TravelPlanner</button>
-                </form>
-                
-                <div class="create-account">
-                    Don't have an account? <a href="{{ url_for('register') }}">Create a free account</a>
-                </div>
-                
-                <div class="footer-links">
-                    <a href="#">Privacy Policy</a> • <a href="#">Terms of Service</a>
+                <div class="stat divider">
+                    <h3>3</h3>
+                    <p data-i18n="compare_ai">AI GENERATED OPTIONS</p>
                 </div>
             </div>
         </div>
     </div>
+
+    <div class="right-pane">
+        <div class="right-content">
+            <h2>TravelPlanner</h2>
+            <p class="subtitle" data-i18n="auth_login_sub">Sign in to keep planning your journeys.</p>
+
+            <div class="social-login">
+                <button type="button" class="btn btn-outline-secondary social-btn"
+                        onclick="window.location.href='{{ url_for('login_google') }}'">
+                    <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+                    <span data-i18n="auth_google">Continue with Google</span>
+                </button>
+            </div>
+
+            <div class="divider-text">
+                <span data-i18n="auth_or">or</span>
+            </div>
+
+            <form id="loginForm" novalidate>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="form-group mb-3">
+                    <label for="email" data-i18n="auth_email">Email</label>
+                    <div class="input-with-icon">
+                        <i class="fa-regular fa-envelope"></i>
+                        <input type="email" id="email" class="form-control" autocomplete="email"
+                               placeholder="alex.rivers@explorer.com" required>
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="password" data-i18n="auth_password">Password</label>
+                    <div class="input-with-icon" style="position: relative;">
+                        <i class="fa-solid fa-lock"></i>
+                        <input type="password" id="password" class="form-control"
+                               autocomplete="current-password" placeholder="••••••••" required>
+                        <i class="fa-solid fa-eye-slash toggle-password"
+                           style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #999; left: auto;"></i>
+                    </div>
+                </div>
+
+                <div class="form-check mb-4">
+                    <input class="form-check-input" type="checkbox" id="remember" checked>
+                    <label class="form-check-label" for="remember" data-i18n="auth_remember">Remember me</label>
+                </div>
+
+                <div id="loginMessage" class="mb-3 text-center" style="font-size: 0.9rem;">
+                    {%- if error -%}
+                    <span class="text-danger fw-bold">{{ error }}</span>
+                    {%- endif -%}
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 signin-btn" data-i18n="auth_signin">Sign in</button>
+            </form>
+
+            <div class="create-account">
+                <span data-i18n="auth_no_account">Don't have an account?</span>
+                <a href="{{ url_for('register') }}" data-i18n="reg_submit">Create account</a>
+            </div>
+
+            <div class="footer-links">
+                <a href="#" data-i18n="footer_privacy">PRIVACY POLICY</a> •
+                <a href="#" data-i18n="footer_support">SUPPORT</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const togglePassword = document.querySelector('.toggle-password');
-        const passwordInput = document.querySelector('#password');
-        if (togglePassword && passwordInput) {
-            togglePassword.addEventListener('click', function () {
-                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-                passwordInput.setAttribute('type', type);
-                this.classList.toggle('fa-eye');
-                this.classList.toggle('fa-eye-slash');
+document.addEventListener('DOMContentLoaded', () => {
+    const toggle = document.querySelector('.toggle-password');
+    const password = document.getElementById('password');
+    if (toggle && password) {
+        toggle.addEventListener('click', function () {
+            password.type = password.type === 'password' ? 'text' : 'password';
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+    }
+
+    const form = document.getElementById('loginForm');
+    const mensaje = document.getElementById('loginMessage');
+    const boton = form.querySelector('button[type="submit"]');
+
+    function mostrar(texto, clase) {
+        mensaje.textContent = texto;
+        mensaje.className = 'mb-3 text-center ' + clase;
+    }
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        boton.disabled = true;
+        mostrar(t('auth_signing', 'Signing in…'), 'text-secondary');
+
+        // Respeta el ?next= si el usuario venía de una página protegida.
+        const next = new URLSearchParams(window.location.search).get('next');
+
+        try {
+            const resp = await apiFetch("{{ url_for('login') }}", {
+                method: 'POST',
+                body: JSON.stringify({
+                    email: document.getElementById('email').value.trim(),
+                    contrasena: password.value,
+                    remember: document.getElementById('remember').checked,
+                    next: next
+                })
             });
-        }
 
-        // Conexión con el Backend para el Login
-        const loginForm = document.getElementById('loginForm');
-        const messageDiv = document.getElementById('loginMessage');
+            const data = await resp.json();
 
-        if (loginForm) {
-            loginForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                messageDiv.textContent = 'Signing in...';
-                messageDiv.className = 'mb-3 text-center text-secondary';
-
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
-                const remember = document.getElementById('remember') ? document.getElementById('remember').checked : false;
-
-                try {
-                    const response = await fetch("{{ url_for('login') }}", {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            email: email,
-                            contrasena: password,
-                            remember: remember
-                        })
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok) {
-                        messageDiv.textContent = 'Login successful! Redirecting...';
-                        messageDiv.className = 'mb-3 text-center text-success fw-bold';
-                        loginForm.reset();
-                        setTimeout(() => {
-                            window.location.href = "{{ url_for('index') }}";
-                        }, 1000);
-                    } else {
-                        messageDiv.textContent = data.error || 'Invalid credentials.';
-                        messageDiv.className = 'mb-3 text-center text-danger fw-bold';
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    messageDiv.textContent = 'Cannot connect to the server.';
-                    messageDiv.className = 'mb-3 text-center text-danger fw-bold';
-                }
-            });
+            if (resp.ok && data.redirect) {
+                mostrar(t('auth_success', 'Signed in. Redirecting…'), 'text-success fw-bold');
+                window.location.href = data.redirect;
+            } else {
+                mostrar(data.error || t('err_server', 'Something went wrong.'), 'text-danger fw-bold');
+                boton.disabled = false;
+            }
+        } catch (err) {
+            console.error(err);
+            mostrar(t('err_server', 'Could not reach the server.'), 'text-danger fw-bold');
+            boton.disabled = false;
         }
     });
+});
 </script>
 {% endblock %}

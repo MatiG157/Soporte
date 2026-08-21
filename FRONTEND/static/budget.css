@@ -1,0 +1,25 @@
+/* Página de presupuesto: los gráficos necesitan un alto acotado para no
+   estirarse al infinito dentro de las tarjetas flexibles de Bootstrap. */
+
+.main-content canvas {
+    max-height: 320px;
+}
+
+#chart-breakdown {
+    max-height: 240px;
+}
+
+#chart-by-category {
+    max-height: 260px;
+}
+
+/* Tarjetas de totales: el número es lo primero que se lee. */
+.main-content .card .fs-3 {
+    line-height: 1.1;
+}
+
+@media (max-width: 767.98px) {
+    .main-content canvas {
+        max-height: 260px;
+    }
+}

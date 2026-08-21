@@ -52,5 +52,12 @@ class UsuariosSchema(Schema):
         validate=validate.Length(max=80)
     )
 
+    idioma = fields.String(
+        validate=validate.OneOf(
+            ["en", "es", "fr", "it", "de", "ru", "zh", "ja", "pt"],
+            error="Idioma no soportado."
+        )
+    )
+
 # Instanciamos el validador
 usuarios_schema = UsuariosSchema()

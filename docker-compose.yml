@@ -1,0 +1,50 @@
+services:
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-travelplanner}
+      MYSQL_DATABASE: ${DB_NAME:-travelplannerbd}
+    ports:
+      - "3306:3306"
+    volumes:
+      - datos_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${DB_PASSWORD:-travelplanner}"]
+      interval: 5s
+      retries: 20
+
+  backend:
+    build: ./BACKEND
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ${DB_PASSWORD:-travelplanner}
+      DB_NAME: ${DB_NAME:-travelplannerbd}
+      API_KEY: ${API_KEY:?definí API_KEY en el .env de la raíz}
+      CORS_ORIGINS: http://localhost:8080
+      FLASK_DEBUG: "false"
+    ports:
+      - "5000:5000"
+    # Aplica las migraciones antes de levantar la API.
+    command: sh -c "python migrate.py && python app.py"
+
+  frontend:
+    build: ./FRONTEND
+    depends_on:
+      - backend
+    environment:
+      BACKEND_URL: http://backend:5000
+      BACKEND_API_KEY: ${API_KEY}
+      SECRET_KEY: ${SECRET_KEY:?definí SECRET_KEY en el .env de la raíz}
+      N8N_WEBHOOK_URL: ${N8N_WEBHOOK_URL:-}
+      N8N_TOKEN: ${N8N_TOKEN:-}
+      FLASK_DEBUG: "false"
+    ports:
+      - "8080:8080"
+
+volumes:
+  datos_mysql:

@@ -1,691 +1,676 @@
-from datetime import datetime, date
-from datetime import timedelta
+import logging
 import os
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
-from dotenv import load_dotenv
-import requests
+import secrets
+from datetime import date, datetime, timedelta
+from functools import wraps
+
 from authlib.integrations.flask_client import OAuth
+from dotenv import load_dotenv
+from flask import (
+    Flask,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 
 load_dotenv()
 
+import api_client  # noqa: E402  (necesita las variables de entorno ya cargadas)
+import security  # noqa: E402
+import trip_generator  # noqa: E402
+from api_client import BackendError  # noqa: E402
+
+logging.basicConfig(
+    level=os.getenv("LOG_LEVEL", "INFO"),
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'dev-secret-key')
-# Sesion dura para siempre o mucho tiempo
-app.permanent_session_lifetime = timedelta(days=365)
 
-# URL base del backend
-BACKEND_URL = os.getenv('BACKEND_URL', 'http://localhost:5000')
+_secret = os.getenv("SECRET_KEY")
+if not _secret:
+    # Sin SECRET_KEY las sesiones no sobreviven a un reinicio: avisamos fuerte.
+    _secret = secrets.token_urlsafe(32)
+    logger.warning(
+        "SECRET_KEY no está definida en el .env. Se generó una temporal: "
+        "las sesiones se van a invalidar en cada reinicio."
+    )
+app.secret_key = _secret
+
+app.permanent_session_lifetime = timedelta(days=30)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true",
+)
+
+security.registrar(app)
+
+IDIOMAS = ["en", "es", "fr", "it", "de", "ru", "zh", "ja", "pt"]
+
+IMAGEN_POR_DEFECTO = trip_generator.IMAGEN_POR_DEFECTO
 
 oauth = OAuth(app)
 google = oauth.register(
-    name='google',
-    client_id=os.getenv('GOOGLE_CLIENT_ID'),
-    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={
-        'scope': 'openid email profile'
-    }
+    name="google",
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={"scope": "openid email profile"},
 )
 
 
-# â”€â”€â”€ Rutas principales â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Helpers ─────────────────────────────────────────────────────────────────
 
-@app.route('/')
-def index():
-    """Landing page / Home"""
-    # Pasamos el user_id para que Jinja sepa si estÃ¡ logueado o no
-    return render_template('index.html', user_id=session.get('user_id'))
-
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    """Registro de usuario"""
-    if request.method == 'POST':
-        datos = {
-            'nombre':       request.form.get('nombre'),
-            'apellido':     request.form.get('apellido'),
-            'email':        request.form.get('email'),
-            'contrasena':   request.form.get('contrasena'),
-            'nacionalidad': request.form.get('nacionalidad'),
-        }
-        try:
-            resp = requests.post(f'{BACKEND_URL}/usuarios/', json=datos)
-            if resp.status_code == 201:
-                return redirect(url_for('login'))
-            error = resp.json().get('error') or resp.json().get('errores_validacion')
-            return render_template('register.html', error=error)
-        except requests.exceptions.ConnectionError:
-            return render_template('register.html', error='No se pudo conectar con el servidor.')
-
-    return render_template('register.html')
-
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    """Login de usuario"""
-    if request.method == 'POST':
-        # Soporte para fetch (JSON) o form subido normal
-        data = request.get_json() if request.is_json else request.form
-        email = data.get('email')
-        contrasena = data.get('contrasena')
-        remember = data.get('remember', False)
-        if isinstance(remember, str):
-            remember = remember.lower() in ['true', '1', 'on', 'yes']
-
-        try:
-            resp = requests.post(
-                f'{BACKEND_URL}/usuarios/login', json={'email': email, 'contrasena': contrasena})
-            if resp.status_code == 200:
-                user_data = resp.json()
-                session.permanent = bool(remember)
-                session['user_email'] = email
-                session['user_id'] = user_data.get('id_usuario')
-                session['user_foto'] = user_data.get('foto', '')
-                if request.is_json:
-                    return jsonify({"success": True})
-                # dashboard or whatever main route
-                return redirect(url_for('compare'))
-            else:
-                error = resp.json().get('error', 'Credenciales invÃ¡lidas')
-                if request.is_json:
-                    return jsonify({"error": error}), 401
-                return render_template('login.html', error=error)
-        except requests.exceptions.ConnectionError:
+def login_requerido(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if "user_id" not in session:
             if request.is_json:
-                return jsonify({"error": 'No se pudo conectar con el servidor.'}), 500
-            return render_template('login.html', error='No se pudo conectar con el servidor.')
+                return jsonify({"error": "Tenés que iniciar sesión."}), 401
+            return redirect(url_for("login", next=request.path))
+        return f(*args, **kwargs)
+    return wrapper
 
-    return render_template('login.html')
+
+def _guardar_sesion(datos_usuario, recordar=True):
+    session.permanent = bool(recordar)
+    session["user_id"] = datos_usuario.get("id_usuario")
+    session["user_email"] = datos_usuario.get("email")
+    session["user_nombre"] = datos_usuario.get("nombre")
+    session["user_apellido"] = datos_usuario.get("apellido")
+    session["user_foto"] = datos_usuario.get("foto") or ""
+    session["user_lang"] = datos_usuario.get("idioma") or "en"
 
 
-@app.route('/logout')
+def _formatear_fecha(valor, formato="%d/%m/%Y"):
+    if not valor:
+        return ""
+    try:
+        return datetime.fromisoformat(str(valor)).strftime(formato)
+    except ValueError:
+        return str(valor)
+
+
+def _fecha(valor):
+    try:
+        return datetime.fromisoformat(str(valor)).date()
+    except (TypeError, ValueError):
+        return None
+
+
+@app.context_processor
+def variables_globales():
+    """Datos disponibles en todas las plantillas."""
+    return {
+        "user_id": session.get("user_id"),
+        "user_lang": session.get("user_lang", "en"),
+        "idiomas": IDIOMAS,
+    }
+
+
+# ─── Landing y autenticación ─────────────────────────────────────────────────
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "GET":
+        return render_template("register.html")
+
+    datos = request.get_json() if request.is_json else request.form
+    payload = {
+        "nombre": (datos.get("nombre") or "").strip(),
+        "apellido": (datos.get("apellido") or "").strip(),
+        "email": (datos.get("email") or "").strip().lower(),
+        "contrasena": datos.get("contrasena") or datos.get("password"),
+        "nacionalidad": (datos.get("nacionalidad") or "").strip() or None,
+        "foto": (datos.get("foto") or "").strip() or None,
+    }
+    payload = {k: v for k, v in payload.items() if v not in (None, "")}
+
+    try:
+        api_client.post("/usuarios/", json=payload, con_usuario=False)
+    except BackendError as exc:
+        if request.is_json:
+            return jsonify({"error": exc.mensaje}), exc.status or 400
+        return render_template("register.html", error=exc.mensaje)
+
+    if request.is_json:
+        return jsonify({"redirect": url_for("login")})
+    return redirect(url_for("login"))
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "GET":
+        return render_template("login.html")
+
+    datos = request.get_json() if request.is_json else request.form
+    recordar = datos.get("remember", False)
+    if isinstance(recordar, str):
+        recordar = recordar.lower() in ("true", "1", "on", "yes")
+
+    try:
+        usuario = api_client.post(
+            "/usuarios/login",
+            json={
+                "email": (datos.get("email") or "").strip().lower(),
+                "contrasena": datos.get("contrasena") or datos.get("password"),
+            },
+            con_usuario=False,
+        )
+    except BackendError as exc:
+        if request.is_json:
+            return jsonify({"error": exc.mensaje}), exc.status or 401
+        return render_template("login.html", error=exc.mensaje)
+
+    _guardar_sesion(usuario, recordar)
+
+    destino = datos.get("next") or request.args.get("next")
+    # Sólo aceptamos rutas internas: evita open redirect.
+    if not destino or not destino.startswith("/") or destino.startswith("//"):
+        destino = url_for("mytrips")
+
+    if request.is_json:
+        return jsonify({"redirect": destino})
+    return redirect(destino)
+
+
+# Sólo POST: un logout por GET se podría disparar desde un sitio externo.
+@app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
-    return redirect(url_for('index'))
+    return redirect(url_for("index"))
 
 
-@app.route('/settings')
-def settings():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    return render_template('settings.html')
+@app.route("/login/google")
+def login_google():
+    if not os.getenv("GOOGLE_CLIENT_ID"):
+        return render_template(
+            "login.html",
+            error="El inicio de sesión con Google no está configurado en este entorno.",
+        )
+    return google.authorize_redirect(url_for("authorize_google", _external=True))
 
 
-@app.route('/mytrips')
+@app.route("/login/google/callback")
+def authorize_google():
+    try:
+        google.authorize_access_token()
+        user_info = google.get("https://openidconnect.googleapis.com/v1/userinfo").json()
+    except Exception as exc:
+        logger.error("Falló el callback de Google: %s", exc)
+        return render_template("login.html", error="No se pudo completar el login con Google.")
+
+    try:
+        usuario = api_client.post("/usuarios/google-login", json=user_info, con_usuario=False)
+    except BackendError as exc:
+        return render_template("login.html", error=exc.mensaje)
+
+    _guardar_sesion(usuario, recordar=True)
+    return redirect(url_for("mytrips"))
+
+
+# ─── Mis viajes ──────────────────────────────────────────────────────────────
+
+@app.route("/mytrips")
+@login_requerido
 def mytrips():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    viajes = api_client.get_o_defecto(
+        f"/viajes/usuario/{session['user_id']}", defecto=[]
+    ) or []
 
-    user_id = session.get('user_id')
-    viajes = []
+    guardados = [v for v in viajes if v.get("estado") == "guardado"]
+    hoy = date.today()
 
+    guardados.sort(key=lambda v: _fecha(v.get("fecha_inicio")) or date.min, reverse=True)
+
+    pasados = [v for v in guardados if (_fecha(v.get("fecha_fin")) or date.max) < hoy]
+    futuros = [v for v in guardados if (_fecha(v.get("fecha_inicio")) or date.min) > hoy]
+
+    ultimo = max(pasados, key=lambda v: _fecha(v["fecha_fin"])) if pasados else None
+    proximo = min(futuros, key=lambda v: _fecha(v["fecha_inicio"])) if futuros else None
+
+    for v in guardados:
+        inicio = _fecha(v.get("fecha_inicio"))
+        fin = _fecha(v.get("fecha_fin"))
+        en_curso = bool(inicio and fin and inicio <= hoy <= fin)
+
+        if fin and fin < hoy:
+            v["filter_class"], v["is_past"] = "past-trip", True
+        elif inicio and inicio > hoy:
+            v["filter_class"], v["is_past"] = "next-trip", False
+        else:
+            v["filter_class"], v["is_past"] = "current-trip", False
+
+        if en_curso:
+            v["status_label"] = "current trip"
+        elif proximo and v["id_viaje"] == proximo["id_viaje"]:
+            v["status_label"] = "upcoming trip"
+        elif ultimo and v["id_viaje"] == ultimo["id_viaje"]:
+            v["status_label"] = "last trip"
+        else:
+            v["status_label"] = ""
+
+        v["fecha_inicio_fmt"] = _formatear_fecha(v.get("fecha_inicio"))
+        v["fecha_fin_fmt"] = _formatear_fecha(v.get("fecha_fin"))
+        v["destinos_display"] = " → ".join(v.get("destinos") or []) or "Sin destino"
+        v["imagen"] = v.get("imagen") or IMAGEN_POR_DEFECTO
+
+    return render_template("mytrips.html", viajes=guardados)
+
+
+# ─── Generación y comparación ────────────────────────────────────────────────
+
+@app.route("/create_trip", methods=["POST"])
+@login_requerido
+def create_trip():
+    """Guarda las preferencias, genera las 3 variantes y las persiste."""
+    datos = request.get_json()
+    if not datos:
+        return jsonify({"error": "No se recibieron datos del formulario."}), 400
+
+    destinos = [d.strip() for d in (datos.get("destinos") or []) if str(d).strip()]
+    if not destinos:
+        return jsonify({"error": "Tenés que indicar al menos un destino."}), 400
+
+    fecha_inicio = _fecha(datos.get("fecha_inicio"))
+    fecha_fin = _fecha(datos.get("fecha_fin"))
+    if not fecha_inicio or not fecha_fin:
+        return jsonify({"error": "Las fechas de salida y regreso son obligatorias."}), 400
+    if fecha_inicio > fecha_fin:
+        return jsonify({"error": "La fecha de salida no puede ser posterior a la de regreso."}), 400
+
+    costo_min = datos.get("costo_min")
+    costo_max = datos.get("costo_max")
+    if costo_min is not None and costo_max is not None and float(costo_min) > float(costo_max):
+        return jsonify({"error": "El presupuesto mínimo no puede superar al máximo."}), 400
+
+    preferencias = {
+        "id_usuario": session["user_id"],
+        "destinos": destinos,
+        "origen": datos.get("origen"),
+        "costo_min": costo_min,
+        "costo_max": costo_max,
+        "cantidad_personas": datos.get("cantidad_personas"),
+        "grupo": datos.get("grupo"),
+        "edades_viajeros": datos.get("edades_viajeros"),
+        "hospedaje": datos.get("hospedaje"),
+        "tipo_transporte": datos.get("tipo_transporte"),
+        "fecha_inicio": fecha_inicio.isoformat(),
+        "fecha_fin": fecha_fin.isoformat(),
+        "act_preferidas": datos.get("act_preferidas"),
+        "otros": datos.get("otros"),
+    }
+    preferencias = {k: v for k, v in preferencias.items() if v not in (None, "")}
+
+    # 1) Guardar las preferencias del usuario.
     try:
-        resp = requests.get(f'{BACKEND_URL}/viajes/usuario/{user_id}')
-        if resp.status_code == 200:
-            viajes_data = resp.json()
-            # Filip status guardado
-            viajes_guardados = [
-                v for v in viajes_data if v.get('estado') == 'guardado']
+        respuesta = api_client.post("/preferencias/", json=preferencias)
+        id_preferencia = (respuesta or {}).get("id")
+    except BackendError as exc:
+        logger.error("No se pudieron guardar las preferencias: %s", exc.mensaje)
+        return jsonify({"error": f"No se pudieron guardar tus preferencias: {exc.mensaje}"}), 400
 
-            hoy = date.today()
+    # 2) Generar las 3 variantes con el flujo de n8n.
+    try:
+        opciones, proveedor = trip_generator.generar_opciones(preferencias)
+    except Exception as exc:
+        logger.exception("Falló la generación de viajes")
+        return jsonify({"error": f"No se pudieron generar los viajes: {exc}"}), 500
 
-            # Ordenar por fecha de inicio descendente (mayor a la izquierda)
-            viajes_guardados.sort(key=lambda x: datetime.fromisoformat(x['fecha_inicio']).date() if x.get('fecha_inicio') else date.min, reverse=True)
+    # 3) Persistirlas como borradores.
+    try:
+        api_client.post("/viajes/generate", json={
+            "id_usuario": session["user_id"],
+            "id_user_preferences": id_preferencia,
+            "opciones": opciones,
+        }, timeout=60)
+    except BackendError as exc:
+        return jsonify({"error": f"No se pudieron guardar los viajes: {exc.mensaje}"}), 502
 
-            # Para identificar last trip y upcoming trip, encontramos los candidatos
-            last_trip = None
-            upcoming_trip = None
-            
-            # Buscar last trip: end date mÃ¡s cercano a hoy en el pasado (mÃ¡xima f_fin < hoy)
-            past_trips = [v for v in viajes_guardados if datetime.fromisoformat(v['fecha_fin']).date() < hoy]
-            if past_trips:
-                last_trip = max(past_trips, key=lambda x: datetime.fromisoformat(x['fecha_fin']).date())
-                
-            # Buscar upcoming trip: start date mÃ¡s cercano en el futuro (mÃ­nima f_inicio > hoy)
-            future_trips = [v for v in viajes_guardados if datetime.fromisoformat(v['fecha_inicio']).date() > hoy]
-            if future_trips:
-                upcoming_trip = min(future_trips, key=lambda x: datetime.fromisoformat(x['fecha_inicio']).date())
-
-            for v in viajes_guardados:
-                f_inicio = datetime.fromisoformat(v['fecha_inicio']).date()
-                f_fin = datetime.fromisoformat(v['fecha_fin']).date()
-
-                es_last = (v == last_trip)
-                es_upcoming = (v == upcoming_trip)
-                es_current = (f_inicio <= hoy <= f_fin)
-
-                # Definimos el flag fundamental de estado para el filtro
-                if f_fin < hoy:
-                    v['filter_class'] = 'past-trip'
-                    v['is_past'] = True
-                elif f_inicio > hoy:
-                    v['filter_class'] = 'next-trip'
-                    v['is_past'] = False
-                else:
-                    v['filter_class'] = 'current-trip'
-                    v['is_past'] = False
-
-                # Asignamos la etiqueta
-                if es_current:
-                    v['status_label'] = 'current trip'
-                elif es_upcoming:
-                    v['status_label'] = 'upcoming trip'
-                elif es_last:
-                    v['status_label'] = 'last trip'
-                else:
-                    v['status_label'] = ''
-
-                v['fecha_inicio'] = f_inicio.strftime('%d/%m/%Y')
-                v['fecha_fin'] = f_fin.strftime('%d/%m/%Y')
-
-                # Formatear destinos para display
-                v['destinos_display'] = ' â†’ '.join(v.get('destinos', []))
-
-            viajes = viajes_guardados
-
-    except requests.exceptions.ConnectionError:
-        pass
-
-    return render_template('mytrips.html', viajes=viajes)
+    logger.info("Viajes generados para el usuario %s con '%s'", session["user_id"], proveedor)
+    return jsonify({"redirect": url_for("compare"), "proveedor": proveedor})
 
 
-@app.route('/compare')
+@app.route("/compare")
+@login_requerido
 def compare():
-    if 'user_id' not in session:
-        # Prevent default 1 if not logged in
-        return redirect(url_for('login'))
-
-    user_id = session.get('user_id')
-    drafts = []
-    try:
-        resp = requests.get(f'{BACKEND_URL}/viajes/usuario/{user_id}/drafts')
-        if resp.status_code == 200:
-            drafts = resp.json()
-    except requests.exceptions.ConnectionError:
-        pass
+    drafts = api_client.get_o_defecto(
+        f"/viajes/usuario/{session['user_id']}/drafts", defecto=[]
+    ) or []
 
     if not drafts:
-        return redirect(url_for('index'))
+        return redirect(url_for("index"))
 
-    # Organizar drafts por tipo_viaje
-    viajes_por_tipo = {
-        'Economy': None,
-        'Balanced': None,
-        'Luxury': None
-    }
+    viajes_por_tipo = {"Economy": None, "Balanced": None, "Luxury": None}
     for draft in drafts:
-        if draft.get('tipo_viaje') in viajes_por_tipo:
-            viajes_por_tipo[draft.get('tipo_viaje')] = draft
+        draft["destinos_display"] = " → ".join(draft.get("destinos") or [])
+        draft["fecha_inicio_fmt"] = _formatear_fecha(draft.get("fecha_inicio"), "%d %b")
+        draft["fecha_fin_fmt"] = _formatear_fecha(draft.get("fecha_fin"), "%d %b")
 
-    return render_template('compare.html', viajes_por_tipo=viajes_por_tipo)
+        inicio, fin = _fecha(draft.get("fecha_inicio")), _fecha(draft.get("fecha_fin"))
+        draft["dias"] = (fin - inicio).days + 1 if inicio and fin else 0
+
+        if draft.get("tipo_viaje") in viajes_por_tipo:
+            viajes_por_tipo[draft["tipo_viaje"]] = draft
+
+    # Los "highlights" salen de las actividades reales de cada variante.
+    for tipo, viaje in viajes_por_tipo.items():
+        if not viaje:
+            continue
+        detalle = api_client.get_o_defecto(f"/viajes/{viaje['id_viaje']}", defecto={}) or {}
+        viaje["highlights"] = _highlights_de(detalle)
+        viaje["costos"] = detalle.get("costos") or {}
+
+    return render_template("compare.html", viajes_por_tipo=viajes_por_tipo)
 
 
-@app.route('/generate_trips', methods=['GET'])
-def generate_trips():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-
-    user_id = session.get('user_id')
-
-    # Obtener parÃ¡metros del query
-    destino = request.args.get('destino')
-    fecha_inicio = request.args.get('fecha_inicio')
-    fecha_fin = request.args.get('fecha_fin')
-
-    # Crear 3 opciones genÃ©ricas
-    opciones = [
-        {
-            "destinos": [destino] if destino else ["Destino Desconocido"],
-            "fecha_inicio": fecha_inicio or "2024-01-01",
-            "fecha_fin": fecha_fin or "2024-01-07",
-            "tipo": "Economy",
-            "costo_total_estimado": 1000.0,
-            "itinerario": [
-                {
-                    "dia": 1,
-                    "resumen": "Llegada y exploraciÃ³n econÃ³mica",
-                    "actividades": [
-                        {"nombre": "Paseo por el centro", "descripcion": "Caminata por el centro de la ciudad", "precio_estimado": 0.0, "categoria": "Caminata", "horario_sugerido": "10:00 - 12:00", "ubicacion": "Centro"},
-                        {"nombre": "Cena callejera", "descripcion": "Cena en un puesto callejero", "precio_estimado": 10.0, "categoria": "GastronomÃ­a", "horario_sugerido": "20:00 - 21:00", "ubicacion": "Plaza Central"}
-                    ]
-                },
-                {
-                    "dia": 2,
-                    "resumen": "Trekking y picnic",
-                    "actividades": [
-                        {"nombre": "Trekking al cerro", "descripcion": "Subida a la montaÃ±a cercana", "precio_estimado": 5.0, "categoria": "Deporte", "horario_sugerido": "08:00 - 14:00", "ubicacion": "Cerro local"},
-                        {"nombre": "Picnic en el parque", "descripcion": "Comida al aire libre", "precio_estimado": 15.0, "categoria": "GastronomÃ­a", "horario_sugerido": "14:30 - 16:00", "ubicacion": "Parque de la ciudad"}
-                    ]
-                },
-                {
-                    "dia": 3,
-                    "resumen": "DÃ­a de museos y despedida",
-                    "actividades": [
-                        {"nombre": "Museo gratuito", "descripcion": "Visita al museo histÃ³rico", "precio_estimado": 0.0, "categoria": "Cultural", "horario_sugerido": "10:00 - 13:00", "ubicacion": "Museo"},
-                        {"nombre": "Feria artesanal", "descripcion": "Compra de regalos econÃ³micos", "precio_estimado": 20.0, "categoria": "Compras", "horario_sugerido": "16:00 - 18:00", "ubicacion": "Feria central"}
-                    ]
-                }
-            ]
-        },
-        {
-            "destinos": [destino] if destino else ["Destino Desconocido"],
-            "fecha_inicio": fecha_inicio or "2024-01-01",
-            "fecha_fin": fecha_fin or "2024-01-07",
-            "tipo": "Balanced",
-            "costo_total_estimado": 2500.0,
-            "itinerario": [
-                {
-                    "dia": 1,
-                    "resumen": "Llegada y tour guiado",
-                    "actividades": [
-                        {"nombre": "Tour de la ciudad", "descripcion": "Tour guiado por los principales puntos", "precio_estimado": 25.0, "categoria": "Turismo", "horario_sugerido": "10:00 - 13:00", "ubicacion": "Centro"},
-                        {"nombre": "Cena en restaurante", "descripcion": "Cena en restaurante local tradicional", "precio_estimado": 40.0, "categoria": "GastronomÃ­a", "horario_sugerido": "20:00 - 22:00", "ubicacion": "Restaurante tÃ­pico"}
-                    ]
-                },
-                {
-                    "dia": 2,
-                    "resumen": "Aventura y relax",
-                    "actividades": [
-                        {"nombre": "Alquiler de bicicletas", "descripcion": "Recorrido en bici por la costa", "precio_estimado": 20.0, "categoria": "Deporte", "horario_sugerido": "09:00 - 12:00", "ubicacion": "Costanera"},
-                        {"nombre": "Tarde en museo", "descripcion": "Visita al museo de arte moderno", "precio_estimado": 15.0, "categoria": "Cultural", "horario_sugerido": "15:00 - 18:00", "ubicacion": "Museo de Arte"}
-                    ]
-                },
-                {
-                    "dia": 3,
-                    "resumen": "ExcursiÃ³n y compras",
-                    "actividades": [
-                        {"nombre": "ExcursiÃ³n grupal", "descripcion": "Salida a las afueras de la ciudad", "precio_estimado": 50.0, "categoria": "Aventura", "horario_sugerido": "08:00 - 14:00", "ubicacion": "Afueras"},
-                        {"nombre": "Shopping", "descripcion": "Visita a centro comercial", "precio_estimado": 50.0, "categoria": "Compras", "horario_sugerido": "16:00 - 19:00", "ubicacion": "Shopping Mall"}
-                    ]
-                }
-            ]
-        },
-        {
-            "destinos": [destino] if destino else ["Destino Desconocido"],
-            "fecha_inicio": fecha_inicio or "2024-01-01",
-            "fecha_fin": fecha_fin or "2024-01-07",
-            "tipo": "Luxury",
-            "costo_total_estimado": 5000.0,
-            "itinerario": [
-                {
-                    "dia": 1,
-                    "resumen": "RecepciÃ³n VIP y cena gourmet",
-                    "actividades": [
-                        {"nombre": "RecepciÃ³n en el hotel", "descripcion": "Bienvenida y spa", "precio_estimado": 150.0, "categoria": "Relax", "horario_sugerido": "14:00 - 17:00", "ubicacion": "Hotel 5 estrellas"},
-                        {"nombre": "Cena de autor", "descripcion": "Cena degustaciÃ³n en restaurante exclusivo", "precio_estimado": 200.0, "categoria": "GastronomÃ­a", "horario_sugerido": "21:00 - 23:30", "ubicacion": "Restaurante Gourmet"}
-                    ]
-                },
-                {
-                    "dia": 2,
-                    "resumen": "Tour privado y yate",
-                    "actividades": [
-                        {"nombre": "Tour privado con chofer", "descripcion": "Recorrido VIP por sitios histÃ³ricos", "precio_estimado": 300.0, "categoria": "Turismo", "horario_sugerido": "10:00 - 14:00", "ubicacion": "La ciudad"},
-                        {"nombre": "Paseo en Yate", "descripcion": "Atardecer en yate con champagne", "precio_estimado": 500.0, "categoria": "Exclusivo", "horario_sugerido": "16:00 - 19:00", "ubicacion": "Puerto"}
-                    ]
-                },
-                {
-                    "dia": 3,
-                    "resumen": "DÃ­a de compras exclusivas",
-                    "actividades": [
-                        {"nombre": "Personal shopper", "descripcion": "Compras guiadas en boutiques", "precio_estimado": 1000.0, "categoria": "Compras", "horario_sugerido": "10:00 - 14:00", "ubicacion": "Avenida principal"},
-                        {"nombre": "Cena despedida", "descripcion": "Cena en un lugar emblemÃ¡tico", "precio_estimado": 180.0, "categoria": "GastronomÃ­a", "horario_sugerido": "20:30 - 23:00", "ubicacion": "Terraza Skyline"}
-                    ]
-                }
-            ]
-        }
+def _highlights_de(detalle, cantidad=3):
+    """Elige las actividades más representativas de un viaje."""
+    actividades = [
+        act
+        for itin in (detalle.get("itinerarios") or [])
+        for act in (itin.get("actividades") or [])
     ]
+    if not actividades:
+        return []
 
-    datos = {
-        "id_usuario": user_id,
-        "opciones": opciones
-    }
+    # Las más caras suelen ser las que definen el carácter del plan.
+    destacadas = sorted(
+        actividades, key=lambda a: a.get("precio_estimado") or 0, reverse=True
+    )
 
-    try:
-        requests.post(f'{BACKEND_URL}/viajes/generate', json=datos)
-    except requests.exceptions.ConnectionError:
-        pass
+    vistas, resultado = set(), []
+    for act in destacadas:
+        nombre = act.get("nombre")
+        if nombre and nombre not in vistas:
+            vistas.add(nombre)
+            resultado.append(nombre)
+        if len(resultado) == cantidad:
+            break
 
-    return redirect(url_for('compare'))
+    return resultado
 
 
-@app.route('/create_trip', methods=['POST'])
-def create_trip():
-    """Receives trip form data as JSON, saves preferences, generates trips, redirects to compare."""
-    if 'user_id' not in session:
-        return jsonify({"error": "Not logged in"}), 401
-
-    user_id = session.get('user_id')
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "No data received"}), 400
-
-    destinos = data.get('destinos', [])
-    if not destinos:
-        return jsonify({"error": "At least one destination is required"}), 400
-
-    # 1) Save user preferences
-    preferencias = {
-        'id_usuario': user_id,
-        'destinos': destinos,
-        'origen': data.get('origen'),
-        'costo_min': data.get('costo_min'),
-        'costo_max': data.get('costo_max'),
-        'cantidad_personas': data.get('cantidad_personas'),
-        'grupo': data.get('grupo'),
-        'edades_viajeros': data.get('edades_viajeros'),
-        'hospedaje': data.get('hospedaje'),
-        'tipo_transporte': data.get('tipo_transporte'),
-        'fecha_inicio': data.get('fecha_inicio'),
-        'fecha_fin': data.get('fecha_fin'),
-        'act_preferidas': data.get('act_preferidas'),
-        'otros': data.get('otros'),
-    }
-
-    # Filter out None and empty string values to avoid Marshmallow validation errors on optional fields
-    preferencias = {k: v for k, v in preferencias.items() if v is not None and v != ''}
-
-    id_preferencia = None
-    try:
-        resp_pref = requests.post(f'{BACKEND_URL}/preferencias/', json=preferencias)
-        if resp_pref.status_code == 201:
-            id_preferencia = resp_pref.json().get('id')
-        else:
-            print(f"Error saving preferences: {resp_pref.text}")
-    except requests.exceptions.ConnectionError:
-        print("Connection error saving preferences")
-        pass
-
-    # 2) Generate 3 trip options
-    fecha_inicio = data.get('fecha_inicio') or '2024-01-01'
-    fecha_fin = data.get('fecha_fin') or '2024-01-07'
-    destino_display = ', '.join(destinos)
-
-    opciones = [
-        {
-            "destinos": destinos,
-            "fecha_inicio": fecha_inicio,
-            "fecha_fin": fecha_fin,
-            "tipo": "Economy",
-            "costo_total_estimado": 1000.0,
-            "itinerario": [
-                {
-                    "dia": 1,
-                    "resumen": "Llegada y exploraciÃ³n econÃ³mica",
-                    "actividades": [
-                        {"nombre": "Paseo por el centro", "descripcion": "Caminata por el centro de la ciudad", "precio_estimado": 0.0, "categoria": "Caminata", "horario_sugerido": "10:00 - 12:00", "ubicacion": "Centro"},
-                        {"nombre": "Cena callejera", "descripcion": "Cena en un puesto callejero", "precio_estimado": 10.0, "categoria": "GastronomÃ­a", "horario_sugerido": "20:00 - 21:00", "ubicacion": "Plaza Central"}
-                    ]
-                },
-                {
-                    "dia": 2,
-                    "resumen": "Trekking y picnic",
-                    "actividades": [
-                        {"nombre": "Trekking al cerro", "descripcion": "Subida a la montaÃ±a cercana", "precio_estimado": 5.0, "categoria": "Deporte", "horario_sugerido": "08:00 - 14:00", "ubicacion": "Cerro local"},
-                        {"nombre": "Picnic en el parque", "descripcion": "Comida al aire libre", "precio_estimado": 15.0, "categoria": "GastronomÃ­a", "horario_sugerido": "14:30 - 16:00", "ubicacion": "Parque de la ciudad"}
-                    ]
-                },
-                {
-                    "dia": 3,
-                    "resumen": "DÃ­a de museos y despedida",
-                    "actividades": [
-                        {"nombre": "Museo gratuito", "descripcion": "Visita al museo histÃ³rico", "precio_estimado": 0.0, "categoria": "Cultural", "horario_sugerido": "10:00 - 13:00", "ubicacion": "Museo"},
-                        {"nombre": "Feria artesanal", "descripcion": "Compra de regalos econÃ³micos", "precio_estimado": 20.0, "categoria": "Compras", "horario_sugerido": "16:00 - 18:00", "ubicacion": "Feria central"}
-                    ]
-                }
-            ]
-        },
-        {
-            "destinos": destinos,
-            "fecha_inicio": fecha_inicio,
-            "fecha_fin": fecha_fin,
-            "tipo": "Balanced",
-            "costo_total_estimado": 2500.0,
-            "itinerario": [
-                {
-                    "dia": 1,
-                    "resumen": "Llegada y tour guiado",
-                    "actividades": [
-                        {"nombre": "Tour de la ciudad", "descripcion": "Tour guiado por los principales puntos", "precio_estimado": 25.0, "categoria": "Turismo", "horario_sugerido": "10:00 - 13:00", "ubicacion": "Centro"},
-                        {"nombre": "Cena en restaurante", "descripcion": "Cena en restaurante local tradicional", "precio_estimado": 40.0, "categoria": "GastronomÃ­a", "horario_sugerido": "20:00 - 22:00", "ubicacion": "Restaurante tÃ­pico"}
-                    ]
-                },
-                {
-                    "dia": 2,
-                    "resumen": "Aventura y relax",
-                    "actividades": [
-                        {"nombre": "Alquiler de bicicletas", "descripcion": "Recorrido en bici por la costa", "precio_estimado": 20.0, "categoria": "Deporte", "horario_sugerido": "09:00 - 12:00", "ubicacion": "Costanera"},
-                        {"nombre": "Tarde en museo", "descripcion": "Visita al museo de arte moderno", "precio_estimado": 15.0, "categoria": "Cultural", "horario_sugerido": "15:00 - 18:00", "ubicacion": "Museo de Arte"}
-                    ]
-                },
-                {
-                    "dia": 3,
-                    "resumen": "ExcursiÃ³n y compras",
-                    "actividades": [
-                        {"nombre": "ExcursiÃ³n grupal", "descripcion": "Salida a las afueras de la ciudad", "precio_estimado": 50.0, "categoria": "Aventura", "horario_sugerido": "08:00 - 14:00", "ubicacion": "Afueras"},
-                        {"nombre": "Shopping", "descripcion": "Visita a centro comercial", "precio_estimado": 50.0, "categoria": "Compras", "horario_sugerido": "16:00 - 19:00", "ubicacion": "Shopping Mall"}
-                    ]
-                }
-            ]
-        },
-        {
-            "destinos": destinos,
-            "fecha_inicio": fecha_inicio,
-            "fecha_fin": fecha_fin,
-            "tipo": "Luxury",
-            "costo_total_estimado": 5000.0,
-            "itinerario": [
-                {
-                    "dia": 1,
-                    "resumen": "RecepciÃ³n VIP y cena gourmet",
-                    "actividades": [
-                        {"nombre": "RecepciÃ³n en el hotel", "descripcion": "Bienvenida y spa", "precio_estimado": 150.0, "categoria": "Relax", "horario_sugerido": "14:00 - 17:00", "ubicacion": "Hotel 5 estrellas"},
-                        {"nombre": "Cena de autor", "descripcion": "Cena degustaciÃ³n en restaurante exclusivo", "precio_estimado": 200.0, "categoria": "GastronomÃ­a", "horario_sugerido": "21:00 - 23:30", "ubicacion": "Restaurante Gourmet"}
-                    ]
-                },
-                {
-                    "dia": 2,
-                    "resumen": "Tour privado y yate",
-                    "actividades": [
-                        {"nombre": "Tour privado con chofer", "descripcion": "Recorrido VIP por sitios histÃ³ricos", "precio_estimado": 300.0, "categoria": "Turismo", "horario_sugerido": "10:00 - 14:00", "ubicacion": "La ciudad"},
-                        {"nombre": "Paseo en Yate", "descripcion": "Atardecer en yate con champagne", "precio_estimado": 500.0, "categoria": "Exclusivo", "horario_sugerido": "16:00 - 19:00", "ubicacion": "Puerto"}
-                    ]
-                },
-                {
-                    "dia": 3,
-                    "resumen": "DÃ­a de compras exclusivas",
-                    "actividades": [
-                        {"nombre": "Personal shopper", "descripcion": "Compras guiadas en boutiques", "precio_estimado": 1000.0, "categoria": "Compras", "horario_sugerido": "10:00 - 14:00", "ubicacion": "Avenida principal"},
-                        {"nombre": "Cena despedida", "descripcion": "Cena en un lugar emblemÃ¡tico", "precio_estimado": 180.0, "categoria": "GastronomÃ­a", "horario_sugerido": "20:30 - 23:00", "ubicacion": "Terraza Skyline"}
-                    ]
-                }
-            ]
-        }
-    ]
-
-    datos_viajes = {
-        "id_usuario": user_id,
-        "opciones": opciones,
-        "id_user_preferences": id_preferencia
-    }
-
-    try:
-        requests.post(f'{BACKEND_URL}/viajes/generate', json=datos_viajes)
-    except requests.exceptions.ConnectionError:
-        return jsonify({"error": "Could not connect to backend"}), 500
-
-    return jsonify({"redirect": url_for('compare')})
-
-@app.route('/select_trip/<int:id_viaje>', methods=['POST'])
+@app.route("/select_trip/<int:id_viaje>", methods=["POST"])
+@login_requerido
 def select_trip(id_viaje):
     try:
-        resp = requests.post(f'{BACKEND_URL}/viajes/{id_viaje}/select')
-        if resp.status_code == 200:
-            return redirect(url_for('itinerary', id_viaje=id_viaje))
-    except requests.exceptions.ConnectionError:
-        pass
-    return redirect(url_for('compare'))
+        api_client.post(f"/viajes/{id_viaje}/select")
+    except BackendError as exc:
+        logger.warning("No se pudo confirmar el viaje %s: %s", id_viaje, exc.mensaje)
+        return redirect(url_for("compare"))
+
+    return redirect(url_for("itinerary", id_viaje=id_viaje))
 
 
-@app.route('/itinerary/<int:id_viaje>')
-def itinerary(id_viaje):
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    
-    try:
-        resp = requests.get(f'{BACKEND_URL}/viajes/{id_viaje}')
-        if resp.status_code == 200:
-            viaje = resp.json()
-            
-            # Format dates for frontend
-            if 'fecha_inicio' in viaje:
-                dt_inicio = datetime.fromisoformat(viaje['fecha_inicio'])
-                viaje['fecha_inicio_fmt'] = dt_inicio.strftime('%b %d')
-            if 'fecha_fin' in viaje:
-                dt_fin = datetime.fromisoformat(viaje['fecha_fin'])
-                viaje['fecha_fin_fmt'] = dt_fin.strftime('%b %d')
-                
-            # Format destinos for display
-            if 'destinos' in viaje:
-                viaje['destinos_display'] = ' â†’ '.join(viaje.get('destinos', []))
-                
-            # Calcular las fechas por dÃ­a del itinerario
-            if 'itinerarios' in viaje and 'fecha_inicio' in viaje:
-                for idx, itin in enumerate(viaje['itinerarios']):
-                    dt_dia = dt_inicio + timedelta(days=idx)
-                    itin['fecha_fmt'] = dt_dia.strftime('%b %d')
-                    
-            # Si no hay imagen
-            if 'imagen' not in viaje or not viaje['imagen']:
-                viaje['imagen'] = "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-                
-            return render_template('itinerary.html', viaje=viaje)
+# ─── Itinerario ──────────────────────────────────────────────────────────────
+
+def _cargar_viaje(id_viaje):
+    """Trae el viaje del backend y lo prepara para las plantillas."""
+    viaje = api_client.get(f"/viajes/{id_viaje}")
+
+    inicio = _fecha(viaje.get("fecha_inicio"))
+    fin = _fecha(viaje.get("fecha_fin"))
+    hoy = date.today()
+
+    viaje["fecha_inicio_fmt"] = _formatear_fecha(viaje.get("fecha_inicio"), "%d %b")
+    viaje["fecha_fin_fmt"] = _formatear_fecha(viaje.get("fecha_fin"), "%d %b")
+    viaje["destinos_display"] = " → ".join(viaje.get("destinos") or []) or "Sin destino"
+    destinos = viaje.get("destinos") or []
+    viaje["destino_principal"] = destinos[0] if destinos else ""
+    viaje["imagen"] = viaje.get("imagen") or IMAGEN_POR_DEFECTO
+    viaje["dias_totales"] = (fin - inicio).days + 1 if inicio and fin else 0
+
+    # Countdown real.
+    if inicio:
+        dias_restantes = (inicio - hoy).days
+        if dias_restantes > 0:
+            viaje["countdown"] = dias_restantes
+            viaje["countdown_estado"] = "faltan"
+        elif fin and inicio <= hoy <= fin:
+            viaje["countdown"] = (fin - hoy).days
+            viaje["countdown_estado"] = "en_curso"
         else:
-            return f"Error: no se pudo cargar el viaje ({resp.status_code}). Verifica consola del backend.", 500
-    except requests.exceptions.ConnectionError:
-        return "Error: no se pudo conectar al Backend.", 500
+            viaje["countdown"] = abs((hoy - (fin or inicio)).days)
+            viaje["countdown_estado"] = "finalizado"
+    else:
+        viaje["countdown"] = 0
+        viaje["countdown_estado"] = "desconocido"
 
-@app.route('/planificar', methods=['GET', 'POST'])
-def planificar():
-    """Formulario para planificar un nuevo viaje con IA"""
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    itinerarios = sorted(viaje.get("itinerarios") or [], key=lambda i: i.get("dia") or 0)
+    for indice, itin in enumerate(itinerarios):
+        fecha_dia = inicio + timedelta(days=indice) if inicio else None
+        itin["fecha_fmt"] = fecha_dia.strftime("%d %b") if fecha_dia else ""
+        itin["fecha_iso"] = fecha_dia.isoformat() if fecha_dia else ""
+        itin["total_dia"] = round(
+            sum(a.get("precio_estimado") or 0 for a in (itin.get("actividades") or [])), 2
+        )
+    viaje["itinerarios"] = itinerarios
 
-    if request.method == 'POST':
-        preferencias = {
-            'destino':           request.form.get('destino'),
-            'fecha_inicio':      request.form.get('fecha_inicio'),
-            'fecha_fin':         request.form.get('fecha_fin'),
-            'costo_max':         float(request.form.get('costo_max', 0)),
-            'cantidad_personas': int(request.form.get('cantidad_personas', 1)),
-            'grupo':             request.form.get('grupo'),
-            'clima':             request.form.get('clima'),
-            'otros':             request.form.get('otros'),
-        }
-        try:
-            resp = requests.post(
-                f'{BACKEND_URL}/api/recommendations/generate',
-                json=preferencias
-            )
-            if resp.status_code == 200:
-                recomendaciones = resp.json().get('data', [])
-                return render_template('resultados.html',
-                                       recomendaciones=recomendaciones,
-                                       preferencias=preferencias)
-            error = resp.json().get('error', 'Error al generar recomendaciones.')
-            return render_template('planificar.html', error=error)
-        except requests.exceptions.ConnectionError:
-            return render_template('planificar.html',
-                                   error='No se pudo conectar con el servidor.')
+    return viaje
 
-    # Cargar tipos de alojamiento para el formulario
-    tipos_alojamiento = []
+
+@app.route("/itinerary/<int:id_viaje>")
+@login_requerido
+def itinerary(id_viaje):
     try:
-        resp = requests.get(f'{BACKEND_URL}/tipos_alojamiento/')
-        if resp.status_code == 200:
-            tipos_alojamiento = resp.json()
-    except requests.exceptions.ConnectionError:
-        pass
+        viaje = _cargar_viaje(id_viaje)
+    except BackendError as exc:
+        if exc.status == 404:
+            return render_template("404.html"), 404
+        if exc.status == 403:
+            return render_template("403.html"), 403
+        return render_template("500.html", detalle=exc.mensaje), 500
 
-    return render_template('planificar.html', tipos_alojamiento=tipos_alojamiento)
+    return render_template("itinerary.html", viaje=viaje)
 
 
-@app.route('/viaje/<int:id_viaje>')
+# Alias histórico: /viaje/<id> apunta al mismo itinerario.
+@app.route("/viaje/<int:id_viaje>")
+@login_requerido
 def detalle_viaje(id_viaje):
-    """Detalle de un viaje: itinerario, costos y actividades"""
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    return redirect(url_for("itinerary", id_viaje=id_viaje))
 
-    viaje, costos, itinerarios = None, None, []
+
+@app.route("/trips/<int:id_viaje>", methods=["DELETE"])
+@login_requerido
+def eliminar_viaje(id_viaje):
     try:
-        r_viaje = requests.get(f'{BACKEND_URL}/viajes/{id_viaje}')
-        if r_viaje.status_code == 200:
-            viaje = r_viaje.json()
-
-        r_costos = requests.get(f'{BACKEND_URL}/costos/viajes/{id_viaje}')
-        if r_costos.status_code == 200:
-            costos = r_costos.json()
-
-        r_itin = requests.get(f'{BACKEND_URL}/itinerarios/viaje/{id_viaje}')
-        if r_itin.status_code == 200:
-            itinerarios = r_itin.json()
-    except requests.exceptions.ConnectionError:
-        pass
-
-    return render_template('detalle_viaje.html',
-                           viaje=viaje,
-                           costos=costos,
-                           itinerarios=itinerarios)
+        api_client.delete(f"/viajes/{id_viaje}")
+    except BackendError as exc:
+        return jsonify({"error": exc.mensaje}), exc.status or 500
+    return jsonify({"ok": True})
 
 
-# â”€â”€â”€ Error handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+@app.route("/trips/<int:id_viaje>", methods=["PATCH"])
+@login_requerido
+def editar_viaje(id_viaje):
+    datos = request.get_json() or {}
+    permitidos = {"destinos", "fecha_inicio", "fecha_fin", "imagen"}
+    payload = {k: v for k, v in datos.items() if k in permitidos}
+
+    if not payload:
+        return jsonify({"error": "No hay nada para actualizar."}), 400
+
+    try:
+        api_client.request("PATCH", f"/viajes/{id_viaje}", json=payload)
+    except BackendError as exc:
+        return jsonify({"error": exc.mensaje}), exc.status or 500
+    return jsonify({"ok": True})
+
+
+# ─── Presupuesto ─────────────────────────────────────────────────────────────
+
+@app.route("/budget")
+@app.route("/budget/<int:id_viaje>")
+@login_requerido
+def budget(id_viaje=None):
+    if id_viaje is None:
+        viajes = api_client.get_o_defecto(
+            f"/viajes/usuario/{session['user_id']}", defecto=[]
+        ) or []
+        guardados = [v for v in viajes if v.get("estado") == "guardado"]
+        if not guardados:
+            return render_template("budget.html", viaje=None, viajes=[])
+        guardados.sort(key=lambda v: _fecha(v.get("fecha_inicio")) or date.min, reverse=True)
+        id_viaje = guardados[0]["id_viaje"]
+
+    try:
+        viaje = _cargar_viaje(id_viaje)
+    except BackendError as exc:
+        if exc.status == 404:
+            return render_template("404.html"), 404
+        return render_template("500.html", detalle=exc.mensaje), 500
+
+    costos = viaje.get("costos") or {}
+
+    # Gasto por día y por categoría, calculado con las actividades reales.
+    por_dia = [
+        {
+            "dia": itin.get("dia"),
+            "fecha": itin.get("fecha_fmt"),
+            "total": itin.get("total_dia", 0),
+        }
+        for itin in viaje.get("itinerarios") or []
+    ]
+
+    por_categoria = {}
+    for itin in viaje.get("itinerarios") or []:
+        for act in itin.get("actividades") or []:
+            clave = act.get("categoria") or "Otros"
+            por_categoria[clave] = round(
+                por_categoria.get(clave, 0) + (act.get("precio_estimado") or 0), 2
+            )
+
+    otros_viajes = api_client.get_o_defecto(
+        f"/viajes/usuario/{session['user_id']}", defecto=[]
+    ) or []
+
+    return render_template(
+        "budget.html",
+        viaje=viaje,
+        costos=costos,
+        por_dia=por_dia,
+        por_categoria=sorted(por_categoria.items(), key=lambda kv: kv[1], reverse=True),
+        viajes=[v for v in otros_viajes if v.get("estado") == "guardado"],
+    )
+
+
+# ─── Configuración ───────────────────────────────────────────────────────────
+
+@app.route("/settings")
+@login_requerido
+def settings():
+    perfil = api_client.get_o_defecto(f"/usuarios/{session['user_id']}", defecto={}) or {}
+    return render_template("settings.html", perfil=perfil)
+
+
+@app.route("/settings/profile", methods=["POST"])
+@login_requerido
+def actualizar_perfil():
+    datos = request.get_json() or {}
+    payload = {
+        campo: datos[campo]
+        for campo in ("nombre", "apellido", "email", "nacionalidad", "foto")
+        if datos.get(campo) not in (None, "")
+    }
+
+    if datos.get("contrasena"):
+        payload["contrasena"] = datos["contrasena"]
+
+    if not payload:
+        return jsonify({"error": "No hay cambios para guardar."}), 400
+
+    try:
+        actualizado = api_client.put(f"/usuarios/{session['user_id']}", json=payload)
+    except BackendError as exc:
+        return jsonify({"error": exc.mensaje}), exc.status or 400
+
+    session["user_nombre"] = actualizado.get("nombre", session.get("user_nombre"))
+    session["user_apellido"] = actualizado.get("apellido", session.get("user_apellido"))
+    session["user_email"] = actualizado.get("email", session.get("user_email"))
+    session["user_foto"] = actualizado.get("foto") or ""
+
+    return jsonify({"ok": True, "mensaje": "Perfil actualizado."})
+
+
+@app.route("/settings/language", methods=["POST"])
+@login_requerido
+def actualizar_idioma():
+    idioma = (request.get_json() or {}).get("idioma")
+    if idioma not in IDIOMAS:
+        return jsonify({"error": "Idioma no soportado."}), 400
+
+    try:
+        api_client.put(f"/usuarios/{session['user_id']}", json={"idioma": idioma})
+    except BackendError as exc:
+        return jsonify({"error": exc.mensaje}), exc.status or 400
+
+    session["user_lang"] = idioma
+    return jsonify({"ok": True})
+
+
+@app.route("/settings/account", methods=["DELETE"])
+@login_requerido
+def eliminar_cuenta():
+    try:
+        api_client.delete(f"/usuarios/{session['user_id']}")
+    except BackendError as exc:
+        return jsonify({"error": exc.mensaje}), exc.status or 400
+
+    session.clear()
+    return jsonify({"ok": True, "redirect": url_for("index")})
+
+
+# ─── Errores ─────────────────────────────────────────────────────────────────
+
+@app.errorhandler(400)
+def solicitud_invalida(e):
+    detalle = getattr(e, "description", "La solicitud no es válida.")
+    if request.is_json:
+        return jsonify({"error": detalle}), 400
+    return render_template("400.html", detalle=detalle), 400
+
+
+@app.errorhandler(403)
+def prohibido(_e):
+    return render_template("403.html"), 403
+
 
 @app.errorhandler(404)
-def not_found(e):
-    return render_template('404.html'), 404
+def no_encontrado(_e):
+    if request.is_json:
+        return jsonify({"error": "Recurso no encontrado."}), 404
+    return render_template("404.html"), 404
 
 
 @app.errorhandler(500)
-def server_error(e):
-    return render_template('500.html'), 500
+def error_interno(e):
+    logger.exception("Error interno no controlado: %s", e)
+    if request.is_json:
+        return jsonify({"error": "Error interno del servidor."}), 500
+    return render_template("500.html"), 500
 
 
-# â”€â”€â”€ Run â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ─── Arranque ────────────────────────────────────────────────────────────────
 
+if __name__ == "__main__":
+    if not os.getenv("BACKEND_API_KEY"):
+        logger.warning(
+            "BACKEND_API_KEY no está definida: el backend va a rechazar todas las llamadas."
+        )
 
-
-
-# ─── Google OAuth ─────────────────────────────────────────────────────────────
-
-@app.route('/login/google')
-def login_google():
-    redirect_uri = url_for('authorize_google', _external=True)
-    return google.authorize_redirect(redirect_uri)
-
-
-@app.route('/login/google/callback')
-def authorize_google():
-    token = google.authorize_access_token()
-    resp = google.get('https://openidconnect.googleapis.com/v1/userinfo')
-    user_info = resp.json()
-    
-    # Enviar al backend
-    try:
-        backend_resp = requests.post(f'{BACKEND_URL}/usuarios/google-login', json=user_info)
-        backend_data = backend_resp.json()
-        
-        if backend_resp.status_code == 200:
-            session.permanent = True
-            session['user_id'] = backend_data.get('id_usuario')
-            session['user_foto'] = user_info.get('picture', '')
-            return redirect(url_for('index'))
-        else:
-            return render_template('login.html', error=backend_data.get('error', 'Error en login con Google'))
-    except requests.exceptions.RequestException as e:
-        return render_template('login.html', error='Error de conexión con el servidor')
-
-
-# ─── Run ──────────────────────────────────────────────────────────────────────
-
-if __name__ == '__main__':
-    app.run(debug=True, port=8080)
+    app.run(
+        debug=os.getenv("FLASK_DEBUG", "true").lower() == "true",
+        port=int(os.getenv("PORT", 8080)),
+    )

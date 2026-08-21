@@ -1,216 +1,180 @@
 {% extends "layout.html" %}
+{% block title %}Choose your journey · Travel Planner{% endblock %}
 
-{% block body %}
+{% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='compare.css') }}">
 <style>
-    body {
-        background-image: none !important;
-        background-color: #ffffff !important;
-    }
-    .plan-card-container {
-        max-width: 300px; /* Hacerlas menos anchas */
-        margin: 0 auto;
-    }
+    body { background-image: none !important; background-color: #ffffff !important; }
+    .plan-card-container { max-width: 320px; margin: 0 auto; flex: 1 1 300px; }
 </style>
+{% endblock %}
 
+{% macro tarjeta(viaje, tipo, icono, clave_tipo, clave_plan, recomendado=false) %}
+{% if viaje %}
+<div class="plan-card-container {% if recomendado %}position-relative{% endif %}">
+    <div class="card h-100 {% if recomendado %}shadow recommended-card{% else %}shadow-sm{% endif %} plan-card"
+         data-id="{{ viaje.id_viaje }}"
+         style="border: 1px solid #d1d5db; min-height: 520px; cursor: pointer;"
+         onclick="previewPlan(this, {{ viaje.id_viaje }})">
+
+        {% if recomendado %}
+        <span class="position-absolute top-0 start-50 translate-middle badge rounded-pill px-3 py-1"
+              style="background-color: var(--brand-color, #006d5b); font-size: 0.75rem; z-index: 10;">
+            <span data-i18n="compare_rec">RECOMMENDED</span>
+        </span>
+        {% endif %}
+
+        <div class="card-body p-4 d-flex flex-column" style="pointer-events: none;">
+            <div class="d-flex align-items-center mb-3 text-secondary fw-bold" style="font-size: 0.8rem;">
+                <i class="fa-solid {{ icono }} me-2 fs-6"></i> <span data-i18n="{{ clave_tipo }}">{{ tipo }}</span>
+            </div>
+
+            <h4 class="card-title fw-bold mb-1" data-i18n="{{ clave_plan }}">{{ tipo }}</h4>
+
+            <div class="fs-2 fw-bold mb-1">
+                ${{ '{:,.0f}'.format(viaje.costo_total_estimado or 0) }}
+                <span class="fs-6 fw-normal text-secondary"><span data-i18n="compare_total"> / total est.</span></span>
+            </div>
+
+            <p class="text-secondary mb-3" style="font-size: 0.85rem;">
+                <i class="fa-regular fa-calendar me-1"></i>
+                {{ viaje.fecha_inicio_fmt }} – {{ viaje.fecha_fin_fmt }}
+                · {{ viaje.dias }} <span data-i18n="compare_days">days</span>
+            </p>
+
+            <hr class="bg-light border-2 border-top border-light opacity-100">
+
+            <p class="fw-bold text-secondary text-uppercase mb-3 mt-3" style="font-size: 0.7rem;">
+                <span data-i18n="compare_highlights">Key Highlights</span>
+            </p>
+
+            <ul class="list-unstyled mb-4" style="font-size: 0.85rem;">
+                {% for destacado in viaje.highlights %}
+                <li class="mb-3 d-flex">
+                    <i class="fa-solid fa-circle-check text-info me-2 mt-1"></i>
+                    <span>{{ destacado }}</span>
+                </li>
+                {% else %}
+                <li class="mb-3 text-secondary fst-italic" data-i18n="compare_no_highlights">
+                    Full itinerary available in the preview.
+                </li>
+                {% endfor %}
+            </ul>
+
+            <div class="d-flex gap-2 mt-auto w-100" style="pointer-events: auto;">
+                <button class="btn btn-outline-secondary w-50 fw-bold py-2 preview-btn"
+                        onclick="event.stopPropagation(); previewPlan(this.closest('.card'), {{ viaje.id_viaje }})"
+                        data-i18n="compare_preview">PREVIEW</button>
+                <button class="btn btn-light w-50 fw-bold border py-2 select-btn"
+                        onclick="event.stopPropagation(); selectPlan(this.closest('.card'), {{ viaje.id_viaje }})"
+                        data-i18n="compare_select">SELECT</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% block body %}
 <div class="page-wrapper">
-    <!-- Sidebar -->
     {% set active_page = 'compare' %}
     {% include 'sidebar.html' %}
 
-    <!-- Main Content -->
     <div class="main-content">
         <main class="container py-2">
-            <!-- Header Section -->
+
             <div class="text-center mb-4 mt-2">
-                <span class="badge rounded-pill mb-2 py-2 px-3 fw-bold" style="background-color: #99f6e4; color: #065f46; letter-spacing: 0.5px;" data-i18n="compare_ai">
-            <i class="fa-solid fa-wand-magic-sparkles me-1"></i> AI GENERATED OPTIONS
-        </span>
-        <h1 class="display-6 fw-bold mb-2" style="color: #111827;" data-i18n="compare_title">Choose Your Journey</h1>
-        <p class="text-secondary fs-6" style="max-width: 700px; margin: 0 auto;" data-i18n="compare_subtitle">
-            We've crafted three unique itineraries based on your preferences. Compare the pace, style, and estimated costs below.
-        </p>
-    </div>
-
-    <!-- Pricing Cards -->
-    <div class="d-flex flex-wrap justify-content-center align-items-stretch mt-5 gap-3">
-        
-        <!-- Economy Plan -->
-        {% if viajes_por_tipo.get('Economy') %}
-        <div class="plan-card-container" style="max-width: 320px; flex: 1 1 300px;">
-            <div class="card h-100 shadow-sm plan-card" data-id="{{ viajes_por_tipo['Economy'].id_viaje }}" style="border: 1px solid #d1d5db; min-height: 520px; cursor: pointer;" onclick="previewPlan(this, {{ viajes_por_tipo['Economy'].id_viaje }})">
-                <div class="card-body p-4 d-flex flex-column" style="pointer-events: none;">
-                    <div class="d-flex align-items-center mb-3 text-secondary fw-bold" style="font-size: 0.8rem;">
-                        <i class="fa-solid fa-person-walking-luggage me-2 fs-6"></i> <span data-i18n="compare_eco">ECONOMY</span>
-                    </div>
-                    <h4 class="card-title fw-bold mb-1" data-i18n="compare_plan_eco">Local Explorer</h4>
-                    <div class="fs-2 fw-bold mb-3">${{ viajes_por_tipo['Economy'].costo_total_estimado }}<span class="fs-6 fw-normal text-secondary"> <span data-i18n="compare_total">/ total est.</span></span></div>
-                    
-                    <hr class="bg-light border-2 border-top border-light opacity-100">
-                    
-                    <p class="fw-bold text-secondary text-uppercase mb-3 mt-3" style="font-size: 0.7rem;"><span data-i18n="compare_highlights">Key Highlights</span></p>
-                    <ul class="list-unstyled mb-4" style="font-size: 0.85rem;">
-                        <li class="mb-3 d-flex"><i class="fa-solid fa-circle-check text-info me-2 mt-1"></i> <span data-i18n="compare_feat1">Public transit passes included</span></li>
-                        <li class="mb-3 d-flex"><i class="fa-solid fa-circle-check text-info me-2 mt-1"></i> <span data-i18n="compare_feat2">Boutique hostel private rooms</span></li>
-                        <li class="mb-2 d-flex"><i class="fa-solid fa-circle-check text-info me-2 mt-1"></i> <span data-i18n="compare_feat3">Self-guided walking tours</span></li>
-                    </ul>
-
-                    <div class="d-flex gap-2 mt-auto w-100" style="pointer-events: auto;">
-                        <button class="btn btn-outline-secondary w-50 fw-bold py-2 preview-btn" onclick="event.stopPropagation(); previewPlan(this.closest('.card'), {{ viajes_por_tipo['Economy'].id_viaje }})" data-i18n="compare_preview">PREVIEW</button>
-                        <button class="btn btn-light w-50 fw-bold border py-2 select-btn" onclick="event.stopPropagation(); selectPlan(this.closest('.card'), {{ viajes_por_tipo['Economy'].id_viaje }})" data-i18n="compare_select">SELECT</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Balanced Plan (Recommended) -->
-        {% if viajes_por_tipo.get('Balanced') %}
-        <div class="plan-card-container position-relative" style="max-width: 320px; flex: 1 1 300px;">
-            <div class="card h-100 shadow plan-card recommended-card" data-id="{{ viajes_por_tipo['Balanced'].id_viaje }}" style="border: 1px solid #d1d5db; min-height: 520px; cursor: pointer;" onclick="previewPlan(this, {{ viajes_por_tipo['Balanced'].id_viaje }})">
-                <span class="position-absolute top-0 start-50 translate-middle badge rounded-pill px-3 py-1" style="background-color: var(--brand-color, #006d5b); font-size: 0.75rem; z-index: 10;">
-                    <span data-i18n="compare_rec">RECOMMENDED</span>
+                <span class="badge rounded-pill mb-2 py-2 px-3 fw-bold"
+                      style="background-color: #99f6e4; color: #065f46; letter-spacing: 0.5px;">
+                    <i class="fa-solid fa-wand-magic-sparkles me-1"></i>
+                    <span data-i18n="compare_ai">AI GENERATED OPTIONS</span>
                 </span>
-                <div class="card-body p-4 d-flex flex-column" style="pointer-events: none;">
-                    <div class="d-flex align-items-center mb-3 fw-bold text-secondary" style="font-size: 0.8rem;">
-                        <i class="fa-solid fa-scale-balanced me-2 fs-6"></i> <span data-i18n="compare_bal">BALANCED</span>
-                    </div>
-                    <h4 class="card-title fw-bold mb-1" data-i18n="compare_plan_bal">Guided Discovery</h4>
-                    <div class="fs-2 fw-bold mb-3">${{ viajes_por_tipo['Balanced'].costo_total_estimado }}<span class="fs-6 fw-normal text-secondary"> <span data-i18n="compare_total">/ total est.</span></span></div>
-                    
-                    <hr class="bg-light border-2 border-top border-light opacity-100">
-                    
-                    <p class="fw-bold text-secondary text-uppercase mb-3 mt-3" style="font-size: 0.7rem;"><span data-i18n="compare_highlights">Key Highlights</span></p>
-                    <ul class="list-unstyled mb-4" style="font-size: 0.85rem;">
-                        <li class="mb-3 d-flex"><i class="fa-solid fa-circle-check text-info me-2 mt-1"></i> <span data-i18n="compare_feat4">Mix of trains and domestic flights</span></li>
-                        <li class="mb-3 d-flex"><i class="fa-solid fa-circle-check text-info me-2 mt-1"></i> <span data-i18n="compare_feat5">4-star boutique hotels centrally located</span></li>
-                        <li class="mb-2 d-flex"><i class="fa-solid fa-circle-check text-info me-2 mt-1"></i> <span data-i18n="compare_feat6">2 small-group guided experiences</span></li>
-                    </ul>
-
-                    <div class="d-flex gap-2 mt-auto w-100" style="pointer-events: auto;">
-                        <button class="btn btn-outline-secondary w-50 fw-bold py-2 preview-btn" onclick="event.stopPropagation(); previewPlan(this.closest('.card'), {{ viajes_por_tipo['Balanced'].id_viaje }})" data-i18n="compare_preview">PREVIEW</button>
-                        <button class="btn btn-light w-50 fw-bold border py-2 select-btn" onclick="event.stopPropagation(); selectPlan(this.closest('.card'), {{ viajes_por_tipo['Balanced'].id_viaje }})" data-i18n="compare_select">SELECT</button>
-                    </div>
-                </div>
+                <h1 class="display-6 fw-bold mb-2" style="color: #111827;" data-i18n="compare_title">Choose Your Journey</h1>
+                <p class="text-secondary fs-6" style="max-width: 700px; margin: 0 auto;" data-i18n="compare_subtitle">
+                    We've crafted three unique itineraries based on your preferences. Compare the pace, style, and estimated costs below.
+                </p>
             </div>
-        </div>
-        {% endif %}
 
-        <!-- Luxury Plan -->
-        {% if viajes_por_tipo.get('Luxury') %}
-        <div class="plan-card-container" style="max-width: 320px; flex: 1 1 300px;">
-            <div class="card h-100 shadow-sm plan-card" data-id="{{ viajes_por_tipo['Luxury'].id_viaje }}" style="border: 1px solid #d1d5db; min-height: 520px; cursor: pointer;" onclick="previewPlan(this, {{ viajes_por_tipo['Luxury'].id_viaje }})">
-                <div class="card-body p-4 d-flex flex-column" style="pointer-events: none;">
-                    <div class="d-flex align-items-center mb-3 text-secondary fw-bold" style="font-size: 0.8rem;">
-                        <i class="fa-regular fa-gem me-2 fs-6"></i> <span data-i18n="compare_lux">LUXURY</span>
-                    </div>
-                    <h4 class="card-title fw-bold mb-1" data-i18n="compare_plan_lux">Premium Escape</h4>
-                    <div class="fs-2 fw-bold mb-3">${{ viajes_por_tipo['Luxury'].costo_total_estimado }}<span class="fs-6 fw-normal text-secondary"> <span data-i18n="compare_total">/ total est.</span></span></div>
-                    
-                    <hr class="bg-light border-2 border-top border-light opacity-100">
-                    
-                    <p class="fw-bold text-secondary text-uppercase mb-3 mt-3" style="font-size: 0.7rem;"><span data-i18n="compare_highlights">Key Highlights</span></p>
-                    <ul class="list-unstyled mb-4" style="font-size: 0.85rem;">
-                        <li class="mb-3 d-flex"><i class="fa-solid fa-circle-check text-info me-2 mt-1"></i> <span data-i18n="compare_feat7">Private luxury car transfers</span></li>
-                        <li class="mb-3 d-flex"><i class="fa-solid fa-circle-check text-info me-2 mt-1"></i> <span data-i18n="compare_feat8">5-star resorts and premium villas</span></li>
-                        <li class="mb-2 d-flex"><i class="fa-solid fa-circle-check text-info me-2 mt-1"></i> <span data-i18n="compare_feat9">Exclusive private access tours</span></li>
-                    </ul>
-
-                    <div class="d-flex gap-2 mt-auto w-100" style="pointer-events: auto;">
-                        <button class="btn btn-outline-secondary w-50 fw-bold py-2 preview-btn" onclick="event.stopPropagation(); previewPlan(this.closest('.card'), {{ viajes_por_tipo['Luxury'].id_viaje }})" data-i18n="compare_preview">PREVIEW</button>
-                        <button class="btn btn-light w-50 fw-bold border py-2 select-btn" onclick="event.stopPropagation(); selectPlan(this.closest('.card'), {{ viajes_por_tipo['Luxury'].id_viaje }})" data-i18n="compare_select">SELECT</button>
-                    </div>
-                </div>
+            <div class="d-flex flex-wrap justify-content-center align-items-stretch mt-5 gap-3">
+                {{ tarjeta(viajes_por_tipo.get('Economy'),  'ECONOMY',  'fa-person-walking-luggage', 'compare_eco', 'compare_plan_eco') }}
+                {{ tarjeta(viajes_por_tipo.get('Balanced'), 'BALANCED', 'fa-scale-balanced',         'compare_bal', 'compare_plan_bal', true) }}
+                {{ tarjeta(viajes_por_tipo.get('Luxury'),   'LUXURY',   'fa-gem',                    'compare_lux', 'compare_plan_lux') }}
             </div>
-        </div>
-        {% endif %}
 
-    </div>
+            <form id="select-trip-form" method="POST" style="display: none;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            </form>
 
-    <!-- Hidden form for submission -->
-    <form id="select-trip-form" method="POST" style="display: none;">
-    </form>
-
-    <!-- Script para selección y redirección -->
-    <script>
-        // Restaura la selección al cargar la página si guardamos un ID previamente
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedId = sessionStorage.getItem('selectedViajeId');
-            if (savedId) {
-                const cardToHighlight = document.querySelector(`.plan-card[data-id="${savedId}"]`);
-                if (cardToHighlight) {
-                    highlightCard(cardToHighlight);
-                }
-            }
-        });
-
-        // Función centralizada para colorear la carta que tocas
-        function highlightCard(selectedCard) {
-            // Reiniciar todas las cards a gris
-            document.querySelectorAll('.plan-card').forEach(card => {
-                card.style.borderColor = '#d1d5db';
-                card.style.borderWidth = '1px';
-                
-                // Reiniciar sus iconos y header al gris por defecto
-                let headerText = card.querySelector('.d-flex.align-items-center.mb-3');
-                if (headerText) {
-                    headerText.classList.add('text-secondary');
-                    headerText.style.color = '';
-                }
-                
-                // Reiniciar los botones de preview
-                let btn = card.querySelector('.preview-btn');
-                if (btn) {
-                    btn.classList.add('btn-outline-secondary');
-                    btn.style.backgroundColor = '';
-                    btn.style.color = '';
-                    btn.style.borderColor = '';
-                }
-            });
-
-            // Establecer estilos de seleccionado (Verde) en la clickeada
-            selectedCard.style.borderColor = '#006d5b';
-            selectedCard.style.borderWidth = '2px';
-
-            let headerTextSel = selectedCard.querySelector('.d-flex.align-items-center.mb-3');
-            if (headerTextSel) {
-                headerTextSel.classList.remove('text-secondary');
-                headerTextSel.style.color = '#006d5b';
-            }
-
-            let btnSel = selectedCard.querySelector('.preview-btn');
-            if (btnSel) {
-                btnSel.classList.remove('btn-outline-secondary');
-                btnSel.style.backgroundColor = '#006d5b';
-                btnSel.style.color = 'white';
-                btnSel.style.borderColor = '#006d5b';
-            }
-        }
-
-        // Al hacer click en Preview o en toda la carta (card body)
-        function previewPlan(selectedCard, id_viaje) {
-            highlightCard(selectedCard);
-            sessionStorage.setItem('selectedViajeId', id_viaje);
-            
-            setTimeout(() => {
-                window.location.href = "/itinerary/" + id_viaje;
-            }, 300);
-        }
-
-        // Al hacer click específicamente en Select (para guardar)
-        function selectPlan(selectedCard, id_viaje) {
-            highlightCard(selectedCard);
-            sessionStorage.removeItem('selectedViajeId'); // Limpiar al seleccionar finalmente
-            
-            // Simular una pequeña pausa visual y redirigir al guardado en base de datos
-            setTimeout(() => {
-                let form = document.getElementById('select-trip-form');
-                form.action = "/select_trip/" + id_viaje;
-                form.submit();
-            }, 300);
-        }
-    </script>
         </main>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function resaltarTarjeta(seleccionada) {
+    document.querySelectorAll('.plan-card').forEach(card => {
+        card.style.borderColor = '#d1d5db';
+        card.style.borderWidth = '1px';
+
+        const encabezado = card.querySelector('.d-flex.align-items-center.mb-3');
+        if (encabezado) {
+            encabezado.classList.add('text-secondary');
+            encabezado.style.color = '';
+        }
+
+        const boton = card.querySelector('.preview-btn');
+        if (boton) {
+            boton.classList.add('btn-outline-secondary');
+            boton.style.backgroundColor = '';
+            boton.style.color = '';
+            boton.style.borderColor = '';
+        }
+    });
+
+    seleccionada.style.borderColor = '#006d5b';
+    seleccionada.style.borderWidth = '2px';
+
+    const encabezado = seleccionada.querySelector('.d-flex.align-items-center.mb-3');
+    if (encabezado) {
+        encabezado.classList.remove('text-secondary');
+        encabezado.style.color = '#006d5b';
+    }
+
+    const boton = seleccionada.querySelector('.preview-btn');
+    if (boton) {
+        boton.classList.remove('btn-outline-secondary');
+        boton.style.backgroundColor = '#006d5b';
+        boton.style.color = 'white';
+        boton.style.borderColor = '#006d5b';
+    }
+}
+
+function previewPlan(tarjeta, idViaje) {
+    resaltarTarjeta(tarjeta);
+    sessionStorage.setItem('selectedViajeId', idViaje);
+    setTimeout(() => { window.location.href = '/itinerary/' + idViaje; }, 250);
+}
+
+function selectPlan(tarjeta, idViaje) {
+    // Confirmar antes: elegir descarta los otros dos borradores de forma definitiva.
+    if (!confirm(t('compare_confirm', 'Choosing this plan discards the other two options. Continue?'))) {
+        return;
+    }
+
+    resaltarTarjeta(tarjeta);
+    sessionStorage.removeItem('selectedViajeId');
+
+    const formulario = document.getElementById('select-trip-form');
+    formulario.action = '/select_trip/' + idViaje;
+    formulario.submit();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const guardado = sessionStorage.getItem('selectedViajeId');
+    if (!guardado) return;
+    const tarjeta = document.querySelector(`.plan-card[data-id="${guardado}"]`);
+    if (tarjeta) resaltarTarjeta(tarjeta);
+});
+</script>
 {% endblock %}

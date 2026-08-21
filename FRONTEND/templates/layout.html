@@ -1,54 +1,70 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="{{ user_lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Travel Planner</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}Travel Planner{% endblock %}</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='logos/favIconGreenInvi.png') }}">
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Carga de CSS usando las reglas de entorno estático de Flask -->
+
     <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='layout.css') }}">
-    <link rel="stylesheet" href="../static/mytrips.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='mytrips.css') }}">
+    {% block head %}{% endblock %}
 </head>
 <body style="display: flex; flex-direction: column; min-height: 100vh; margin: 0;">
 
     {% block header %}
-    <!-- Header heredable para todas las páginas -->
     <header class="d-flex justify-content-between align-items-center px-4 py-3 bg-white shadow-sm w-100 sticky-top z-3">
-        
-        <!-- Logo con link al index -->
+
         <a href="{{ url_for('index') }}" class="text-decoration-none fw-bold fs-5 text-dark d-flex align-items-center gap-2">
-            <img src="../static/logos/logoSideInvi.png" alt="Logo" style="max-width: 170px;">
+            <img src="{{ url_for('static', filename='logos/logoSideInvi.png') }}" alt="TravelPlanner" style="max-width: 170px;">
         </a>
 
         <div class="d-flex align-items-center gap-4">
-            
-            <!-- Link a My Trips (se pinta verde y se subraya si estamos en esa ruta) -->
-            <a href="{{ url_for('mytrips') }}" 
+
+            <a href="{{ url_for('mytrips') }}"
                class="fw-medium {{ 'text-decoration-underline' if request.endpoint == 'mytrips' else 'text-decoration-none text-secondary' }}"
                {% if request.endpoint == 'mytrips' %}style="color: var(--brand-color, #006d5b);"{% endif %}
                data-i18n="nav_mytrips">
                My Trips
             </a>
 
-            <!-- Avatar Dropdown -->
             <div class="dropdown">
                 {% if session.get('user_foto') %}
-                <img src="{{ session.get('user_foto') }}" alt="Profile" class="rounded-circle cursor-pointer" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="width: 35px; height: 35px; object-fit: cover; cursor: pointer;" referrerpolicy="no-referrer">
+                <img src="{{ session.get('user_foto') }}" alt="Profile" class="rounded-circle" role="button"
+                     data-bs-toggle="dropdown" aria-expanded="false" referrerpolicy="no-referrer"
+                     style="width: 35px; height: 35px; object-fit: cover; cursor: pointer;">
                 {% else %}
-                <div class="rounded-circle d-flex align-items-center justify-content-center cursor-pointer" role="button" data-bs-toggle="dropdown" aria-expanded="false" style="width: 35px; height: 35px; background-color: #ddd; cursor: pointer;">
+                <div class="rounded-circle d-flex align-items-center justify-content-center" role="button"
+                     data-bs-toggle="dropdown" aria-expanded="false"
+                     style="width: 35px; height: 35px; background-color: #ddd; cursor: pointer;">
                     <i class="fa-solid fa-user" style="color: #666;"></i>
                 </div>
                 {% endif %}
                 <ul class="dropdown-menu dropdown-menu-end shadow">
-                    {% if session.get('user_id') %}
+                    {% if user_id %}
+                    <li class="px-3 py-2 border-bottom">
+                        <div class="fw-bold small">{{ session.get('user_nombre', '') }} {{ session.get('user_apellido', '') }}</div>
+                        <div class="text-secondary" style="font-size: 0.75rem;">{{ session.get('user_email', '') }}</div>
+                    </li>
+                    <li><a class="dropdown-item" href="{{ url_for('mytrips') }}" data-i18n="nav_mytrips"><i class="fa-solid fa-suitcase-rolling me-2"></i>My Trips</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('budget') }}" data-i18n="sidebar_budget"><i class="fa-solid fa-piggy-bank me-2"></i>Budget</a></li>
                     <li><a class="dropdown-item" href="{{ url_for('settings') }}" data-i18n="nav_settings"><i class="fa-solid fa-gear me-2"></i>Settings</a></li>
                     <li><hr class="dropdown-divider"></li>
-                    <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}" data-i18n="nav_logout"><i class="fa-solid fa-right-from-bracket me-2"></i>Logout</a></li>
+                    <li>
+                        <form method="POST" action="{{ url_for('logout') }}" class="m-0">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="dropdown-item text-danger" data-i18n="nav_logout">
+                                <i class="fa-solid fa-right-from-bracket me-2"></i>Logout
+                            </button>
+                        </form>
+                    </li>
                     {% else %}
                     <li><a class="dropdown-item" href="{{ url_for('login') }}" data-i18n="nav_login"><i class="fa-solid fa-right-to-bracket me-2"></i>Login</a></li>
                     <li><a class="dropdown-item" href="{{ url_for('register') }}" data-i18n="nav_register"><i class="fa-solid fa-user-plus me-2"></i>Register</a></li>
@@ -59,18 +75,17 @@
     </header>
     {% endblock %}
 
-    <!-- Aquí se inyectará el contenido de las demás páginas -->
     <div style="flex: 1; display: flex; flex-direction: column;">
-    {% block body %} 
+    {% block body %}
     {% endblock %}
     </div>
 
-    <!-- Footer -->
     <footer class="text-white py-5" style="background-color: var(--brand-color, #006d5b);">
         <div class="container overflow-hidden">
             <div class="row gx-5 gy-4 justify-content-between align-items-center">
                 <div class="col-12 col-md-4 text-center text-md-start">
-                    <img src="../static/logos/favIconGreenInvi.png" alt="Travel Planner Logo" style="max-height: 50px; filter: brightness(0) invert(1);" class="mb-2">
+                    <img src="{{ url_for('static', filename='logos/favIconGreenInvi.png') }}" alt="TravelPlanner"
+                         style="max-height: 50px; filter: brightness(0) invert(1);" class="mb-2">
                     <p class="text-light fw-bold mb-1">TravelPlannerIA</p>
                 </div>
                 <div class="col-12 col-md-8">
@@ -82,1053 +97,128 @@
                     </ul>
                 </div>
             </div>
-            
+
             <hr class="mt-4 mb-4 border-white opacity-25">
-            
+
             <div class="text-center">
                 <div class="d-flex justify-content-center gap-3 mb-3">
-                    <a href="#" class="text-white border rounded-circle d-flex align-items-center justify-content-center hover-opacity" style="width: 35px; height: 35px; text-decoration: none;"><i class="fa-brands fa-instagram"></i></a>
-                    <a href="#" class="text-white border rounded-circle d-flex align-items-center justify-content-center hover-opacity" style="width: 35px; height: 35px; text-decoration: none;"><i class="fa-brands fa-x-twitter"></i></a>
-                    <a href="#" class="text-white border rounded-circle d-flex align-items-center justify-content-center hover-opacity" style="width: 35px; height: 35px; text-decoration: none;"><i class="fa-brands fa-facebook-f"></i></a>
+                    <a href="#" class="text-white border rounded-circle d-flex align-items-center justify-content-center" style="width: 35px; height: 35px; text-decoration: none;" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="#" class="text-white border rounded-circle d-flex align-items-center justify-content-center" style="width: 35px; height: 35px; text-decoration: none;" aria-label="X"><i class="fa-brands fa-x-twitter"></i></a>
+                    <a href="#" class="text-white border rounded-circle d-flex align-items-center justify-content-center" style="width: 35px; height: 35px; text-decoration: none;" aria-label="Facebook"><i class="fa-brands fa-facebook-f"></i></a>
                 </div>
                 <small class="text-light opacity-75">&copy; <span data-i18n="footer_copyright">Copyright. All rights reserved.</span></small>
             </div>
         </div>
     </footer>
 
-    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Simple I18n implementation
-        const translations = {
-    "en": {
-        "nav_mytrips": "My Trips",
-        "nav_settings": "Settings",
-        "nav_logout": "Logout",
-        "nav_login": "Login",
-        "nav_register": "Register",
-        "sidebar_compare": "Compare",
-        "sidebar_itinerary": "Itinerary",
-        "sidebar_budget": "Budget",
-        "sidebar_settings": "Settings",
-        "sidebar_logout": "Log Out",
-        "settings_title": "Settings",
-        "settings_profile": "Profile",
-        "settings_notifications": "Notifications",
-        "settings_security": "Security",
-        "settings_language": "Language",
-        "settings_language_desc": "Select your preferred language",
-        "settings_save": "Save Changes",
-        "footer_copyright": "Copyright. All rights reserved.",
-        "index_title": "Design Your Perfect Escape",
-        "index_subtitle": "Plan, budget, and explore with guided discovery. Every detail of your journey, seamlessly organized in one place.",
-        "index_origin": "Origin",
-        "index_ph_origin": "From?",
-        "index_dest": "Destination",
-        "index_ph_dest": "Where to?",
-        "index_dep": "Departure",
-        "index_arr": "Arrival",
-        "index_budget": "Budget",
-        "index_ph_min": "Min $",
-        "index_ph_max": "Max $",
-        "index_travelers": "Travelers",
-        "index_ph_count": "Count",
-        "index_more": "More Details",
-        "index_create": "Create Trip",
-        "index_ages": "Ages of Travelers",
-        "index_acc_title": "Accommodation",
-        "index_hotel": "Hotel",
-        "index_hostel": "Hostel",
-        "index_airbnb": "Airbnb",
-        "index_resort": "Resort",
-        "index_trip_type": "Trip Type",
-        "index_edu": "Educational",
-        "index_family": "Family",
-        "index_friends": "Friends",
-        "index_solo": "Solo",
-        "index_transport": "Transport",
-        "index_plane": "Plane",
-        "index_train": "Train",
-        "index_car": "Car",
-        "index_bus": "Bus",
-        "index_activities": "Preferred Activities",
-        "index_culture": "Culture",
-        "index_nature": "Nature",
-        "index_food": "Food",
-        "index_relax": "Relax",
-        "index_extras": "Extras / Special Requests",
-        "compare_ai": "AI GENERATED OPTIONS",
-        "compare_title": "Choose Your Journey",
-        "compare_subtitle": "Weve crafted three unique itineraries based on your preferences. Compare the pace, style, and estimated costs below.",
-        "compare_eco": "ECONOMY",
-        "compare_rec": "RECOMMENDED",
-        "compare_bal": "BALANCED",
-        "compare_lux": "LUXURY",
-        "compare_highlights": "Key Highlights",
-        "compare_preview": "PREVIEW",
-        "compare_select": "SELECT",
-        "compare_total": " / total est.",
-        "mytrips_title": "My Trips",
-        "mytrips_subtitle": "Your upcoming and past adventures.",
-        "mytrips_plan": "Plan a New Adventure",
-        "mytrips_plan_sub": "Start building your next unforgettable journey.",
-        "mytrips_current": "Current Trip",
-        "iti_budget": "TOTAL BUDGET",
-        "iti_countdown": "COUNTDOWN",
-        "iti_days": "Days Left",
-        "iti_booked": "Flights & Hotels booked",
-        "iti_weather": "WEATHER AVG",
-        "iti_jackets": "Perfect for light jackets",
-        "iti_logistics": "Daily Logistics",
-        "mytrips_new": "New Trip",
-        "mytrips_past": "Past Trip",
-        "mytrips_view": "View trip",
-        "mytrips_edit": "Edit trip",
-        "mytrips_delete": "Delete trip",
-        "mytrips_all": "All trips",
-        "mytrips_upcoming": "Upcoming trips",
-        "mytrips_past_f": "Past trips",
-        "compare_plan_eco": "Local Explorer",
-        "compare_plan_bal": "Guided Discovery",
-        "compare_plan_lux": "Premium Escape",
-        "compare_feat1": "Public transit passes included",
-        "compare_feat2": "Boutique hostel private rooms",
-        "compare_feat3": "Self-guided walking tours",
-        "compare_feat4": "Mix of trains and domestic flights",
-        "compare_feat5": "4-star boutique hotels centrally located",
-        "compare_feat6": "2 small-group guided experiences",
-        "compare_feat7": "Private luxury car transfers",
-        "compare_feat8": "5-star resorts and premium villas",
-        "compare_feat9": "Exclusive private access tours",
-        "footer_weebly": "WEEBLY THEMES",
-        "footer_presale": "PRE-SALE FAQS",
-        "footer_ticket": "SUBMIT A TICKET",
-        "footer_services": "SERVICES",
-        "footer_theme": "THEME TWEAK",
-        "footer_showcase": "SHOWCASE",
-        "footer_widget": "WIDGETKIT",
-        "footer_support": "SUPPORT",
-        "footer_about": "ABOUT US",
-        "footer_privacy": "PRIVACY POLICY",
-        "footer_contact": "CONTACT US",
-        "footer_affil": "AFFILIATES",
-        "footer_res": "RESOURCES",
-        "index_act_sight": "Sightseeing",
-        "index_act_adv": "Adventure",
-        "index_act_relax": "Relaxation",
-        "index_act_cult": "Cultural",
-        "index_extras_ph": "Any extra destination or requirement? (e.g. Needs Vegan Food)",
-        "iti_trip_to": "Trip to",
-        "iti_activities_today": "Activities Today",
-        "iti_transport_pass": "Transport Pass Active",
-        "iti_pro_tip": "Pro Tip"
-    },
-    "es": {
-        "nav_mytrips": "Mis Viajes",
-        "nav_settings": "Configuración",
-        "nav_logout": "Cerrar sesión",
-        "nav_login": "Iniciar sesión",
-        "nav_register": "Registrarse",
-        "sidebar_compare": "Comparar",
-        "sidebar_itinerary": "Itinerario",
-        "sidebar_budget": "Presupuesto",
-        "sidebar_settings": "Configuración",
-        "sidebar_logout": "Cerrar sesión",
-        "settings_title": "Configuración",
-        "settings_profile": "Perfil",
-        "settings_notifications": "Notificaciones",
-        "settings_security": "Seguridad",
-        "settings_language": "Idioma",
-        "settings_language_desc": "Selecciona tu idioma preferido",
-        "settings_save": "Guardar Cambios",
-        "footer_copyright": "Copyright. Todos los derechos reservados.",
-        "index_title": "Diseña Tu Escape Perfecto",
-        "index_subtitle": "Planifica, presupuesta y explora con descubrimiento guiado.",
-        "index_origin": "Origen",
-        "index_ph_origin": "¿Desde?",
-        "index_dest": "Destino",
-        "index_ph_dest": "¿A dónde?",
-        "index_dep": "Salida",
-        "index_arr": "Llegada",
-        "index_budget": "Presupuesto",
-        "index_ph_min": "Mín $",
-        "index_ph_max": "Máx $",
-        "index_travelers": "Viajeros",
-        "index_ph_count": "Cantidad",
-        "index_more": "Más Detalles",
-        "index_create": "Crear Viaje",
-        "index_ages": "Edades de los Viajeros",
-        "index_acc_title": "Alojamiento",
-        "index_hotel": "Hotel",
-        "index_hostel": "Hostal",
-        "index_airbnb": "Airbnb",
-        "index_resort": "Resort",
-        "index_trip_type": "Tipo de Viaje",
-        "index_edu": "Educativo",
-        "index_family": "Familiar",
-        "index_friends": "Amigos",
-        "index_solo": "Solo",
-        "index_transport": "Transporte",
-        "index_plane": "Avión",
-        "index_train": "Tren",
-        "index_car": "Auto",
-        "index_bus": "Autobús",
-        "index_activities": "Actividades Preferidas",
-        "index_culture": "Cultura",
-        "index_nature": "Naturaleza",
-        "index_food": "Comida",
-        "index_relax": "Relajación",
-        "index_extras": "Extras / Requisitos Especiales",
-        "compare_ai": "OPCIONES DE IA",
-        "compare_title": "Elige Tu Viaje",
-        "compare_subtitle": "Compara el ritmo, estilo y costos abajo.",
-        "compare_eco": "ECONÓMICO",
-        "compare_rec": "RECOMENDADO",
-        "compare_bal": "EQUILIBRADO",
-        "compare_lux": "LUJO",
-        "compare_highlights": "Puntos Destacados",
-        "compare_preview": "VISTA PREVIA",
-        "compare_select": "SELECCIONAR",
-        "compare_total": " / total est.",
-        "mytrips_title": "Mis Viajes",
-        "mytrips_subtitle": "Tus aventuras próximas y pasadas.",
-        "mytrips_plan": "Nueva Aventura",
-        "mytrips_plan_sub": "Comienza a construir tu próximo viaje.",
-        "mytrips_current": "Viaje Actual",
-        "iti_budget": "PRESUPUESTO TOTAL",
-        "iti_countdown": "CUENTA REGRESIVA",
-        "iti_days": "Días Restantes",
-        "iti_booked": "Vuelos y Hoteles reservados",
-        "iti_weather": "CLIMA PROM.",
-        "iti_jackets": "Ideal para abrigo ligero",
-        "iti_logistics": "Logística Diaria",
-        "mytrips_new": "Nuevo Viaje",
-        "mytrips_past": "Viaje Pasado",
-        "mytrips_view": "Ver viaje",
-        "mytrips_edit": "Editar viaje",
-        "mytrips_delete": "Eliminar viaje",
-        "mytrips_all": "Todos los viajes",
-        "mytrips_upcoming": "Próximos viajes",
-        "mytrips_past_f": "Viajes pasados",
-        "compare_plan_eco": "Explorador local",
-        "compare_plan_bal": "Descubrimiento guiado",
-        "compare_plan_lux": "Escapada premium",
-        "compare_feat1": "Pases de transporte público incluidos",
-        "compare_feat2": "Habitaciones privadas en hostal boutique",
-        "compare_feat3": "Tours a pie autoguiados",
-        "compare_feat4": "Mezcla de trenes y vuelos nacionales",
-        "compare_feat5": "Hoteles boutique de 4 estrellas céntricos",
-        "compare_feat6": "2 experiencias guiadas en grupo pequeño",
-        "compare_feat7": "Traslados privados en autos de lujo",
-        "compare_feat8": "Resorts de 5 estrellas y villas premium",
-        "compare_feat9": "Tours exclusivos con acceso privado",
-        "footer_weebly": "TEMAS WEEBLY",
-        "footer_presale": "PREGUNTAS PREVENTA",
-        "footer_ticket": "ENVIAR TICKET",
-        "footer_services": "SERVICIOS",
-        "footer_theme": "AJUSTE DE TEMA",
-        "footer_showcase": "PORTAFOLIO",
-        "footer_widget": "WIDGETKIT",
-        "footer_support": "SOPORTE",
-        "footer_about": "SOBRE NOSOTROS",
-        "footer_privacy": "POLÍTICA DE PRIVACIDAD",
-        "footer_contact": "CONTÁCTENOS",
-        "footer_affil": "AFILIADOS",
-        "footer_res": "RECURSOS",
-        "index_act_sight": "Turismo",
-        "index_act_adv": "Aventura",
-        "index_act_relax": "Relajación",
-        "index_act_cult": "Cultural",
-        "index_extras_ph": "¿Algún destino o requisito extra? (ej. Comida vegana)",
-        "iti_trip_to": "Viaje a",
-        "iti_activities_today": "Actividades hoy",
-        "iti_transport_pass": "Pase de transporte activo",
-        "iti_pro_tip": "Consejo experto"
-    },
-    "fr": {
-        "nav_mytrips": "Mes Voyages",
-        "nav_settings": "Paramètres",
-        "nav_logout": "Se déconnecter",
-        "nav_login": "Connexion",
-        "nav_register": "S'inscrire",
-        "sidebar_compare": "Comparer",
-        "sidebar_itinerary": "Itinéraire",
-        "sidebar_budget": "Budget",
-        "sidebar_settings": "Paramètres",
-        "sidebar_logout": "Se déconnecter",
-        "settings_title": "Paramètres",
-        "settings_profile": "Profil",
-        "settings_notifications": "Notifications",
-        "settings_security": "Sécurité",
-        "settings_language": "Langue",
-        "settings_language_desc": "Sélectionnez votre langue préférée",
-        "settings_save": "Sauvegarder",
-        "footer_copyright": "Copyright. Tous droits réservés.",
-        "index_title": "Concevez Votre Évasion Parfaite",
-        "index_subtitle": "Planifiez, budgétez et explorez avec la découverte guidée.",
-        "index_origin": "Origine",
-        "index_ph_origin": "De?",
-        "index_dest": "Destination",
-        "index_ph_dest": "Où?",
-        "index_dep": "Départ",
-        "index_arr": "Arrivée",
-        "index_budget": "Budget",
-        "index_ph_min": "Min $",
-        "index_ph_max": "Max $",
-        "index_travelers": "Voyageurs",
-        "index_ph_count": "Quantité",
-        "index_more": "Plus de Détails",
-        "index_create": "Créer un Voyage",
-        "index_ages": "Âges des Voyageurs",
-        "index_acc_title": "Hébergement",
-        "index_hotel": "Hôtel",
-        "index_hostel": "Auberge",
-        "index_airbnb": "Airbnb",
-        "index_resort": "Gîte",
-        "index_trip_type": "Type de Voyage",
-        "index_edu": "Éducatif",
-        "index_family": "Famille",
-        "index_friends": "Amis",
-        "index_solo": "Solo",
-        "index_transport": "Transport",
-        "index_plane": "Avion",
-        "index_train": "Train",
-        "index_car": "Voiture",
-        "index_bus": "Bus",
-        "index_activities": "Activités Préférées",
-        "index_culture": "Culture",
-        "index_nature": "Nature",
-        "index_food": "Nourriture",
-        "index_relax": "Détente",
-        "index_extras": "Extras",
-        "compare_ai": "OPTIONS IA",
-        "compare_title": "Choisissez Votre Voyage",
-        "compare_subtitle": "Comparez le rythme, le style et les coûts ci-dessous.",
-        "compare_eco": "ÉCONOMIE",
-        "compare_rec": "RECOMMANDÉ",
-        "compare_bal": "ÉQUILIBRÉ",
-        "compare_lux": "LUXE",
-        "compare_highlights": "Points Forts",
-        "compare_preview": "APERÇU",
-        "compare_select": "SÉLECTIONNER",
-        "compare_total": " / total est.",
-        "mytrips_title": "Mes Voyages",
-        "mytrips_subtitle": "Vos aventures à venir et passées.",
-        "mytrips_plan": "Nouvelle Aventure",
-        "mytrips_plan_sub": "Commencez à construire votre prochain voyage.",
-        "mytrips_current": "Voyage Actuel",
-        "iti_budget": "BUDGET TOTAL",
-        "iti_countdown": "COMPTE À REBOURS",
-        "iti_days": "Jours Restants",
-        "iti_booked": "Vols et Hôtels réservés",
-        "iti_weather": "METEO MOYENNE",
-        "iti_jackets": "Idéal pour veste légère",
-        "iti_logistics": "Logistique Quotidienne",
-        "mytrips_new": "Nouveau Voyage",
-        "mytrips_past": "Voyage Passé",
-        "mytrips_view": "Voir le voyage",
-        "mytrips_edit": "Modifier le voyage",
-        "mytrips_delete": "Supprimer le voyage",
-        "mytrips_all": "Tous les voyages",
-        "mytrips_upcoming": "Voyages à venir",
-        "mytrips_past_f": "Voyages passés",
-        "compare_plan_eco": "Explorateur Local",
-        "compare_plan_bal": "Découverte Guidée",
-        "compare_plan_lux": "Évasion Premium",
-        "compare_feat1": "Pass transports publics inclus",
-        "compare_feat2": "Chambres privées en auberge boutique",
-        "compare_feat3": "Visites à pied en autonomie",
-        "compare_feat4": "Mélange de trains et vols intérieurs",
-        "compare_feat5": "Hôtels 4 étoiles au centre",
-        "compare_feat6": "2 visites guidées en petit groupe",
-        "compare_feat7": "Transferts privés en voiture de luxe",
-        "compare_feat8": "Resorts 5 étoiles et villas",
-        "compare_feat9": "Visites privées exclusives",
-        "footer_weebly": "THÈMES WEEBLY",
-        "footer_presale": "FAQ PRÉVENTE",
-        "footer_ticket": "SOUMETTRE UN TICKET",
-        "footer_services": "SERVICES",
-        "footer_theme": "MODIFICATION DE THÈME",
-        "footer_showcase": "VITRINE",
-        "footer_widget": "WIDGETKIT",
-        "footer_support": "SUPPORT",
-        "footer_about": "À PROPOS",
-        "footer_privacy": "POLITIQUE DE CONFIDENTIALITÉ",
-        "footer_contact": "NOUS CONTACTER",
-        "footer_affil": "AFFILIÉS",
-        "footer_res": "RESSOURCES",
-        "index_act_sight": "Tourisme",
-        "index_act_adv": "Aventure",
-        "index_act_relax": "Détente",
-        "index_act_cult": "Culturel",
-        "index_extras_ph": "Une destination ou exigence supplémentaire? (ex. Nourriture végane)",
-        "iti_trip_to": "Voyage à",
-        "iti_activities_today": "Activités aujourd'hui",
-        "iti_transport_pass": "Pass transport actif",
-        "iti_pro_tip": "Astuce pro"
-    },
-    "it": {
-        "nav_mytrips": "I Miei Viaggi",
-        "nav_settings": "Impostazioni",
-        "nav_logout": "Esci",
-        "nav_login": "Accedi",
-        "nav_register": "Registrati",
-        "sidebar_compare": "Confronta",
-        "sidebar_itinerary": "Itinerario",
-        "sidebar_budget": "Budget",
-        "sidebar_settings": "Impostazioni",
-        "sidebar_logout": "Esci",
-        "settings_title": "Impostazioni",
-        "settings_profile": "Profilo",
-        "settings_notifications": "Notifiche",
-        "settings_security": "Sicurezza",
-        "settings_language": "Lingua",
-        "settings_language_desc": "Seleziona la tua lingua preferita",
-        "settings_save": "Salva Modifiche",
-        "footer_copyright": "Copyright. Tutti i diritti riservati.",
-        "index_title": "Progetta la Tua Fuga Perfetta",
-        "index_subtitle": "Pianifica, calcola il budget ed esplora.",
-        "index_origin": "Origine",
-        "index_ph_origin": "Da?",
-        "index_dest": "Destinazione",
-        "index_ph_dest": "Dove?",
-        "index_dep": "Partenza",
-        "index_arr": "Arrivo",
-        "index_budget": "Budget",
-        "index_ph_min": "Min $",
-        "index_ph_max": "Max $",
-        "index_travelers": "Viaggiatori",
-        "index_ph_count": "Quantità",
-        "index_more": "Più Dettagli",
-        "index_create": "Crea Viaggio",
-        "index_ages": "Età dei Viaggiatori",
-        "index_acc_title": "Alloggio",
-        "index_hotel": "Hotel",
-        "index_hostel": "Ostello",
-        "index_airbnb": "Airbnb",
-        "index_resort": "Resort",
-        "index_trip_type": "Tipo di Viaggio",
-        "index_edu": "Educativo",
-        "index_family": "Famiglia",
-        "index_friends": "Amici",
-        "index_solo": "Da solo",
-        "index_transport": "Trasporto",
-        "index_plane": "Aereo",
-        "index_train": "Treno",
-        "index_car": "Auto",
-        "index_bus": "Autobus",
-        "index_activities": "Attività Preferite",
-        "index_culture": "Cultura",
-        "index_nature": "Natura",
-        "index_food": "Cibo",
-        "index_relax": "Relax",
-        "index_extras": "Extra",
-        "compare_ai": "OPZIONI AI",
-        "compare_title": "Scegli il Tuo Viaggio",
-        "compare_subtitle": "Confronta il ritmo, lo stile e i costi di seguito.",
-        "compare_eco": "ECONOMICO",
-        "compare_rec": "RACCOMANDATO",
-        "compare_bal": "EQUILIBRATO",
-        "compare_lux": "LUSSO",
-        "compare_highlights": "Punti Salienti",
-        "compare_preview": "ANTEPRIMA",
-        "compare_select": "SELEZIONA",
-        "compare_total": " / totale est.",
-        "mytrips_title": "I Miei Viaggi",
-        "mytrips_subtitle": "Le tue avventure imminenti e passate.",
-        "mytrips_plan": "Nuova Avventura",
-        "mytrips_plan_sub": "Inizia a costruire il tuo prossimo viaggio.",
-        "mytrips_current": "Viaggio Attuale",
-        "iti_budget": "BUDGET TOTALE",
-        "iti_countdown": "CONTO ALLA ROVESCIA",
-        "iti_days": "Giorni Rimanenti",
-        "iti_booked": "Voli e Hotel prenotati",
-        "iti_weather": "METEO MEDIO",
-        "iti_jackets": "Ideale per giacche leggere",
-        "iti_logistics": "Logistica Quotidiana",
-        "mytrips_new": "Nuovo Viaggio",
-        "mytrips_past": "Viaggio Passato",
-        "mytrips_view": "Vedi viaggio",
-        "mytrips_edit": "Modifica viaggio",
-        "mytrips_delete": "Elimina viaggio",
-        "mytrips_all": "Tutti i viaggi",
-        "mytrips_upcoming": "Prossimi viaggi",
-        "mytrips_past_f": "Viaggi passati",
-        "compare_plan_eco": "Esploratore Locale",
-        "compare_plan_bal": "Scoperta Guidata",
-        "compare_plan_lux": "Fuga Premium",
-        "compare_feat1": "Pass per il trasporto pubblico inclusi",
-        "compare_feat2": "Camere private in ostelli boutique",
-        "compare_feat3": "Tour a piedi autoguidati",
-        "compare_feat4": "Mix di treni e voli nazionali",
-        "compare_feat5": "Hotel boutique a 4 stelle in posizione centrale",
-        "compare_feat6": "2 esperienze guidate in piccoli gruppi",
-        "compare_feat7": "Trasferimenti privati in auto di lusso",
-        "compare_feat8": "Resort a 5 stelle e ville premium",
-        "compare_feat9": "Tour esclusivi con accesso privato",
-        "footer_weebly": "TEMI WEEBLY",
-        "footer_presale": "FAQ PREVENDITA",
-        "footer_ticket": "INVIA UN TICKET",
-        "footer_services": "SERVIZI",
-        "footer_theme": "MODIFICA TEMA",
-        "footer_showcase": "VETRINA",
-        "footer_widget": "WIDGETKIT",
-        "footer_support": "SUPPORTO",
-        "footer_about": "CHI SIAMO",
-        "footer_privacy": "INFORMATIVA SULLA PRIVACY",
-        "footer_contact": "CONTATTACI",
-        "footer_affil": "AFFILIATI",
-        "footer_res": "RISORSE",
-        "index_act_sight": "Turismo",
-        "index_act_adv": "Avventura",
-        "index_act_relax": "Relax",
-        "index_act_cult": "Culturale",
-        "index_extras_ph": "Qualche destinazione o requisito extra? (es. Cibo vegano)",
-        "iti_trip_to": "Viaggio a",
-        "iti_activities_today": "Attività di oggi",
-        "iti_transport_pass": "Pass di trasporto attivo",
-        "iti_pro_tip": "Suggerimento pro"
-    },
-    "de": {
-        "nav_mytrips": "Meine Reisen",
-        "nav_settings": "Einstellungen",
-        "nav_logout": "Abmelden",
-        "nav_login": "Anmelden",
-        "nav_register": "Registrieren",
-        "sidebar_compare": "Vergleichen",
-        "sidebar_itinerary": "Reiseplan",
-        "sidebar_budget": "Budget",
-        "sidebar_settings": "Einstellungen",
-        "sidebar_logout": "Abmelden",
-        "settings_title": "Einstellungen",
-        "settings_profile": "Profil",
-        "settings_notifications": "Benachrichtigungen",
-        "settings_security": "Sicherheit",
-        "settings_language": "Sprache",
-        "settings_language_desc": "Wählen Sie Ihre bevorzugte Sprache",
-        "settings_save": "Änderungen speichern",
-        "footer_copyright": "Copyright. Alle Rechte vorbehalten.",
-        "index_title": "Gestalten Sie Ihr perfektes Erlebnis",
-        "index_subtitle": "Planen, budgetieren und erkunden mit geführter Entdeckung.",
-        "index_origin": "Herkunft",
-        "index_ph_origin": "Von?",
-        "index_dest": "Ziel",
-        "index_ph_dest": "Wohin?",
-        "index_dep": "Abflug",
-        "index_arr": "Ankunft",
-        "index_budget": "Budget",
-        "index_ph_min": "Min $",
-        "index_ph_max": "Max $",
-        "index_travelers": "Reisende",
-        "index_ph_count": "Anzahl",
-        "index_more": "Mehr Details",
-        "index_create": "Reise erstellen",
-        "index_ages": "Alter der Reisenden",
-        "index_acc_title": "Unterkunft",
-        "index_hotel": "Hotel",
-        "index_hostel": "Hostel",
-        "index_airbnb": "Airbnb",
-        "index_resort": "Resort",
-        "index_trip_type": "Reiseart",
-        "index_edu": "Lehrreich",
-        "index_family": "Familie",
-        "index_friends": "Freunde",
-        "index_solo": "Solo",
-        "index_transport": "Verkehrsmittel",
-        "index_plane": "Flugzeug",
-        "index_train": "Zug",
-        "index_car": "Auto",
-        "index_bus": "Bus",
-        "index_activities": "Bevorzugte Aktivitäten",
-        "index_culture": "Kultur",
-        "index_nature": "Natur",
-        "index_food": "Essen",
-        "index_relax": "Entspannung",
-        "index_extras": "Extras",
-        "compare_ai": "KI OPTIONEN",
-        "compare_title": "Wählen Sie Ihre Reise",
-        "compare_subtitle": "Vergleichen Sie Tempo, Stil und Kosten unten.",
-        "compare_eco": "WIRTSCHAFT",
-        "compare_rec": "EMPFOHLEN",
-        "compare_bal": "AUSGEWOGEN",
-        "compare_lux": "LUXUS",
-        "compare_highlights": "Highlights",
-        "compare_preview": "VORSCHAU",
-        "compare_select": "AUSWÄHLEN",
-        "compare_total": " / gesamtgeschätzt.",
-        "mytrips_title": "Meine Reisen",
-        "mytrips_subtitle": "Ihre kommenden und vergangenen Abenteuer.",
-        "mytrips_plan": "Neues Abenteuer",
-        "mytrips_plan_sub": "Beginnen Sie mit der Planung Ihrer nächsten Reise.",
-        "mytrips_current": "Aktuelle Reise",
-        "iti_budget": "GESAMTBUDGET",
-        "iti_countdown": "COUNTDOWN",
-        "iti_days": "Tage übrig",
-        "iti_booked": "Flüge und Hotels gebucht",
-        "iti_weather": "DURCHSCHN. WETTER",
-        "iti_jackets": "Ideal für leichte Jacken",
-        "iti_logistics": "Tägliche Logistik",
-        "mytrips_new": "Neue Reise",
-        "mytrips_past": "Vergangene Reise",
-        "mytrips_view": "Reise ansehen",
-        "mytrips_edit": "Reise bearbeiten",
-        "mytrips_delete": "Reise löschen",
-        "mytrips_all": "Alle Reisen",
-        "mytrips_upcoming": "Anstehende Reisen",
-        "mytrips_past_f": "Vergangene Reisen",
-        "compare_plan_eco": "Lokaler Entdecker",
-        "compare_plan_bal": "Geführte Entdeckung",
-        "compare_plan_lux": "Premium Flucht",
-        "compare_feat1": "Inklusive ÖPNV-Pässe",
-        "compare_feat2": "Privatzimmer in Boutique-Hostels",
-        "compare_feat3": "Selbstgeführte Rundgänge",
-        "compare_feat4": "Mix aus Zügen und Inlandsflügen",
-        "compare_feat5": "Zentrale 4-Sterne-Hotels",
-        "compare_feat6": "2 geführte Kleingruppen-Touren",
-        "compare_feat7": "Private Luxus-Transfers",
-        "compare_feat8": "5-Sterne-Resorts & Premium-Villen",
-        "compare_feat9": "Exklusive Privattouren",
-        "footer_weebly": "WEEBLY THEMEN",
-        "footer_presale": "VORVERKAUF FAQS",
-        "footer_ticket": "TICKET EINREICHEN",
-        "footer_services": "DIENSTLEISTUNGEN",
-        "footer_theme": "THEMEN-ANPASSUNG",
-        "footer_showcase": "PORTFOLIO",
-        "footer_widget": "WIDGETKIT",
-        "footer_support": "SUPPORT",
-        "footer_about": "ÜBER UNS",
-        "footer_privacy": "DATENSCHUTZRICHTLINIE",
-        "footer_contact": "KONTAKT",
-        "footer_affil": "PARTNER",
-        "footer_res": "RESSOURCEN",
-        "index_act_sight": "Besichtigung",
-        "index_act_adv": "Abenteuer",
-        "index_act_relax": "Entspannung",
-        "index_act_cult": "Kulturell",
-        "index_extras_ph": "Irgendein zusätzliches Ziel oder Anforderung? (z.B. Veganes Essen)",
-        "iti_trip_to": "Reise nach",
-        "iti_activities_today": "Aktivitäten heute",
-        "iti_transport_pass": "Transportpass aktiv",
-        "iti_pro_tip": "Profi-Tipp"
-    },
-    "ru": {
-        "nav_mytrips": "Мои Поездки",
-        "nav_settings": "Настройки",
-        "nav_logout": "Выйти",
-        "nav_login": "Войти",
-        "nav_register": "Регистрация",
-        "sidebar_compare": "Сравнить",
-        "sidebar_itinerary": "Маршрут",
-        "sidebar_budget": "Бюджет",
-        "sidebar_settings": "Настройки",
-        "sidebar_logout": "Выйти",
-        "settings_title": "Настройки",
-        "settings_profile": "Профиль",
-        "settings_notifications": "Уведомления",
-        "settings_security": "Безопасность",
-        "settings_language": "Язык",
-        "settings_language_desc": "Выберите предпочитаемый язык",
-        "settings_save": "Сохранить",
-        "footer_copyright": "Copyright. Все права защищены.",
-        "index_title": "Создайте Ваш Идеальный Побег",
-        "index_subtitle": "Планируйте, составляйте бюджет и исследуйте.",
-        "index_origin": "Откуда",
-        "index_ph_origin": "Откуда?",
-        "index_dest": "Куда",
-        "index_ph_dest": "Куда?",
-        "index_dep": "Отправление",
-        "index_arr": "Прибытие",
-        "index_budget": "Бюджет",
-        "index_ph_min": "Мин $",
-        "index_ph_max": "Макс $",
-        "index_travelers": "Путешественники",
-        "index_ph_count": "Количество",
-        "index_more": "Подробнее",
-        "index_create": "Создать Поездку",
-        "index_ages": "Возраст Путешественников",
-        "index_acc_title": "Размещение",
-        "index_hotel": "Отель",
-        "index_hostel": "Хостел",
-        "index_airbnb": "Airbnb",
-        "index_resort": "Курорт",
-        "index_trip_type": "Тип Поездки",
-        "index_edu": "Образовательная",
-        "index_family": "Семейная",
-        "index_friends": "С друзьями",
-        "index_solo": "Одиночная",
-        "index_transport": "Транспорт",
-        "index_plane": "Самолет",
-        "index_train": "Поезд",
-        "index_car": "Автомобиль",
-        "index_bus": "Автобус",
-        "index_activities": "Предпочитаемые Занятия",
-        "index_culture": "Культура",
-        "index_nature": "Природа",
-        "index_food": "Еда",
-        "index_relax": "Отдых",
-        "index_extras": "Дополнительно",
-        "compare_ai": "ВАРИАНТЫ ИИ",
-        "compare_title": "Выберите Ваш Путь",
-        "compare_subtitle": "Сравните темп, стиль и стоимость ниже.",
-        "compare_eco": "ЭКОНОМ",
-        "compare_rec": "РЕКОМЕНДОВАНО",
-        "compare_bal": "СБАЛАНСИРОВАННЫЙ",
-        "compare_lux": "РОСКОШЬ",
-        "compare_highlights": "Основные Моменты",
-        "compare_preview": "ПРЕДПРОСМОТР",
-        "compare_select": "ВЫБРАТЬ",
-        "compare_total": " / общая оценка.",
-        "mytrips_title": "Мои Поездки",
-        "mytrips_subtitle": "Ваши предстоящие и прошедшие приключения.",
-        "mytrips_plan": "Новое Приключение",
-        "mytrips_plan_sub": "Начните планировать следующую поездку.",
-        "mytrips_current": "Текущая Поездка",
-        "iti_budget": "ОБЩИЙ БЮДЖЕТ",
-        "iti_countdown": "ОБРАТНЫЙ ОТСЧЕТ",
-        "iti_days": "Дней осталось",
-        "iti_booked": "Перелеты и отели забронированы",
-        "iti_weather": "СРЕД. ПОГОДА",
-        "iti_jackets": "Идеально для легкой куртки",
-        "iti_logistics": "Ежедневная Логистика",
-        "mytrips_new": "Новая Поездка",
-        "mytrips_past": "Прошедшая Поездка",
-        "mytrips_view": "Смотреть",
-        "mytrips_edit": "Изменить",
-        "mytrips_delete": "Удалить",
-        "footer_weebly": "ТЕМЫ WEEBLY",
-        "footer_presale": "ВОПРОСЫ ДО ПРОДАЖИ",
-        "footer_ticket": "ОТПРАВИТЬ ЗАЯВКУ",
-        "footer_services": "УСЛУГИ",
-        "footer_theme": "НАСТРОЙКА ТЕМЫ",
-        "footer_showcase": "ПОРТФОЛИО",
-        "footer_widget": "WIDGETKIT",
-        "footer_support": "ПОДДЕРЖКА",
-        "footer_about": "О НАС",
-        "footer_privacy": "ПОЛИТИКА КОНФИДЕНЦИАЛЬНОСТИ",
-        "footer_contact": "КОНТАКТЫ",
-        "footer_affil": "ПАРТНЕРЫ",
-        "footer_res": "РЕСУРСЫ",
-        "index_act_sight": "Экскурсии",
-        "index_act_adv": "Приключения",
-        "index_act_relax": "Отдых",
-        "index_act_cult": "Культура",
-        "compare_plan_eco": "Местный Исследователь",
-        "compare_plan_bal": "Открытие с Гидом",
-        "compare_plan_lux": "Премиум Побег",
-        "compare_feat1": "Включены проездные",
-        "compare_feat2": "Частные номера в хостелах",
-        "compare_feat3": "Пешеходные экскурсии",
-        "compare_feat4": "Поезда и внутренние рейсы",
-        "compare_feat5": "4-звездочные отели в центре",
-        "compare_feat6": "2 экскурсии в малых группах",
-        "compare_feat7": "Частные VIP трансферы",
-        "compare_feat8": "5-звездочные курорты и виллы",
-        "compare_feat9": "Эксклюзивные частные туры",
-        "mytrips_all": "Все поездки",
-        "mytrips_upcoming": "Предстоящие поездки",
-        "mytrips_past_f": "Прошлые поездки",
-        "index_extras_ph": "Какое-либо дополнительное место или требование? (напр. Веганская еда)",
-        "iti_trip_to": "Поездка в",
-        "iti_activities_today": "Мероприятия сегодня",
-        "iti_transport_pass": "Транспортный проездной активен",
-        "iti_pro_tip": "Полезный совет"
-    },
-    "zh": {
-        "nav_mytrips": "我的旅行",
-        "nav_settings": "设置",
-        "nav_logout": "登出",
-        "nav_login": "登录",
-        "nav_register": "注册",
-        "sidebar_compare": "比较",
-        "sidebar_itinerary": "行程",
-        "sidebar_budget": "预算",
-        "sidebar_settings": "设置",
-        "sidebar_logout": "登出",
-        "settings_title": "设置",
-        "settings_profile": "个人资料",
-        "settings_notifications": "通知",
-        "settings_security": "安全",
-        "settings_language": "语言",
-        "settings_language_desc": "选择您的首选语言",
-        "settings_save": "保存更改",
-        "footer_copyright": "版权所有。保留所有权利。",
-        "index_title": "设计您的完美逃亡",
-        "index_subtitle": "通过引导发现来计划、预算和探索。",
-        "index_origin": "出发地",
-        "index_ph_origin": "从哪里？",
-        "index_dest": "目的地",
-        "index_ph_dest": "去哪里？",
-        "index_dep": "出发",
-        "index_arr": "到达",
-        "index_budget": "预算",
-        "index_ph_min": "最少 $",
-        "index_ph_max": "最多 $",
-        "index_travelers": "旅客",
-        "index_ph_count": "数量",
-        "index_more": "更多详情",
-        "index_create": "创建旅行",
-        "index_ages": "旅客年龄",
-        "index_acc_title": "住宿",
-        "index_hotel": "酒店",
-        "index_hostel": "青年旅舍",
-        "index_airbnb": "Airbnb",
-        "index_resort": "度假村",
-        "index_trip_type": "旅行类型",
-        "index_edu": "教育",
-        "index_family": "家庭",
-        "index_friends": "朋友",
-        "index_solo": "独自",
-        "index_transport": "交通",
-        "index_plane": "飞机",
-        "index_train": "火车",
-        "index_car": "汽车",
-        "index_bus": "公共汽车",
-        "index_activities": "首选活动",
-        "index_culture": "文化",
-        "index_nature": "自然",
-        "index_food": "美食",
-        "index_relax": "放松",
-        "index_extras": "额外要求",
-        "compare_ai": "AI选项",
-        "compare_title": "选择您的旅程",
-        "compare_subtitle": "在下方比较节奏、风格和估计费用。",
-        "compare_eco": "经济",
-        "compare_rec": "推荐",
-        "compare_bal": "平衡",
-        "compare_lux": "豪华",
-        "compare_highlights": "亮点",
-        "compare_preview": "预览",
-        "compare_select": "选择",
-        "compare_total": " / 估计总额",
-        "mytrips_title": "我的旅行",
-        "mytrips_subtitle": "即将到来和过去的冒险。",
-        "mytrips_plan": "新的冒险",
-        "mytrips_plan_sub": "开始构建您的下一次旅程。",
-        "mytrips_current": "当前旅行",
-        "iti_budget": "总预算",
-        "iti_countdown": "倒计时",
-        "iti_days": "剩余天数",
-        "iti_booked": "已预订航班和酒店",
-        "iti_weather": "平均天气",
-        "iti_jackets": "适合穿薄夹克",
-        "iti_logistics": "日常物流",
-        "mytrips_new": "新旅行",
-        "mytrips_past": "过去的旅行",
-        "mytrips_view": "查看",
-        "mytrips_edit": "编辑",
-        "mytrips_delete": "删除",
-        "mytrips_all": "所有旅行",
-        "mytrips_upcoming": "即将到来的旅行",
-        "mytrips_past_f": "过去的旅行",
-        "compare_plan_eco": "本地探索者",
-        "compare_plan_bal": "向导发现",
-        "compare_plan_lux": "高级度假",
-        "compare_feat1": "包含公共交通卡",
-        "compare_feat2": "精品旅馆私人房间",
-        "compare_feat3": "自助步行游览",
-        "compare_feat4": "火车和国内航班混合",
-        "compare_feat5": "市中心四星级精品酒店",
-        "compare_feat6": "2次小团导游体验",
-        "compare_feat7": "私人豪车接送",
-        "compare_feat8": "五星级度假村和高级别墅",
-        "compare_feat9": "专属私人访问游览",
-        "footer_weebly": "WEEBLY主题",
-        "footer_presale": "售前问答",
-        "footer_ticket": "提交工单",
-        "footer_services": "服务",
-        "footer_theme": "主题调整",
-        "footer_showcase": "展示",
-        "footer_widget": "小工具",
-        "footer_support": "支持",
-        "footer_about": "关于我们",
-        "footer_privacy": "隐私政策",
-        "footer_contact": "联系我们",
-        "footer_affil": "附属",
-        "footer_res": "资源",
-        "index_act_sight": "观光",
-        "index_act_adv": "探险",
-        "index_act_relax": "放松",
-        "index_act_cult": "文化",
-        "index_extras_ph": "任何额外的目的地或要求？（例如需要素食）",
-        "iti_trip_to": "旅行到",
-        "iti_activities_today": "今日活动",
-        "iti_transport_pass": "交通卡激活",
-        "iti_pro_tip": "专业提示"
-    },
-    "ja": {
-        "nav_mytrips": "私の旅行",
-        "nav_settings": "設定",
-        "nav_logout": "ログアウト",
-        "nav_login": "ログイン",
-        "nav_register": "登録",
-        "sidebar_compare": "比較",
-        "sidebar_itinerary": "旅程",
-        "sidebar_budget": "予算",
-        "sidebar_settings": "設定",
-        "sidebar_logout": "ログアウト",
-        "settings_title": "設定",
-        "settings_profile": "プロフィール",
-        "settings_notifications": "通知",
-        "settings_security": "セキュリティ",
-        "settings_language": "言語",
-        "settings_language_desc": "希望の言語を選択してください",
-        "settings_save": "変更を保存",
-        "footer_copyright": "著作権。無断転載を禁じます。",
-        "index_title": "完璧な逃避行をデザインする",
-        "index_subtitle": "ガイド付きの発見で計画し、予算を立て、探索します。",
-        "index_origin": "出発地",
-        "index_ph_origin": "どこから？",
-        "index_dest": "目的地",
-        "index_ph_dest": "どこへ？",
-        "index_dep": "出発",
-        "index_arr": "到着",
-        "index_budget": "予算",
-        "index_ph_min": "最小 $",
-        "index_ph_max": "最大 $",
-        "index_travelers": "旅行者",
-        "index_ph_count": "人数",
-        "index_more": "詳細",
-        "index_create": "旅行を作成",
-        "index_ages": "旅行者の年齢",
-        "index_acc_title": "宿泊",
-        "index_hotel": "ホテル",
-        "index_hostel": "ホステル",
-        "index_airbnb": "Airbnb",
-        "index_resort": "リゾート",
-        "index_trip_type": "旅行の種類",
-        "index_edu": "教育的",
-        "index_family": "家族",
-        "index_friends": "友達",
-        "index_solo": "一人旅",
-        "index_transport": "交通機関",
-        "index_plane": "飛行機",
-        "index_train": "電車",
-        "index_car": "車",
-        "index_bus": "バス",
-        "index_activities": "希望する活動",
-        "index_culture": "文化",
-        "index_nature": "自然",
-        "index_food": "食事",
-        "index_relax": "リラックス",
-        "index_extras": "追加/特別な要望",
-        "compare_ai": "AIオプション",
-        "compare_title": "旅を選んでください",
-        "compare_subtitle": "ペース、スタイル、費用の見積もりを比較してください。",
-        "compare_eco": "エコノミー",
-        "compare_rec": "おすすめ",
-        "compare_bal": "バランス",
-        "compare_lux": "ラグジュアリー",
-        "compare_highlights": "ハイライト",
-        "compare_preview": "プレビュー",
-        "compare_select": "選択",
-        "compare_total": " / 合計推定.",
-        "mytrips_title": "私の旅行",
-        "mytrips_subtitle": "これからの、そして過去の冒険。",
-        "mytrips_plan": "新しい冒険",
-        "mytrips_plan_sub": "次の旅の構築を始めましょう。",
-        "mytrips_current": "現在の旅行",
-        "iti_budget": "総予算",
-        "iti_countdown": "カウントダウン",
-        "iti_days": "残り日数",
-        "iti_booked": "予約済みのフライトとホテル",
-        "iti_weather": "平均天気",
-        "iti_jackets": "薄手のジャケットに最適",
-        "iti_logistics": "毎日のロジスティクス",
-        "mytrips_new": "新しい旅行",
-        "mytrips_past": "過去の旅行",
-        "mytrips_view": "旅行を見る",
-        "mytrips_edit": "旅行を編集",
-        "mytrips_delete": "旅行を削除",
-        "mytrips_all": "すべての旅行",
-        "mytrips_upcoming": "これからの旅行",
-        "mytrips_past_f": "過去の旅行",
-        "compare_plan_eco": "ローカルエクスプローラー",
-        "compare_plan_bal": "ガイド付き発見",
-        "compare_plan_lux": "プレミアムエスケープ",
-        "compare_feat1": "公共交通機関のパス込み",
-        "compare_feat2": "ブティックホステルの個室",
-        "compare_feat3": "セルフガイドウォーキング",
-        "compare_feat4": "電車と国内線の組み合わせ",
-        "compare_feat5": "中心部の4つ星ホテル",
-        "compare_feat6": "2回の少人数ガイド体験",
-        "compare_feat7": "プライベート高級車送迎",
-        "compare_feat8": "5つ星リゾートとヴィラ",
-        "compare_feat9": "専用プライベートツアー",
-        "footer_weebly": "WEEBLYのテーマ",
-        "footer_presale": "販売前FAQ",
-        "footer_ticket": "チケット送信",
-        "footer_services": "サービス",
-        "footer_theme": "テーマ調整",
-        "footer_showcase": "ショーケース",
-        "footer_widget": "ウィジェットキット",
-        "footer_support": "サポート",
-        "footer_about": "私たちについて",
-        "footer_privacy": "プライバシーポリシー",
-        "footer_contact": "お問い合わせ",
-        "footer_affil": "アフィリエイト",
-        "footer_res": "リソース",
-        "index_act_sight": "観光",
-        "index_act_adv": "冒険",
-        "index_act_relax": "リラクゼーション",
-        "index_act_cult": "文化",
-        "index_extras_ph": "追加の目的地や要件はありますか？（例：ヴィーガンフードが必要）",
-        "iti_trip_to": "への旅行:",
-        "iti_activities_today": "今日の活動",
-        "iti_transport_pass": "交通パス有効",
-        "iti_pro_tip": "プロのヒント"
-    },
-    "pt": {
-        "nav_login": "Entrar",
-        "nav_register": "Registrar",
-        "nav_settings": "Configurações",
-        "nav_logout": "Sair",
-        "mytrips_all": "Todas as viagens",
-        "mytrips_upcoming": "Próximas viagens",
-        "mytrips_past_f": "Viagens passadas",
-        "index_extras_ph": "Algum destino ou requisito extra? (ex. Comida vegana)",
-        "iti_trip_to": "Viagem para",
-        "iti_activities_today": "Atividades hoje",
-        "iti_transport_pass": "Passe de transporte ativo",
-        "iti_pro_tip": "Dica profissional"
-    }
-};
 
-        function setLanguage(lang) {
-            localStorage.setItem('app_lang', lang);
-            document.querySelectorAll('[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                if (translations[lang] && translations[lang][key]) {
-                    // Try to preserve icons: If it has children, replace only the text node, otherwise replace all
-                    let textNodeReplaced = false;
-                    el.childNodes.forEach(node => {
-                        if (node.nodeType === Node.TEXT_NODE && node.nodeValue.trim().length > 0) {
-                            node.nodeValue = " " + translations[lang][key];
-                            textNodeReplaced = true;
-                        }
-                    });
-                    if (!textNodeReplaced) {
-                        el.innerHTML = translations[lang][key];
-                    }
-                }
-            });
-            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-                const key = el.getAttribute('data-i18n-placeholder');
-                if (translations[lang] && translations[lang][key]) {
-                     el.placeholder = translations[lang][key];
-                }
-            });
-            // Update html lang attribute
-            document.documentElement.lang = lang;
-            
-            // Set any language select dropdown to match
-            const langSelect = document.getElementById('language-select');
-            if (langSelect) langSelect.value = lang;
+    <script>
+    // ─── Utilidades compartidas ──────────────────────────────────────────────
+
+    // Todas las peticiones que modifican estado tienen que llevar el token CSRF.
+    window.CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
+
+    window.apiFetch = function (url, opciones = {}) {
+        const cabeceras = Object.assign(
+            { 'Content-Type': 'application/json', 'X-CSRF-Token': window.CSRF_TOKEN },
+            opciones.headers || {}
+        );
+        return fetch(url, Object.assign({}, opciones, { headers: cabeceras }));
+    };
+
+    // ─── i18n ────────────────────────────────────────────────────────────────
+    // Los diccionarios viven en /static/i18n/<lang>.json para no inflar el HTML.
+
+    window.IDIOMAS = {{ idiomas | tojson }};
+    window.IDIOMA_ACTUAL = {{ user_lang | tojson }};
+    window.USUARIO_LOGUEADO = {{ (user_id is not none) | tojson }};
+    window.traducciones = {};
+
+    function aplicarTraducciones(dict) {
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const texto = dict[el.getAttribute('data-i18n')];
+            if (texto === undefined) return;
+
+            // Si el elemento tiene hijos (iconos), sólo reemplazamos el texto suelto.
+            const nodosTexto = Array.from(el.childNodes)
+                .filter(n => n.nodeType === Node.TEXT_NODE && n.nodeValue.trim().length > 0);
+
+            if (nodosTexto.length > 0) {
+                nodosTexto[0].nodeValue = el.children.length ? ' ' + texto : texto;
+                for (let i = 1; i < nodosTexto.length; i++) nodosTexto[i].nodeValue = '';
+            } else if (el.children.length === 0) {
+                el.textContent = texto;
+            }
+        });
+
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            const texto = dict[el.getAttribute('data-i18n-placeholder')];
+            if (texto !== undefined) el.placeholder = texto;
+        });
+
+        document.querySelectorAll('[data-i18n-title]').forEach(el => {
+            const texto = dict[el.getAttribute('data-i18n-title')];
+            if (texto !== undefined) el.title = texto;
+        });
+    }
+
+    // Texto traducido para usar desde JS (alerts, confirmaciones, etc.).
+    window.t = function (clave, porDefecto) {
+        const dict = window.traducciones[window.IDIOMA_ACTUAL] || {};
+        return dict[clave] !== undefined ? dict[clave] : (porDefecto || clave);
+    };
+
+    window.cargarIdioma = async function (lang) {
+        if (!window.IDIOMAS.includes(lang)) lang = 'en';
+
+        if (!window.traducciones[lang]) {
+            try {
+                const resp = await fetch(`/static/i18n/${lang}.json`);
+                if (!resp.ok) throw new Error(resp.status);
+                window.traducciones[lang] = await resp.json();
+            } catch (err) {
+                console.error('No se pudo cargar el idioma', lang, err);
+                return;
+            }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedLang = localStorage.getItem('app_lang') || 'en';
-            setLanguage(savedLang);
-        });
+        window.IDIOMA_ACTUAL = lang;
+        document.documentElement.lang = lang;
+        aplicarTraducciones(window.traducciones[lang]);
+        document.dispatchEvent(new CustomEvent('idiomaCambiado', { detail: { lang } }));
+    };
+
+    window.setLanguage = async function (lang) {
+        localStorage.setItem('app_lang', lang);
+        await window.cargarIdioma(lang);
+
+        // Si hay sesión, el idioma se persiste en el perfil del usuario.
+        if (window.USUARIO_LOGUEADO) {
+            try {
+                await window.apiFetch('/settings/language', {
+                    method: 'POST',
+                    body: JSON.stringify({ idioma: lang })
+                });
+            } catch (err) {
+                console.warn('No se pudo guardar el idioma en el servidor', err);
+            }
+        }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // El idioma del perfil manda; si no hay sesión, el del navegador.
+        const guardado = window.USUARIO_LOGUEADO
+            ? window.IDIOMA_ACTUAL
+            : (localStorage.getItem('app_lang') || window.IDIOMA_ACTUAL);
+
+        window.cargarIdioma(guardado);
+
+        const selector = document.getElementById('language-select');
+        if (selector) selector.value = guardado;
+    });
     </script>
+
+    {% block scripts %}{% endblock %}
 </body>
 </html>

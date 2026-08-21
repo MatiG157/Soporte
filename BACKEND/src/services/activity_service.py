@@ -7,7 +7,7 @@ from src.validators.activity_validator import activity_schema
 def crear_actividad(datos):
     datos_validados = activity_schema.load(datos)
 
-    itinerario = Itinerario.query.get(datos_validados['id_itinerario'])
+    itinerario = db.session.get(Itinerario, datos_validados['id_itinerario'])
     if not itinerario:
         raise ValueError(
             f"No se encontró un itinerario con ID {datos_validados['id_itinerario']}")
@@ -32,12 +32,12 @@ def obtener_actividades_por_itinerario(id_itinerario):
 
 
 def obtener_actividad_por_id(id_actividad):
-    return Actividad.query.get(id_actividad)
+    return db.session.get(Actividad, id_actividad)
 
 
 def actualizar_actividad(id_actividad, datos):
     datos_validados = activity_schema.load(datos, partial=True)
-    actividad = Actividad.query.get(id_actividad)
+    actividad = db.session.get(Actividad, id_actividad)
 
     if not actividad:
         return None
@@ -54,7 +54,7 @@ def actualizar_actividad(id_actividad, datos):
 
 
 def eliminar_actividad(id_actividad):
-    actividad = Actividad.query.get(id_actividad)
+    actividad = db.session.get(Actividad, id_actividad)
     if actividad:
         db.session.delete(actividad)
         db.session.commit()

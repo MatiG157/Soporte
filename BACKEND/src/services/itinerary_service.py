@@ -9,7 +9,7 @@ def crear_itinerario(datos):
     datos_validados = itinerario_schema.load(datos)
 
     id_viaje = datos_validados['id_viaje']
-    viaje = Viaje.query.get(id_viaje)
+    viaje = db.session.get(Viaje, id_viaje)
     if not viaje:
         raise ValueError(f"No se encontró el viaje con ID {id_viaje}")
 
@@ -30,13 +30,13 @@ def obtener_itinerarios_por_viaje(id_viaje):
 
 def obtener_itinerario_por_id(id_itinerario):
 
-    return Itinerario.query.get(id_itinerario)
+    return db.session.get(Itinerario, id_itinerario)
 
 
 def actualizar_itinerario(id_itinerario, datos):
 
     datos_validados = itinerario_schema.load(datos, partial=True)
-    itinerario = Itinerario.query.get(id_itinerario)
+    itinerario = db.session.get(Itinerario, id_itinerario)
     if not itinerario:
         return None
 
@@ -49,7 +49,7 @@ def actualizar_itinerario(id_itinerario, datos):
 
 def eliminar_itinerario(id_itinerario):
 
-    itinerario = Itinerario.query.get(id_itinerario)
+    itinerario = db.session.get(Itinerario, id_itinerario)
     if itinerario:
         db.session.delete(itinerario)
         db.session.commit()

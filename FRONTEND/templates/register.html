@@ -1,158 +1,165 @@
 {% extends "layout.html" %}
+{% block title %}Create account · Travel Planner{% endblock %}
 {% block header %}{% endblock %}
-{% block body %}
+
+{% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='register.css') }}">
+{% endblock %}
+
+{% block body %}
 <div class="split-screen">
-<div class="left-pane">
-            <div class="left-content">
-                <div class="logo-top">
-                    <img src="{{ url_for('static', filename='logos/logoSideWhiteGreenInvis.png') }}" alt="TravelPlanner" style="max-width: 170px;">
-                </div>
-                <div class="bottom-text">
-                    <h1>Your journey starts with a single plan.</h1>
-                    <p>Join 50,000+ travelers managing their itineraries, budgets, and discoveries in one seamless workspace.</p>
-                    
-                    <div class="rating-box">
-                        <div class="avatars">
-                            <img src="https://i.pravatar.cc/100?img=11" alt="user">
-                            <img src="https://i.pravatar.cc/100?img=12" alt="user">
-                            <img src="https://i.pravatar.cc/100?img=13" alt="user">
-                        </div>
-                        <div class="rating-info">
-                            <div class="rating-title">COMMUNITY RATING</div>
-                            <div class="stars">
-                                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-regular fa-star-half-stroke"></i> 4.6/5
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="bottom-footer">
-                    <span>© 2026 TravelPlanner Inc.</span>
-                    <a href="#">Support</a>
-                    <a href="#">Feedback</a>
-                </div>
+    <div class="left-pane">
+        <div class="left-content">
+            <div class="logo-top">
+                <img src="{{ url_for('static', filename='logos/logoSideWhiteGreenInvis.png') }}"
+                     alt="TravelPlanner" style="max-width: 170px;">
+            </div>
+            <div class="bottom-text">
+                <h1 data-i18n="reg_title">Create your account</h1>
+                <p data-i18n="reg_sub">Start planning your next trip in minutes.</p>
+            </div>
+            <div class="bottom-footer">
+                <span>© 2026 TravelPlanner</span>
+                <a href="#" data-i18n="footer_support">SUPPORT</a>
+                <a href="#" data-i18n="footer_privacy">PRIVACY POLICY</a>
             </div>
         </div>
-        <div class="right-pane">
-            <div class="right-content">
-                <h2>Create your account</h2>
-                <p class="subtitle">Start your next adventure with precision and ease.</p>
-                
-                <form id="registerForm">
-                    <div class="form-group mb-4 d-flex gap-2">
-                        <input type="text" id="nombre" class="form-control underline-input" placeholder="First Name" required>
-                        <input type="text" id="apellido" class="form-control underline-input" placeholder="Last Name" required>
-                    </div>
-                    
-                    <div class="form-group mb-4">
-                        <input type="email" id="email" class="form-control underline-input" placeholder="Email Address" required>
-                    </div>
-                    
-                    <div class="form-group mb-4 position-relative">
-                        <input type="password" id="password" class="form-control underline-input" placeholder="Password" required>
-                        <i class="fa-solid fa-eye-slash toggle-password"></i>
-                    </div>
+    </div>
 
-                    <div class="form-group mb-4">
-                        <label for="foto" class="form-label text-muted" style="font-size: 0.85rem;">Profile Photo (optional)</label>
-                        <input type="url" id="foto" class="form-control underline-input" placeholder="https://example.com/your-photo.jpg">
-                        <small class="text-muted">Paste a URL to your profile picture, or leave blank for default.</small>
-                    </div>
-                    
-                    <p class="terms-text">By clicking "Create Account", you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.</p>
-                    
-                    <!-- Contenedor para mensajes de error o éxito -->
-                    <div id="registerMessage" class="mb-3 text-center" style="font-size: 0.9rem;"></div>
+    <div class="right-pane">
+        <div class="right-content">
+            <h2 data-i18n="reg_title">Create your account</h2>
+            <p class="subtitle" data-i18n="reg_sub">Start planning your next trip in minutes.</p>
 
-                    <button type="submit" class="btn btn-primary w-100 signup-btn">Create Account</button>
-                </form>
-                
-                <div class="divider-text mt-4 mb-4">
-                    <span>OR REGISTER WITH</span>
+            <form id="registerForm" novalidate>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="form-group mb-4 d-flex gap-2">
+                    <input type="text" id="nombre" class="form-control underline-input"
+                           autocomplete="given-name" placeholder="First Name"
+                           data-i18n-placeholder="reg_first" required>
+                    <input type="text" id="apellido" class="form-control underline-input"
+                           autocomplete="family-name" placeholder="Last Name"
+                           data-i18n-placeholder="reg_last" required>
                 </div>
-                
-                <div class="social-login">
-                    <button type="button" class="btn btn-outline-secondary social-btn" onclick="window.location.href='{{ url_for('login_google') }}'">
-                        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
-                        Google
-                    </button>
+
+                <div class="form-group mb-4">
+                    <input type="email" id="email" class="form-control underline-input"
+                           autocomplete="email" placeholder="Email"
+                           data-i18n-placeholder="auth_email" required>
                 </div>
-                
-                <div class="login-link">
-                    Already have an account? <a href="{{ url_for('login') }}">Log in</a>
+
+                <div class="form-group mb-2 position-relative">
+                    <input type="password" id="password" class="form-control underline-input"
+                           autocomplete="new-password" placeholder="Password"
+                           data-i18n-placeholder="auth_password" required>
+                    <i class="fa-solid fa-eye-slash toggle-password"></i>
                 </div>
+                <small class="text-muted d-block mb-4" data-i18n="reg_pw_hint">
+                    8 to 16 characters, with an uppercase letter and a number.
+                </small>
+
+                <div class="form-group mb-4">
+                    <input type="text" id="nacionalidad" class="form-control underline-input"
+                           autocomplete="country-name" placeholder="Nationality"
+                           data-i18n-placeholder="reg_nationality">
+                </div>
+
+                <div class="form-group mb-4">
+                    <label for="foto" class="form-label text-muted" style="font-size: 0.85rem;"
+                           data-i18n="reg_photo">Profile photo (optional)</label>
+                    <input type="url" id="foto" class="form-control underline-input"
+                           placeholder="https://example.com/your-photo.jpg">
+                </div>
+
+                <div id="registerMessage" class="mb-3 text-center" style="font-size: 0.9rem;">
+                    {%- if error -%}
+                    <span class="text-danger fw-bold">{{ error }}</span>
+                    {%- endif -%}
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100 signup-btn"
+                        data-i18n="reg_submit">Create account</button>
+            </form>
+
+            <div class="divider-text mt-4 mb-4">
+                <span data-i18n="auth_or">or</span>
+            </div>
+
+            <div class="social-login">
+                <button type="button" class="btn btn-outline-secondary social-btn"
+                        onclick="window.location.href='{{ url_for('login_google') }}'">
+                    <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+                    <span data-i18n="auth_google">Continue with Google</span>
+                </button>
+            </div>
+
+            <div class="login-link">
+                <span data-i18n="auth_have_account">Already have an account?</span>
+                <a href="{{ url_for('login') }}" data-i18n="auth_signin">Sign in</a>
             </div>
         </div>
-    </div>  
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const togglePassword = document.querySelector('.toggle-password');
-        const passwordInput = document.querySelector('#password');
-        if (togglePassword && passwordInput) {
-            togglePassword.addEventListener('click', function () {
-                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-                passwordInput.setAttribute('type', type);
-                this.classList.toggle('fa-eye');
-                this.classList.toggle('fa-eye-slash');
+document.addEventListener('DOMContentLoaded', () => {
+    const toggle = document.querySelector('.toggle-password');
+    const password = document.getElementById('password');
+    if (toggle && password) {
+        toggle.addEventListener('click', function () {
+            password.type = password.type === 'password' ? 'text' : 'password';
+            this.classList.toggle('fa-eye');
+            this.classList.toggle('fa-eye-slash');
+        });
+    }
+
+    const form = document.getElementById('registerForm');
+    const mensaje = document.getElementById('registerMessage');
+    const boton = form.querySelector('button[type="submit"]');
+
+    function mostrar(texto, clase) {
+        mensaje.textContent = texto;
+        mensaje.className = 'mb-3 text-center ' + clase;
+    }
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        boton.disabled = true;
+        mostrar(t('reg_creating', 'Creating account…'), 'text-secondary');
+
+        try {
+            // Va contra el propio frontend, que proxea al backend con su API key.
+            const resp = await apiFetch("{{ url_for('register') }}", {
+                method: 'POST',
+                body: JSON.stringify({
+                    nombre: document.getElementById('nombre').value.trim(),
+                    apellido: document.getElementById('apellido').value.trim(),
+                    email: document.getElementById('email').value.trim(),
+                    contrasena: password.value,
+                    nacionalidad: document.getElementById('nacionalidad').value.trim(),
+                    foto: document.getElementById('foto').value.trim()
+                })
             });
-        }
 
-        // Conexión con el Backend para el Registro
-        const registerForm = document.getElementById('registerForm');
-        const messageDiv = document.getElementById('registerMessage');
+            const data = await resp.json();
 
-        if (registerForm) {
-            registerForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                messageDiv.textContent = 'Creating account...';
-                messageDiv.className = 'mb-3 text-center text-secondary';
-
-                const nombre = document.getElementById('nombre').value;
-                const apellido = document.getElementById('apellido').value;
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
-                const foto = document.getElementById('foto').value || null;
-
-                try {
-                    const response = await fetch('http://127.0.0.1:5000/usuarios/', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            nombre: nombre,
-                            apellido: apellido,
-                            email: email,
-                            contrasena: password,
-                            foto: foto
-                        })
-                    });
-
-                    const data = await response.json();
-
-                    if (response.ok) {
-                        messageDiv.textContent = 'Account created successfully! Redirecting to login...';
-                        messageDiv.className = 'mb-3 text-center text-success fw-bold';
-                        registerForm.reset();
-                        setTimeout(() => {
-                            window.location.href = "{{ url_for('login') }}";
-                        }, 1500);
-                    } else {
-                        // Manejo de errores de validación de Marshmallow o backend
-                        let errorMsg = data.error || 'Failed to create account.';
-                        if (data.errores_validacion) {
-                            errorMsg = Object.values(data.errores_validacion).flat().join(' ');
-                        }
-                        messageDiv.textContent = errorMsg;
-                        messageDiv.className = 'mb-3 text-center text-danger fw-bold';
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    messageDiv.textContent = 'Cannot connect to the server. Is the backend running?';
-                    messageDiv.className = 'mb-3 text-center text-danger fw-bold';
-                }
-            });
+            if (resp.ok && data.redirect) {
+                mostrar(t('reg_success', 'Account created. Redirecting…'), 'text-success fw-bold');
+                form.reset();
+                setTimeout(() => { window.location.href = data.redirect; }, 1200);
+            } else {
+                mostrar(data.error || t('err_server', 'Something went wrong.'), 'text-danger fw-bold');
+                boton.disabled = false;
+            }
+        } catch (err) {
+            console.error(err);
+            mostrar(t('err_server', 'Could not reach the server.'), 'text-danger fw-bold');
+            boton.disabled = false;
         }
     });
+});
 </script>
 {% endblock %}

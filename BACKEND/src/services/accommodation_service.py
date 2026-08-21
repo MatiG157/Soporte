@@ -20,12 +20,12 @@ def obtener_tipos_alojamiento():
 
 
 def obtener_tipo_alojamiento_por_id(id_tipo):
-    return TipoAlojamiento.query.get(id_tipo)
+    return db.session.get(TipoAlojamiento, id_tipo)
 
 
 def actualizar_tipo_alojamiento(id_tipo, datos):
     datos_validados = accommodation_type_schema.load(datos, partial=True)
-    tipo_alojamiento = TipoAlojamiento.query.get(id_tipo)
+    tipo_alojamiento = db.session.get(TipoAlojamiento, id_tipo)
 
     if not tipo_alojamiento:
         return None
@@ -37,7 +37,7 @@ def actualizar_tipo_alojamiento(id_tipo, datos):
 
 
 def eliminar_tipo_alojamiento(id_tipo):
-    tipo_alojamiento = TipoAlojamiento.query.get(id_tipo)
+    tipo_alojamiento = db.session.get(TipoAlojamiento, id_tipo)
     if tipo_alojamiento:
         db.session.delete(tipo_alojamiento)
         db.session.commit()

@@ -1,5 +1,5 @@
 from src.models.init import db
-from datetime import datetime
+from datetime import datetime, timezone
 
 class RecomendacionIA(db.Model):
     __tablename__ = "recomendaciones_ia"
@@ -15,7 +15,7 @@ class RecomendacionIA(db.Model):
     texto_generado = db.Column(db.Text, nullable=False)
     fecha_generacion = db.Column(
         db.DateTime,
-        default=datetime.utcnow
+        default=lambda: datetime.now(timezone.utc)
     )
 
     tipo = db.Column(db.String(50))  # itinerario, ajuste, consejo

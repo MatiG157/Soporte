@@ -1,193 +1,251 @@
 {% extends "layout.html" %}
+{% block title %}{{ viaje.destinos_display }} · Travel Planner{% endblock %}
 
-{% block body %}
+{% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='itinerary.css') }}">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-    body {
-        background-color: #ffffff !important;
-        background-image: none !important;
+    body { background-color: #ffffff !important; background-image: none !important; }
+    #trip-map { min-height: 300px; border-radius: 1rem; z-index: 0; }
+    .activity-icon-wrapper {
+        display: flex; align-items: center; justify-content: center;
+        min-height: 140px; border-radius: .75rem; font-size: 2rem; color: #fff;
     }
 </style>
+{% endblock %}
 
+{% block body %}
 <div class="page-wrapper">
-    <!-- Sidebar -->
     {% set active_page = 'itinerary' %}
     {% include 'sidebar.html' %}
 
-    <!-- Main Content -->
     <div class="main-content itinerary-content">
-        <!-- Main Top Bar -->
-        <div class="itinerary-header-bar d-flex justify-content-between align-items-center mb-4">
-            <div class="d-flex gap-4">
-                <a href="#" class="header-tab active fw-bold text-dark text-decoration-none fs-5">TravelPlanner</a>
-                <a href="#" class="header-tab text-secondary text-decoration-none fs-5 position-relative">
-                    My Trips
-                    <span class="position-absolute bottom-0 start-0 w-100" style="height: 3px; background-color: var(--brand-color, #006d5b); border-radius: 2px;"></span>
+
+        <!-- Encabezado -->
+        <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                    {% for destino in viaje.destinos %}
+                    <span class="badge bg-light text-secondary rounded p-1 px-2 border fw-semibold">{{ destino }}</span>
+                    {% endfor %}
+                    <span class="text-secondary fw-bold fs-6">
+                        &bull; {{ viaje.fecha_inicio_fmt }} – {{ viaje.fecha_fin_fmt }}
+                    </span>
+                </div>
+                <h1 class="display-5 fw-bold mb-0">
+                    {{ viaje.tipo_viaje }} <span data-i18n="iti_trip_to">Trip to</span> {{ viaje.destinos_display }}
+                </h1>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button id="share-btn" class="btn btn-outline-secondary rounded-circle icon-btn shadow-sm"
+                        data-i18n-title="iti_share" title="Share">
+                    <i class="fa-solid fa-share-nodes"></i>
+                </button>
+                <button class="btn btn-outline-secondary rounded-circle icon-btn shadow-sm"
+                        data-bs-toggle="modal" data-bs-target="#editTripModal"
+                        data-i18n-title="iti_edit" title="Edit trip">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                <a href="{{ url_for('budget', id_viaje=viaje.id_viaje) }}"
+                   class="btn btn-outline-secondary rounded-circle icon-btn shadow-sm"
+                   data-i18n-title="sidebar_budget" title="Budget">
+                    <i class="fa-solid fa-piggy-bank"></i>
                 </a>
             </div>
-            <div>
-                <!-- User avatar is in navbar, this could be another user place if needed, but omitted as navbar handles it -->
-            </div>
         </div>
 
-        <!-- Title Section -->
-        <div class="d-flex justify-content-between align-items-start mb-4">
-            <div>
-                <div class="d-flex align-items-center gap-2 mb-2">
-                    <span class="badge bg-light text-secondary rounded p-1 px-2 border fw-semibold text-uppercase">{{ viaje.destino }}</span>
-                    <span class="text-secondary fw-bold fs-6">&bull; {{ viaje.fecha_inicio_fmt }} - {{ viaje.fecha_fin_fmt }}</span>
-                </div>
-                <h1 class="display-4 fw-bold mb-0">{{ viaje.tipo_viaje }} <span data-i18n="iti_trip_to">Trip to</span> {{ viaje.destino }}</h1>
-            </div>
-            <div class="d-flex gap-2">
-                <button class="btn btn-outline-secondary rounded-circle icon-btn shadow-sm"><i class="fa-solid fa-share-nodes"></i></button>
-                <button class="btn btn-outline-secondary rounded-circle icon-btn shadow-sm"><i class="fa-solid fa-pen"></i></button>
-            </div>
-        </div>
-
-        <!-- Widgets Row -->
+        <!-- Widgets -->
         <div class="row mb-5 g-3 widgets-row">
-            <!-- Budget Widget -->
             <div class="col-md-4">
                 <div class="card h-100 widget-card border rounded-4 shadow-sm p-3">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="text-secondary fw-bold fs-7 widget-title" data-i18n="iti_budget"><span data-i18n="iti_budget">TOTAL BUDGET</span></span>
+                        <span class="text-secondary fw-bold fs-7 widget-title" data-i18n="iti_budget">TOTAL BUDGET</span>
                         <i class="fa-solid fa-wallet text-brand"></i>
                     </div>
-                    <div class="fs-2 fw-bold mb-3">${{ viaje.costo_total_estimado }} <span class="fs-6 fw-normal text-secondary">/ (${{ viaje.costo_total_estimado }})</span></div>
+                    <div class="fs-2 fw-bold mb-1">${{ '{:,.0f}'.format(viaje.costo_total_estimado or 0) }}</div>
+                    {% set costos = viaje.costos or {} %}
+                    {% set base = costos.get('costo_total_base') or 0 %}
+                    {% set actividades = costos.get('costo_actividades') or 0 %}
+                    {% set proporcion = (actividades / base * 100) if base else 0 %}
+                    <div class="text-secondary fs-7 mb-2">
+                        <span data-i18n="budget_activities">Activities</span>:
+                        ${{ '{:,.0f}'.format(actividades) }}
+                    </div>
                     <div class="progress" style="height: 8px; border-radius: 4px; background-color: #e2e8f0;">
-                        <div class="progress-bar bg-brand" role="progressbar" style="width: 100%;" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Countdown Widget -->
-            <div class="col-md-4">
-                <div class="card h-100 widget-card border rounded-4 shadow-sm p-3">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="text-secondary fw-bold fs-7 widget-title" data-i18n="iti_countdown"><span data-i18n="iti_countdown">COUNTDOWN</span></span>
-                        <i class="fa-regular fa-calendar text-brand"></i>
-                    </div>
-                    <div class="fs-2 fw-bold mb-3">- <span class="fs-6 fw-normal text-secondary" data-i18n="iti_days"><span data-i18n="iti_days">Days Left</span></span></div>
-                    <div class="d-flex align-items-center text-secondary fs-7">
-                        <i class="fa-solid fa-circle-check text-brand me-2"></i> <span data-i18n="iti_booked">Flights & Hotels booked</span>
+                        <div class="progress-bar bg-brand" role="progressbar"
+                             style="width: {{ '%.0f'|format(proporcion) }}%;"
+                             aria-valuenow="{{ '%.0f'|format(proporcion) }}" aria-valuemin="0" aria-valuemax="100"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- Weather Widget -->
             <div class="col-md-4">
                 <div class="card h-100 widget-card border rounded-4 shadow-sm p-3">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="text-secondary fw-bold fs-7 widget-title" data-i18n="iti_weather"><span data-i18n="iti_weather">WEATHER AVG</span></span>
+                        <span class="text-secondary fw-bold fs-7 widget-title" data-i18n="iti_countdown">COUNTDOWN</span>
+                        <i class="fa-regular fa-calendar text-brand"></i>
+                    </div>
+                    <div class="fs-2 fw-bold mb-1">
+                        {{ viaje.countdown }}
+                        <span class="fs-6 fw-normal text-secondary">
+                            {% if viaje.countdown_estado == 'faltan' %}<span data-i18n="iti_days_left">Days left</span>
+                            {% elif viaje.countdown_estado == 'en_curso' %}<span data-i18n="iti_in_progress">Days to go</span>
+                            {% else %}<span data-i18n="iti_finished">Days since it ended</span>{% endif %}
+                        </span>
+                    </div>
+                    <div class="d-flex align-items-center text-secondary fs-7">
+                        <i class="fa-solid fa-calendar-day text-brand me-2"></i>
+                        {{ viaje.dias_totales }} <span data-i18n="compare_days" class="ms-1">days</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card h-100 widget-card border rounded-4 shadow-sm p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-secondary fw-bold fs-7 widget-title" data-i18n="iti_weather">WEATHER AVG</span>
                         <i class="fa-regular fa-sun text-brand"></i>
                     </div>
-                    <div class="fs-2 fw-bold mb-3">22°C <span class="fs-6 fw-normal text-secondary">/ 71°F</span></div>
-                    <div class="text-secondary fs-7">
-                        <span data-i18n="iti_jackets">Perfect for light jackets</span>
+                    <div class="fs-2 fw-bold mb-1" id="weather-value">
+                        <span class="spinner-border spinner-border-sm text-secondary" role="status"></span>
                     </div>
+                    <div class="text-secondary fs-7" id="weather-detail" data-i18n="common_loading">Loading…</div>
                 </div>
             </div>
         </div>
 
-        <!-- Days Tabs -->
+        <!-- Pestañas por día -->
         <div class="d-flex gap-2 mb-4 overflow-auto" id="daysTabsContainer">
-            {% for itin in viaje.itinerarios|sort(attribute='dia') %}
-            <button class="btn {% if loop.first %}btn-brand text-white shadow-sm border-0{% else %}btn-outline-secondary bg-light text-secondary border-1{% endif %} rounded-pill px-4 fw-bold day-tab-btn" data-day="{{ loop.index }}">
-                Day {{ itin.dia }} &bull; {{ itin.fecha_fmt }}
+            {% for itin in viaje.itinerarios %}
+            <button class="btn {% if loop.first %}btn-brand text-white shadow-sm border-0{% else %}btn-outline-secondary bg-light text-secondary border-1{% endif %} rounded-pill px-4 fw-bold day-tab-btn"
+                    data-day="{{ loop.index }}">
+                <span data-i18n="iti_day">Day</span> {{ itin.dia }} &bull; {{ itin.fecha_fmt }}
             </button>
             {% endfor %}
         </div>
 
-        <!-- Main Layout (Timeline + Map) -->
         <div class="row gx-5 mt-4">
-            <!-- Timeline Section -->
+            <!-- Línea de tiempo -->
             <div class="col-lg-8 position-relative">
                 <div class="timeline-line"></div>
-                
-                {% for itin in viaje.itinerarios|sort(attribute='dia') %}
-                <div class="day-content" id="day-content-{{ loop.index }}" style="{% if not loop.first %}display: none;{% endif %}">
+
+                {% for itin in viaje.itinerarios %}
+                <div class="day-content" id="day-content-{{ loop.index }}"
+                     data-actividades='{{ itin.actividades | tojson }}'
+                     style="{% if not loop.first %}display: none;{% endif %}">
+
+                    {% if itin.resumen %}
+                    <p class="text-secondary fst-italic mb-4 ps-4">{{ itin.resumen }}</p>
+                    {% endif %}
+
                     {% for act in itin.actividades %}
-                    <!-- Timeline Item -->
                     <div class="timeline-item mb-4">
                         <div class="timeline-dot {% if loop.first %}active-dot{% endif %}"></div>
                         <div class="card timeline-card border rounded-4 shadow-sm">
                             <div class="row g-0">
-                                <div class="col-md-4 p-3 pe-0">
-                                    <div class="img-wrapper rounded-3 w-100 h-100" style="background-image: url('https://images.unsplash.com/photo-1493780474015-ba834fd0ce2f?q=80&w=400&auto=format&fit=crop'); background-size: cover; background-position: center; min-height: 140px;"></div>
+                                <div class="col-md-4 p-3 pe-md-0">
+                                    <div class="activity-icon-wrapper w-100 h-100"
+                                         data-categoria="{{ act.categoria | lower }}"></div>
                                 </div>
                                 <div class="col-md-8 p-3">
                                     <div class="d-flex justify-content-between align-items-start mb-2">
-                                        <div class="d-flex align-items-center text-{% if loop.first %}brand{% else %}secondary{% endif %} fw-bold mb-1 fs-7">
+                                        <div class="d-flex align-items-center text-secondary fw-bold mb-1 fs-7">
                                             <i class="fa-regular fa-clock me-2"></i> {{ act.horario_sugerido }}
                                         </div>
-                                        <span class="badge bg-light text-{% if loop.first %}brand{% else %}secondary{% endif %} fs-6">${{ act.precio_estimado }}</span>
+                                        <span class="badge bg-light text-secondary fs-6">
+                                            ${{ '{:,.0f}'.format(act.precio_estimado or 0) }}
+                                        </span>
                                     </div>
                                     <h4 class="fw-bold mb-2 text-dark">{{ act.nombre }}</h4>
-                                    <p class="text-secondary fs-7 mb-3">
-                                        {{ act.descripcion }}
-                                    </p>
-                                    <div class="d-flex gap-2">
-                                        <span class="badge rounded p-1 px-2 fw-semibold tag-badge tag-sightseeing"><i class="fa-solid fa-tag me-1"></i> {{ act.categoria }}</span>
-                                        <span class="badge rounded p-1 px-2 fw-semibold tag-badge tag-activity"><i class="fa-solid fa-map-pin me-1"></i> {{ act.ubicacion }}</span>
+                                    <p class="text-secondary fs-7 mb-3">{{ act.descripcion }}</p>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        {% if act.categoria %}
+                                        <span class="badge rounded p-1 px-2 fw-semibold tag-badge tag-sightseeing">
+                                            <i class="fa-solid fa-tag me-1"></i> {{ act.categoria }}
+                                        </span>
+                                        {% endif %}
+                                        {% if act.ubicacion %}
+                                        <span class="badge rounded p-1 px-2 fw-semibold tag-badge tag-activity">
+                                            <i class="fa-solid fa-map-pin me-1"></i> {{ act.ubicacion }}
+                                        </span>
+                                        {% endif %}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+                    {% else %}
+                    <p class="text-secondary ps-4" data-i18n="iti_no_activities">No activities loaded for this day.</p>
                     {% endfor %}
+
+                    <div class="ps-4 pb-4 text-secondary fs-7">
+                        <span data-i18n="iti_day_total">Estimated for the day</span>:
+                        <strong>${{ '{:,.0f}'.format(itin.total_dia) }}</strong>
+                        <span data-i18n="iti_per_person">per person</span>
+                    </div>
                 </div>
                 {% endfor %}
             </div>
 
-            <!-- Right Sidebar Section (Map & Logistics) -->
+            <!-- Mapa y logística -->
             <div class="col-lg-4">
-                <!-- Map Placeholder -->
-                <div class="card map-card rounded-4 shadow-sm mb-4 border-0 text-white overflow-hidden position-relative" style="background-color: #1a473f; min-height: 300px;">
-                    <!-- Placeholder map background, ideally replaced by actual map API -->
-                    <div class="w-100 h-100 position-absolute top-0 start-0" style="background-image: url('https://www.transparenttextures.com/patterns/cubes.png'); opacity: 0.1;"></div>
-                    <div class="position-absolute top-0 start-0 w-100 h-100" style="background: radial-gradient(circle at center, transparent 30%, #153932 100%);"></div>
-                    
-                    <div class="p-4 position-relative z-1">
-                        <div class="bg-white text-dark rounded-3 px-3 py-2 d-inline-block shadow">
-                            <h6 class="fw-bold mb-0 text-brand">Kyoto City</h6>
-                            <small class="text-secondary">3 <span data-i18n="iti_activities_today">Activities Today</span></small>
-                        </div>
-                    </div>
-                    
-                    <!-- Simulating a map marker and route -->
-                    <div class="position-absolute top-50 start-50 translate-middle">
-                        <div class="map-marker-pulse"></div>
-                    </div>
-                    <div class="position-absolute bottom-0 end-0 p-3 z-1">
-                        <div class="btn-group-vertical shadow-sm bg-white rounded-3">
-                            <button class="btn btn-light px-3 py-2 border-bottom text-dark fw-bold">+</button>
-                            <button class="btn btn-light px-3 py-2 text-dark fw-bold">-</button>
-                        </div>
+                <div class="card rounded-4 shadow-sm mb-4 border-0 overflow-hidden">
+                    <div id="trip-map"></div>
+                    <div class="p-3 border-top bg-white">
+                        <h6 class="fw-bold mb-0 text-brand">{{ viaje.destino_principal }}</h6>
+                        <small class="text-secondary">
+                            <span id="map-activity-count">0</span>
+                            <span data-i18n="iti_activities">activities</span>
+                        </small>
                     </div>
                 </div>
 
-                <!-- <span data-i18n="iti_logistics">Daily Logistics</span> -->
                 <div class="card border rounded-4 shadow-sm p-4">
-                    <h5 class="fw-bold mb-4" data-i18n="iti_logistics"><span data-i18n="iti_logistics">Daily Logistics</span></h5>
-                    
+                    <h5 class="fw-bold mb-4" data-i18n="iti_logistics">Daily Logistics</h5>
+
                     <div class="d-flex mb-4">
-                        <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                            <i class="fa-solid fa-train-subway text-secondary"></i>
+                        <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center"
+                             style="width: 40px; height: 40px;">
+                            <i class="fa-solid fa-route text-secondary"></i>
                         </div>
                         <div>
-                            <h6 class="fw-bold mb-1 fs-7" data-i18n="iti_transport_pass">Transport Pass Active</h6>
-                            <p class="text-secondary fs-7 mb-0">JR Pass covers lines to Inari.</p>
+                            <h6 class="fw-bold mb-1 fs-7" data-i18n="iti_logistics_transport">Transport</h6>
+                            <p class="text-secondary fs-7 mb-0">{{ viaje.destinos_display }}</p>
+                        </div>
+                    </div>
+
+                    <div class="d-flex mb-4">
+                        <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center"
+                             style="width: 40px; height: 40px;">
+                            <i class="fa-solid fa-calendar-days text-secondary"></i>
+                        </div>
+                        <div>
+                            <h6 class="fw-bold mb-1 fs-7" data-i18n="compare_days">days</h6>
+                            <p class="text-secondary fs-7 mb-0">
+                                {{ viaje.fecha_inicio_fmt }} – {{ viaje.fecha_fin_fmt }} ({{ viaje.dias_totales }})
+                            </p>
                         </div>
                     </div>
 
                     <div class="d-flex">
-                        <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                            <i class="fa-regular fa-lightbulb text-secondary"></i>
+                        <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center"
+                             style="width: 40px; height: 40px;">
+                            <i class="fa-solid fa-wallet text-secondary"></i>
                         </div>
                         <div>
-                            <h6 class="fw-bold mb-1 fs-7" data-i18n="iti_pro_tip">Pro Tip</h6>
-                            <p class="text-secondary fs-7 mb-0">Bring extra yen cash; many stalls at Nishiki Market do not accept credit cards.</p>
+                            <h6 class="fw-bold mb-1 fs-7" data-i18n="budget_breakdown">Cost breakdown</h6>
+                            <p class="text-secondary fs-7 mb-0">
+                                {% if viaje.costos %}
+                                <a href="{{ url_for('budget', id_viaje=viaje.id_viaje) }}"
+                                   class="text-brand text-decoration-none fw-bold">
+                                    ${{ '{:,.0f}'.format(viaje.costos.get('costo_total_base') or 0) }}
+                                    <i class="fa-solid fa-arrow-right ms-1"></i>
+                                </a>
+                                {% else %}
+                                <span data-i18n="budget_no_costs">No cost breakdown loaded.</span>
+                                {% endif %}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -196,30 +254,274 @@
     </div>
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const tabs = document.querySelectorAll('.day-tab-btn');
-    const contents = document.querySelectorAll('.day-content');
+<!-- Modal: editar viaje -->
+<div class="modal fade" id="editTripModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold" data-i18n="iti_edit">Edit trip</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="edit-alert"></div>
 
-    tabs.forEach(tab => {
-        tab.addEventListener('click', function() {
-            // Remove active classes from all tabs
-            tabs.forEach(t => {
-                t.classList.remove('btn-brand', 'text-white', 'shadow-sm', 'border-0');
-                t.classList.add('btn-outline-secondary', 'bg-light', 'text-secondary', 'border-1');
+                <div class="mb-3">
+                    <label for="edit-start" class="form-label fw-bold small text-uppercase" data-i18n="index_dep">Departure</label>
+                    <input type="date" id="edit-start" class="form-control" value="{{ viaje.fecha_inicio }}">
+                </div>
+
+                <div class="mb-3">
+                    <label for="edit-end" class="form-label fw-bold small text-uppercase" data-i18n="index_arr">Arrival</label>
+                    <input type="date" id="edit-end" class="form-control" value="{{ viaje.fecha_fin }}">
+                </div>
+
+                <div class="mb-3">
+                    <label for="edit-image" class="form-label fw-bold small text-uppercase" data-i18n="settings_photo_url">Image URL</label>
+                    <input type="url" id="edit-image" class="form-control" value="{{ viaje.imagen or '' }}">
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="common_cancel">Cancel</button>
+                <button type="button" id="edit-save" class="btn text-white fw-bold"
+                        style="background-color: var(--brand-color, #006d5b);" data-i18n="common_save">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const VIAJE = {
+    id: {{ viaje.id_viaje }},
+    destinos: {{ viaje.destinos | tojson }},
+    fecha_inicio: {{ viaje.fecha_inicio | tojson }},
+    fecha_fin: {{ viaje.fecha_fin | tojson }}
+};
+
+// ─── Iconos por categoría (reemplazan las fotos genéricas) ───────────────────
+
+const ESTILO_CATEGORIA = {
+    'sightseeing': ['fa-binoculars', '#0f766e'],
+    'turismo':     ['fa-binoculars', '#0f766e'],
+    'cultural':    ['fa-landmark', '#7c3aed'],
+    'aventura':    ['fa-person-hiking', '#c2410c'],
+    'adventure':   ['fa-person-hiking', '#c2410c'],
+    'deporte':     ['fa-person-running', '#c2410c'],
+    'gastronomía': ['fa-utensils', '#b45309'],
+    'gastronomia': ['fa-utensils', '#b45309'],
+    'relax':       ['fa-spa', '#0369a1'],
+    'compras':     ['fa-bag-shopping', '#be185d'],
+    'caminata':    ['fa-shoe-prints', '#15803d'],
+    'exclusivo':   ['fa-gem', '#a16207']
+};
+
+function pintarIconos() {
+    document.querySelectorAll('.activity-icon-wrapper').forEach(el => {
+        const categoria = (el.dataset.categoria || '').trim();
+        const [icono, color] = ESTILO_CATEGORIA[categoria] || ['fa-location-dot', '#475569'];
+        el.style.background = `linear-gradient(135deg, ${color}, ${color}bb)`;
+        el.innerHTML = `<i class="fa-solid ${icono}"></i>`;
+    });
+}
+
+// ─── Pestañas por día ────────────────────────────────────────────────────────
+
+function inicializarPestanas() {
+    const pestanas = document.querySelectorAll('.day-tab-btn');
+    const contenidos = document.querySelectorAll('.day-content');
+
+    pestanas.forEach(pestana => {
+        pestana.addEventListener('click', function () {
+            pestanas.forEach(p => {
+                p.classList.remove('btn-brand', 'text-white', 'shadow-sm', 'border-0');
+                p.classList.add('btn-outline-secondary', 'bg-light', 'text-secondary', 'border-1');
             });
-            // Add active class to clicked tab
             this.classList.remove('btn-outline-secondary', 'bg-light', 'text-secondary', 'border-1');
             this.classList.add('btn-brand', 'text-white', 'shadow-sm', 'border-0');
 
-            // Hide all content
-            contents.forEach(c => c.style.display = 'none');
-            // Show corresponding content
-            const dayId = this.getAttribute('data-day');
-            document.getElementById('day-content-' + dayId).style.display = 'block';
+            contenidos.forEach(c => { c.style.display = 'none'; });
+            const dia = this.dataset.day;
+            document.getElementById('day-content-' + dia).style.display = 'block';
+
+            dibujarMarcadores(dia);
         });
     });
+}
+
+// ─── Mapa ────────────────────────────────────────────────────────────────────
+
+let mapa = null;
+let capaMarcadores = null;
+const cacheGeo = {};
+
+async function geocodificar(consulta) {
+    if (!consulta) return null;
+    if (cacheGeo[consulta] !== undefined) return cacheGeo[consulta];
+
+    try {
+        const url = 'https://geocoding-api.open-meteo.com/v1/search'
+                  + `?name=${encodeURIComponent(consulta.split(',')[0].trim())}&count=1&language=es`;
+        const resp = await fetch(url);
+        const datos = await resp.json();
+        const primero = (datos.results || [])[0];
+        cacheGeo[consulta] = primero ? { lat: primero.latitude, lon: primero.longitude, nombre: primero.name } : null;
+    } catch (err) {
+        cacheGeo[consulta] = null;
+    }
+    return cacheGeo[consulta];
+}
+
+async function inicializarMapa() {
+    const punto = await geocodificar(VIAJE.destinos[0]);
+    const centro = punto ? [punto.lat, punto.lon] : [0, 0];
+
+    mapa = L.map('trip-map', { scrollWheelZoom: false }).setView(centro, punto ? 11 : 2);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap',
+        maxZoom: 18
+    }).addTo(mapa);
+
+    capaMarcadores = L.layerGroup().addTo(mapa);
+
+    // Un marcador por destino del viaje.
+    const puntos = [];
+    for (const destino of VIAJE.destinos) {
+        const p = await geocodificar(destino);
+        if (!p) continue;
+        puntos.push([p.lat, p.lon]);
+        L.marker([p.lat, p.lon]).addTo(mapa).bindPopup(`<strong>${destino}</strong>`);
+    }
+
+    if (puntos.length > 1) mapa.fitBounds(puntos, { padding: [30, 30] });
+
+    dibujarMarcadores(1);
+}
+
+function dibujarMarcadores(dia) {
+    const contenido = document.getElementById('day-content-' + dia);
+    if (!contenido) return;
+
+    let actividades = [];
+    try { actividades = JSON.parse(contenido.dataset.actividades || '[]'); } catch (e) { /* ignorado */ }
+
+    document.getElementById('map-activity-count').textContent = actividades.length;
+}
+
+// ─── Clima ───────────────────────────────────────────────────────────────────
+
+async function cargarClima() {
+    const valor = document.getElementById('weather-value');
+    const detalle = document.getElementById('weather-detail');
+
+    const punto = await geocodificar(VIAJE.destinos[0]);
+    if (!punto) {
+        valor.textContent = '—';
+        detalle.textContent = t('iti_weather_na', 'Weather unavailable');
+        return;
+    }
+
+    const hoy = new Date();
+    const inicio = new Date(VIAJE.fecha_inicio);
+    const diasHasta = Math.round((inicio - hoy) / 86400000);
+
+    // Open-Meteo pronostica hasta 16 días. Más allá usamos el mismo período del año pasado.
+    const usarPronostico = diasHasta >= -1 && diasHasta <= 14;
+    const desplazar = fecha => {
+        const d = new Date(fecha);
+        d.setFullYear(d.getFullYear() - 1);
+        return d.toISOString().split('T')[0];
+    };
+
+    const url = usarPronostico
+        ? `https://api.open-meteo.com/v1/forecast?latitude=${punto.lat}&longitude=${punto.lon}`
+          + `&daily=temperature_2m_max,temperature_2m_min&timezone=auto`
+          + `&start_date=${VIAJE.fecha_inicio}&end_date=${VIAJE.fecha_fin}`
+        : `https://archive-api.open-meteo.com/v1/archive?latitude=${punto.lat}&longitude=${punto.lon}`
+          + `&daily=temperature_2m_max,temperature_2m_min&timezone=auto`
+          + `&start_date=${desplazar(VIAJE.fecha_inicio)}&end_date=${desplazar(VIAJE.fecha_fin)}`;
+
+    try {
+        const datos = await (await fetch(url)).json();
+        const maximas = (datos.daily && datos.daily.temperature_2m_max || []).filter(v => v !== null);
+        const minimas = (datos.daily && datos.daily.temperature_2m_min || []).filter(v => v !== null);
+
+        if (!maximas.length) throw new Error('sin datos');
+
+        const promedio = lista => lista.reduce((a, b) => a + b, 0) / lista.length;
+        const max = Math.round(promedio(maximas));
+        const min = Math.round(promedio(minimas));
+
+        valor.innerHTML = `${max}°C <span class="fs-6 fw-normal text-secondary">/ ${Math.round(max * 9 / 5 + 32)}°F</span>`;
+        detalle.textContent = `${min}°C – ${max}°C · ${punto.nombre}`;
+        detalle.removeAttribute('data-i18n');
+    } catch (err) {
+        valor.textContent = '—';
+        detalle.textContent = t('iti_weather_na', 'Weather unavailable');
+        detalle.removeAttribute('data-i18n');
+    }
+}
+
+// ─── Compartir y editar ──────────────────────────────────────────────────────
+
+function inicializarCompartir() {
+    document.getElementById('share-btn').addEventListener('click', async () => {
+        const url = window.location.href;
+        const titulo = document.title;
+
+        if (navigator.share) {
+            try { await navigator.share({ title: titulo, url }); return; } catch (e) { /* cancelado */ }
+        }
+
+        try {
+            await navigator.clipboard.writeText(url);
+            alert(t('iti_copied', 'Link copied to clipboard'));
+        } catch (e) {
+            prompt(t('iti_copied', 'Link copied to clipboard'), url);
+        }
+    });
+}
+
+function inicializarEdicion() {
+    document.getElementById('edit-save').addEventListener('click', async () => {
+        const alerta = document.getElementById('edit-alert');
+        const inicio = document.getElementById('edit-start').value;
+        const fin = document.getElementById('edit-end').value;
+
+        if (inicio && fin && new Date(inicio) > new Date(fin)) {
+            alerta.innerHTML = `<div class="alert alert-danger py-2">${t('err_dates')}</div>`;
+            return;
+        }
+
+        const cuerpo = {
+            fecha_inicio: inicio,
+            fecha_fin: fin,
+            imagen: document.getElementById('edit-image').value.trim() || null
+        };
+
+        try {
+            const resp = await apiFetch(`/trips/${VIAJE.id}`, {
+                method: 'PATCH',
+                body: JSON.stringify(cuerpo)
+            });
+            const datos = await resp.json();
+
+            if (resp.ok) window.location.reload();
+            else alerta.innerHTML = `<div class="alert alert-danger py-2">${datos.error}</div>`;
+        } catch (err) {
+            alerta.innerHTML = `<div class="alert alert-danger py-2">${t('err_server')}</div>`;
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    pintarIconos();
+    inicializarPestanas();
+    inicializarCompartir();
+    inicializarEdicion();
+    inicializarMapa();
+    cargarClima();
 });
 </script>
-
 {% endblock %}

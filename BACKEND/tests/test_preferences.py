@@ -1,92 +1,104 @@
-import unittest
-from app import app
-from src.models.init import db
-from src.models.user_preferences import PreferenciasUsuario
-from src.models.user import Usuario
+"""Preferencias del usuario: normalización del grupo y validaciones."""
 
-class TestPreferencesAPI(unittest.TestCase):
-    def setUp(self):
-        self.client = app.test_client()
-        self.client.testing = True
-        self.app_context = app.app_context()
-        self.app_context.push()
+import pytest
 
-        # Ensure we have a user to associate the preferences with (FK constraint)
-        self.test_user = Usuario.query.filter_by(email='testpref@example.com').first()
-        if not self.test_user:
-            self.test_user = Usuario(
-                nombre='Test',
-                apellido='User',
-                email='testpref@example.com',
-                contrasena='hashedpass123'
-            )
-            db.session.add(self.test_user)
-            db.session.commit()
+from src.validators.user_preferences_validator import normalizar_grupo
 
-    def tearDown(self):
-        # Cleanup any preferences created during the test
-        prefs = PreferenciasUsuario.query.filter_by(id_usuario=self.test_user.id_usuario).all()
-        for pref in prefs:
-            db.session.delete(pref)
-        
-        # Cleanup the test user
-        if self.test_user:
-            db.session.delete(self.test_user)
-        
-        db.session.commit()
-        self.app_context.pop()
 
-    def test_post_preferences_success_db(self):
-        # The frontend will have filtered out any empty strings and nulls
-        payload = {
-            "id_usuario": self.test_user.id_usuario,
-            "destinos": ["TestCity1", "TestCity2"],
-            "origen": "Mendoza",
-            "costo_min": 500,
-            "costo_max": 2000,
-            "cantidad_personas": 2,
-            "grupo": "amigos",
-            "fecha_inicio": "2026-10-10",
-            "fecha_fin": "2026-10-20"
-        }
+@pytest.mark.parametrize("entrada, esperado", [
+    ("family", "familiar"),
+    ("friends", "amigos"),
+    ("educational", "educativo"),
+    ("couple", "pareja"),
+    ("solo", "solo"),
+    ("FAMILY", "familiar"),
+    ("  amigos  ", "amigos"),
+    ("cualquiera", None),
+    (None, None),
+])
+def test_normalizacion_del_grupo(entrada, esperado):
+    assert normalizar_grupo(entrada) == esperado
 
-        # Validate initial state
-        initial_count = PreferenciasUsuario.query.filter_by(id_usuario=self.test_user.id_usuario).count()
-        self.assertEqual(initial_count, 0)
 
-        # Execute POST
-        response = self.client.post('/preferencias/', json=payload)
-        
-        # Verify response
-        self.assertEqual(response.status_code, 201)
-        data = response.get_json()
-        self.assertIn("mensaje", data)
-        
-        pref_id = data["id"]
-        self.assertIsNotNone(pref_id)
+def test_el_grupo_del_formulario_se_acepta_y_se_guarda_traducido(client, auth, usuario):
+    """Éste era el bug: el form manda 'family' y el dominio guarda 'familiar'."""
+    respuesta = client.post("/preferencias/", json={
+        "id_usuario": usuario,
+        "destinos": ["Kioto, Japón"],
+        "origen": "Córdoba, Argentina",
+        "grupo": "family",
+        "costo_min": 1000,
+        "costo_max": 3000,
+        "cantidad_personas": 3,
+        "fecha_inicio": "2030-03-10",
+        "fecha_fin": "2030-03-17",
+    }, headers=auth)
 
-        # Check DB to verify it was actually saved
-        pref_in_db = PreferenciasUsuario.query.get(pref_id)
-        self.assertIsNotNone(pref_in_db)
-        self.assertEqual(pref_in_db.origen, "Mendoza")
-        self.assertEqual(pref_in_db.destinos, ["TestCity1", "TestCity2"])
-        self.assertEqual(pref_in_db.costo_min, 500)
-        self.assertEqual(pref_in_db.id_usuario, self.test_user.id_usuario)
+    assert respuesta.status_code == 201, respuesta.get_json()
 
-    def test_post_preferences_missing_required_fields(self):
-        # Missing id_usuario and destinos, which are required
-        payload = {
-            "origen": "Mendoza",
-            "costo_max": 2000
-        }
+    guardadas = client.get(f"/preferencias/usuario/{usuario}", headers=auth).get_json()
+    assert guardadas[0]["grupo"] == "familiar"
 
-        response = self.client.post('/preferencias/', json=payload)
-        
-        # Should fail with 400 validation error
-        self.assertEqual(response.status_code, 400)
-        data = response.get_json()
-        self.assertIn("errores_validacion", data)
-        self.assertIn("id_usuario", data["errores_validacion"])
 
-if __name__ == '__main__':
-    unittest.main()
+def test_grupo_invalido_devuelve_400(client, auth, usuario):
+    respuesta = client.post("/preferencias/", json={
+        "id_usuario": usuario,
+        "destinos": ["Roma"],
+        "grupo": "empresarial",
+    }, headers=auth)
+
+    assert respuesta.status_code == 400
+    assert "grupo" in respuesta.get_json()["errores_validacion"]
+
+
+def test_presupuesto_igual_es_valido(client, auth, usuario):
+    """Antes `costo_min == costo_max` fallaba; un presupuesto cerrado es legítimo."""
+    respuesta = client.post("/preferencias/", json={
+        "id_usuario": usuario,
+        "destinos": ["Lisboa"],
+        "costo_min": 2000,
+        "costo_max": 2000,
+    }, headers=auth)
+    assert respuesta.status_code == 201
+
+
+def test_presupuesto_invertido_devuelve_400(client, auth, usuario):
+    respuesta = client.post("/preferencias/", json={
+        "id_usuario": usuario,
+        "destinos": ["Lisboa"],
+        "costo_min": 3000,
+        "costo_max": 1000,
+    }, headers=auth)
+    assert respuesta.status_code == 400
+
+
+def test_fechas_iguales_son_validas(client, auth, usuario):
+    """Un viaje de un solo día es válido."""
+    respuesta = client.post("/preferencias/", json={
+        "id_usuario": usuario,
+        "destinos": ["Rosario"],
+        "fecha_inicio": "2030-05-01",
+        "fecha_fin": "2030-05-01",
+    }, headers=auth)
+    assert respuesta.status_code == 201
+
+
+def test_el_hospedaje_se_asocia_al_catalogo(client, auth, usuario):
+    respuesta = client.post("/preferencias/", json={
+        "id_usuario": usuario,
+        "destinos": ["Tokio"],
+        "hospedaje": "hotel, airbnb",
+    }, headers=auth)
+    assert respuesta.status_code == 201
+
+    catalogo = client.get("/tipos_alojamiento/", headers=auth).get_json()
+    tipos = {t["tipo"] for t in catalogo}
+    assert {"Hotel", "Airbnb"}.issubset(tipos)
+
+
+def test_no_puedo_crear_preferencias_para_otro(client, auth, otro_usuario):
+    respuesta = client.post("/preferencias/", json={
+        "id_usuario": otro_usuario,
+        "destinos": ["Madrid"],
+    }, headers=auth)
+    assert respuesta.status_code == 403

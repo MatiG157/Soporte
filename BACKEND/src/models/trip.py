@@ -1,5 +1,5 @@
 from src.models.init import db
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class Viaje(db.Model):
@@ -19,7 +19,8 @@ class Viaje(db.Model):
     # NUEVOS CAMPOS:
     estado = db.Column(db.String(20), default="draft", nullable=False)
     group_id = db.Column(db.String(50), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(
+        db.DateTime, default=lambda: datetime.now(timezone.utc))
     # URL de la imagen generada
     imagen = db.Column(db.String(500), nullable=True)
     # FK a preferencias_usuario

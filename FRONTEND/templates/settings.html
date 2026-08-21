@@ -1,56 +1,312 @@
 {% extends "layout.html" %}
-{% block body %}
+{% block title %}Settings · Travel Planner{% endblock %}
+
+{% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='settings.css') }}">
-
 <style>
-    .list-group-item:hover:not(.active) {
-        background-color: #e6f2f0 !important;
-        color: #006d5b !important;
-    }
+    .list-group-item:hover:not(.active) { background-color: #e6f2f0 !important; color: #006d5b !important; }
+    .settings-pane { display: none; }
+    .settings-pane.active { display: block; }
 </style>
+{% endblock %}
 
-<div class="container py-5 max-w-lg mx-auto" style="max-width: 800px;">
+{% block body %}
+<div class="container py-5 mx-auto" style="max-width: 900px;">
     <h2 class="mb-4 fw-bold" data-i18n="settings_title">Settings</h2>
-    
+
     <div class="row">
+        <!-- Navegación -->
         <div class="col-md-4 mb-4">
             <div class="list-group rounded-3 shadow-sm border-0">
-                <button type="button" class="list-group-item list-group-item-action active border-0 d-flex align-items-center gap-2 py-3" aria-current="true" data-i18n="settings_language">
-                    <i class="fa-solid fa-globe text-center" style="width: 20px;"></i> Language
+                <button type="button" class="list-group-item list-group-item-action active border-0 d-flex align-items-center gap-2 py-3 settings-tab"
+                        data-pane="language">
+                    <i class="fa-solid fa-globe text-center" style="width: 20px;"></i>
+                    <span data-i18n="settings_language">Language</span>
                 </button>
-                <button type="button" class="list-group-item list-group-item-action border-0 d-flex align-items-center gap-2 py-3" data-i18n="settings_profile">
-                    <i class="fa-regular fa-user text-center" style="width: 20px;"></i> Profile
+                <button type="button" class="list-group-item list-group-item-action border-0 d-flex align-items-center gap-2 py-3 settings-tab"
+                        data-pane="profile">
+                    <i class="fa-regular fa-user text-center" style="width: 20px;"></i>
+                    <span data-i18n="settings_profile">Profile</span>
                 </button>
-                <button type="button" class="list-group-item list-group-item-action border-0 d-flex align-items-center gap-2 py-3" data-i18n="settings_notifications">
-                    <i class="fa-regular fa-bell text-center" style="width: 20px;"></i> Notifications
+                <button type="button" class="list-group-item list-group-item-action border-0 d-flex align-items-center gap-2 py-3 settings-tab"
+                        data-pane="notifications">
+                    <i class="fa-regular fa-bell text-center" style="width: 20px;"></i>
+                    <span data-i18n="settings_notifications">Notifications</span>
                 </button>
-                <button type="button" class="list-group-item list-group-item-action border-0 d-flex align-items-center gap-2 py-3" data-i18n="settings_security">
-                    <i class="fa-solid fa-shield-halved text-center" style="width: 20px;"></i> Security
+                <button type="button" class="list-group-item list-group-item-action border-0 d-flex align-items-center gap-2 py-3 settings-tab"
+                        data-pane="security">
+                    <i class="fa-solid fa-shield-halved text-center" style="width: 20px;"></i>
+                    <span data-i18n="settings_security">Security</span>
                 </button>
             </div>
         </div>
-        
+
         <div class="col-md-8">
-            <div class="card border-0 shadow-sm rounded-3">
+            <div id="settings-alert"></div>
+
+            <!-- Idioma -->
+            <div class="card border-0 shadow-sm rounded-3 settings-pane active" id="pane-language">
                 <div class="card-body p-4">
                     <h4 class="card-title fw-bold mb-3" data-i18n="settings_language">Language</h4>
                     <p class="text-secondary mb-4" data-i18n="settings_language_desc">Select your preferred language</p>
-                    
-                    <div class="mb-4">
-                        <select id="language-select" class="form-select form-select-lg w-50" onchange="window.setLanguage(this.value)">
-                            <option value="en">English</option>
-                            <option value="es">Español</option>
-                            <option value="fr">Français</option>
-                            <option value="it">Italiano</option>
-                            <option value="de">Deutsch</option>
-                            <option value="ru">Русский</option>
-                            <option value="zh">中文</option>
-                            <option value="ja">日本語</option>
-                        </select>
+
+                    <select id="language-select" class="form-select form-select-lg w-75"
+                            onchange="window.setLanguage(this.value)">
+                        <option value="en">English</option>
+                        <option value="es">Español</option>
+                        <option value="pt">Português</option>
+                        <option value="fr">Français</option>
+                        <option value="it">Italiano</option>
+                        <option value="de">Deutsch</option>
+                        <option value="ru">Русский</option>
+                        <option value="zh">中文</option>
+                        <option value="ja">日本語</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Perfil -->
+            <div class="card border-0 shadow-sm rounded-3 settings-pane" id="pane-profile">
+                <div class="card-body p-4">
+                    <h4 class="card-title fw-bold mb-3" data-i18n="settings_profile">Profile</h4>
+                    <p class="text-secondary mb-4" data-i18n="settings_profile_desc">Update your personal details.</p>
+
+                    <form id="profile-form">
+                        <div class="row g-3 mb-3">
+                            <div class="col-sm-6">
+                                <label for="p-nombre" class="form-label small fw-bold text-uppercase" data-i18n="reg_first">First name</label>
+                                <input type="text" id="p-nombre" class="form-control" value="{{ perfil.get('nombre', '') }}">
+                            </div>
+                            <div class="col-sm-6">
+                                <label for="p-apellido" class="form-label small fw-bold text-uppercase" data-i18n="reg_last">Last name</label>
+                                <input type="text" id="p-apellido" class="form-control" value="{{ perfil.get('apellido', '') }}">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="p-email" class="form-label small fw-bold text-uppercase" data-i18n="auth_email">Email</label>
+                            <input type="email" id="p-email" class="form-control" value="{{ perfil.get('email', '') }}">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="p-nacionalidad" class="form-label small fw-bold text-uppercase" data-i18n="reg_nationality">Nationality</label>
+                            <input type="text" id="p-nacionalidad" class="form-control" value="{{ perfil.get('nacionalidad') or '' }}">
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="p-foto" class="form-label small fw-bold text-uppercase" data-i18n="settings_photo_url">Profile photo URL</label>
+                            <input type="url" id="p-foto" class="form-control" value="{{ perfil.get('foto') or '' }}">
+                        </div>
+
+                        <button type="submit" class="btn text-white fw-bold px-4"
+                                style="background-color: var(--brand-color, #006d5b);" data-i18n="settings_save">Save Changes</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Notificaciones -->
+            <div class="card border-0 shadow-sm rounded-3 settings-pane" id="pane-notifications">
+                <div class="card-body p-4">
+                    <h4 class="card-title fw-bold mb-3" data-i18n="settings_notifications">Notifications</h4>
+                    <p class="text-secondary mb-4" data-i18n="settings_notif_desc">Choose what we notify you about.</p>
+
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input notif-toggle" type="checkbox" id="notif-email">
+                        <label class="form-check-label" for="notif-email" data-i18n="settings_notif_email">Trip updates by email</label>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input notif-toggle" type="checkbox" id="notif-reminders">
+                        <label class="form-check-label" for="notif-reminders" data-i18n="settings_notif_reminders">Reminders before departure</label>
+                    </div>
+                    <div class="form-check form-switch mb-4">
+                        <input class="form-check-input notif-toggle" type="checkbox" id="notif-tips">
+                        <label class="form-check-label" for="notif-tips" data-i18n="settings_notif_tips">Destination tips and suggestions</label>
+                    </div>
+
+                    <p class="text-secondary small mb-0" data-i18n="settings_notif_local">
+                        These preferences are saved in this browser.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Seguridad -->
+            <div class="card border-0 shadow-sm rounded-3 settings-pane" id="pane-security">
+                <div class="card-body p-4">
+                    <h4 class="card-title fw-bold mb-3" data-i18n="settings_security">Security</h4>
+                    <p class="text-secondary mb-4" data-i18n="settings_sec_desc">Manage your password and your account.</p>
+
+                    <form id="password-form" class="mb-5">
+                        <h6 class="fw-bold mb-3" data-i18n="settings_sec_change_pw">Change password</h6>
+
+                        <div class="mb-3">
+                            <label for="s-password" class="form-label small fw-bold text-uppercase" data-i18n="settings_new_password">
+                                New password
+                            </label>
+                            <input type="password" id="s-password" class="form-control" autocomplete="new-password">
+                            <small class="text-muted" data-i18n="reg_pw_hint">
+                                8 to 16 characters, with an uppercase letter and a number.
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="s-password2" class="form-label small fw-bold text-uppercase" data-i18n="settings_sec_confirm">
+                                Confirm the new password
+                            </label>
+                            <input type="password" id="s-password2" class="form-control" autocomplete="new-password">
+                        </div>
+
+                        <button type="submit" class="btn text-white fw-bold px-4"
+                                style="background-color: var(--brand-color, #006d5b);" data-i18n="common_save">Save</button>
+                    </form>
+
+                    <div class="border border-danger-subtle rounded-3 p-4" style="background-color: #fff5f5;">
+                        <h6 class="fw-bold text-danger mb-2" data-i18n="settings_sec_danger">Danger zone</h6>
+                        <p class="text-secondary small mb-3" data-i18n="settings_sec_delete_desc">
+                            This deletes your account and every trip in it. It can't be undone.
+                        </p>
+
+                        <div class="mb-3" style="max-width: 320px;">
+                            <input type="text" id="delete-confirm" class="form-control"
+                                   data-i18n-placeholder="settings_sec_delete_confirm" placeholder="Type DELETE to confirm">
+                        </div>
+
+                        <button type="button" id="delete-account" class="btn btn-danger fw-bold px-4"
+                                data-i18n="settings_sec_delete">Delete my account</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const alerta = document.getElementById('settings-alert');
+
+    function avisar(mensaje, tipo) {
+        alerta.innerHTML = `
+            <div class="alert alert-${tipo} alert-dismissible fade show" role="alert">
+                ${mensaje}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        alerta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // ─── Pestañas ────────────────────────────────────────────────────────────
+
+    const pestanas = document.querySelectorAll('.settings-tab');
+
+    function abrirPanel(nombre) {
+        pestanas.forEach(p => p.classList.toggle('active', p.dataset.pane === nombre));
+        document.querySelectorAll('.settings-pane').forEach(panel => {
+            panel.classList.toggle('active', panel.id === 'pane-' + nombre);
+        });
+        history.replaceState(null, '', '#' + nombre);
+    }
+
+    pestanas.forEach(p => p.addEventListener('click', () => abrirPanel(p.dataset.pane)));
+
+    const inicial = (window.location.hash || '#language').slice(1);
+    if (document.getElementById('pane-' + inicial)) abrirPanel(inicial);
+
+    // ─── Perfil ──────────────────────────────────────────────────────────────
+
+    document.getElementById('profile-form').addEventListener('submit', async e => {
+        e.preventDefault();
+
+        const cuerpo = {
+            nombre: document.getElementById('p-nombre').value.trim(),
+            apellido: document.getElementById('p-apellido').value.trim(),
+            email: document.getElementById('p-email').value.trim(),
+            nacionalidad: document.getElementById('p-nacionalidad').value.trim(),
+            foto: document.getElementById('p-foto').value.trim()
+        };
+
+        try {
+            const resp = await apiFetch('/settings/profile', {
+                method: 'POST',
+                body: JSON.stringify(cuerpo)
+            });
+            const datos = await resp.json();
+
+            if (resp.ok) {
+                avisar(t('settings_saved', 'Changes saved.'), 'success');
+                setTimeout(() => window.location.reload(), 900);
+            } else {
+                avisar(datos.error || t('err_server'), 'danger');
+            }
+        } catch (err) {
+            avisar(t('err_server'), 'danger');
+        }
+    });
+
+    // ─── Contraseña ──────────────────────────────────────────────────────────
+
+    document.getElementById('password-form').addEventListener('submit', async e => {
+        e.preventDefault();
+
+        const nueva = document.getElementById('s-password').value;
+        const repetida = document.getElementById('s-password2').value;
+
+        if (!nueva) return;
+        if (nueva !== repetida) {
+            avisar(t('settings_sec_mismatch', "The passwords don't match."), 'danger');
+            return;
+        }
+
+        try {
+            const resp = await apiFetch('/settings/profile', {
+                method: 'POST',
+                body: JSON.stringify({ contrasena: nueva })
+            });
+            const datos = await resp.json();
+
+            if (resp.ok) {
+                avisar(t('settings_saved', 'Changes saved.'), 'success');
+                document.getElementById('password-form').reset();
+            } else {
+                avisar(datos.error || t('err_server'), 'danger');
+            }
+        } catch (err) {
+            avisar(t('err_server'), 'danger');
+        }
+    });
+
+    // ─── Notificaciones (preferencias locales del navegador) ─────────────────
+
+    document.querySelectorAll('.notif-toggle').forEach(toggle => {
+        const clave = 'notif_' + toggle.id;
+        toggle.checked = localStorage.getItem(clave) === 'true';
+        toggle.addEventListener('change', () => {
+            localStorage.setItem(clave, toggle.checked);
+        });
+    });
+
+    // ─── Eliminar cuenta ─────────────────────────────────────────────────────
+
+    document.getElementById('delete-account').addEventListener('click', async () => {
+        const escrito = document.getElementById('delete-confirm').value.trim().toUpperCase();
+        const esperado = ['DELETE', 'ELIMINAR', 'EXCLUIR', 'SUPPRIMER', 'ELIMINA', 'LÖSCHEN', 'УДАЛИТЬ'];
+
+        if (!esperado.includes(escrito)) {
+            avisar(t('settings_sec_delete_confirm', 'Type DELETE to confirm'), 'warning');
+            return;
+        }
+
+        if (!confirm(t('settings_sec_delete_desc'))) return;
+
+        try {
+            const resp = await apiFetch('/settings/account', { method: 'DELETE' });
+            const datos = await resp.json();
+
+            if (resp.ok) window.location.href = datos.redirect || '/';
+            else avisar(datos.error || t('err_server'), 'danger');
+        } catch (err) {
+            avisar(t('err_server'), 'danger');
+        }
+    });
+});
+</script>
 {% endblock %}

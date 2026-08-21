@@ -1,0 +1,32 @@
+{% extends "layout.html" %}
+
+{% block title %}403 · Travel Planner{% endblock %}
+
+{% block body %}
+<main class="d-flex flex-column align-items-center justify-content-center text-center flex-grow-1 px-3 py-5">
+    <div style="max-width: 520px;">
+        <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-4"
+             style="width: 96px; height: 96px; background-color: #fee2e2;">
+            <i class="fa-solid fa-lock fs-1" style="color: #b91c1c;"></i>
+        </div>
+
+        <p class="fw-bold mb-2" style="letter-spacing: 2px; color: #b91c1c;">403</p>
+        <h1 class="fw-bold mb-3" data-i18n="err_403_title">This isn&#39;t yours to see</h1>
+        <p class="text-secondary mb-4" data-i18n="err_403_sub">You don&#39;t have permission to open this trip.</p>
+
+        {% if detalle %}
+        <pre class="text-start bg-light border rounded-3 p-3 small text-secondary"
+             style="white-space: pre-wrap; word-break: break-word;">{{ detalle }}</pre>
+        {% endif %}
+
+        <div class="d-flex gap-2 justify-content-center flex-wrap">
+            <a href="{{ url_for('index') }}" class="btn px-4 py-2 fw-bold rounded-3 text-white"
+               style="background-color: var(--brand-color, #006d5b);" data-i18n="common_back_home">Back to home</a>
+            {% if user_id %}
+            <a href="{{ url_for('mytrips') }}" class="btn btn-outline-secondary px-4 py-2 fw-bold rounded-3"
+               data-i18n="nav_mytrips">My Trips</a>
+            {% endif %}
+        </div>
+    </div>
+</main>
+{% endblock %}

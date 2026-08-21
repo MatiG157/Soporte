@@ -1,23 +1,41 @@
+{# Navegación lateral. `active_page` la define cada plantilla que lo incluye. #}
+{% set id_viaje = viaje.id_viaje if viaje else None %}
+
 <div class="sidebar">
- 
+
     <div class="nav flex-column mb-auto mt-4">
-        <a href="/compare" class="sidebar-link {% if active_page == 'compare' %}active-link{% endif %}" data-i18n="sidebar_compare">
+        <a href="{{ url_for('compare') }}"
+           class="sidebar-link {% if active_page == 'compare' %}active-link{% endif %}"
+           data-i18n="sidebar_compare">
             <i class="fa-solid fa-arrow-right-arrow-left"></i> Compare
         </a>
-        <a href="{% if viaje %}/itinerary/{{ viaje.id_viaje }}{% else %}#{% endif %}" class="sidebar-link {% if active_page == 'itinerary' %}active-link{% endif %}" data-i18n="sidebar_itinerary">
+
+        <a href="{% if id_viaje %}{{ url_for('itinerary', id_viaje=id_viaje) }}{% else %}{{ url_for('mytrips') }}{% endif %}"
+           class="sidebar-link {% if active_page == 'itinerary' %}active-link{% endif %}"
+           data-i18n="sidebar_itinerary">
             <i class="fa-solid fa-map"></i> Itinerary
         </a>
-        <a href="/budget" class="sidebar-link {% if active_page == 'budget' %}active-link{% endif %}" data-i18n="sidebar_budget">
+
+        <a href="{% if id_viaje %}{{ url_for('budget', id_viaje=id_viaje) }}{% else %}{{ url_for('budget') }}{% endif %}"
+           class="sidebar-link {% if active_page == 'budget' %}active-link{% endif %}"
+           data-i18n="sidebar_budget">
             <i class="fa-solid fa-piggy-bank"></i> Budget
         </a>
-        <a href="/settings" class="sidebar-link {% if active_page == 'settings' %}active-link{% endif %}" data-i18n="sidebar_settings">
+
+        <a href="{{ url_for('settings') }}"
+           class="sidebar-link {% if active_page == 'settings' %}active-link{% endif %}"
+           data-i18n="sidebar_settings">
             <i class="fa-solid fa-gear"></i> Settings
         </a>
     </div>
 
     <div class="mt-auto pt-4">
-        <button onclick="window.location.href='{{ url_for('logout') }}'" class="btn w-100 fw-bold rounded-3 py-2 text-white" style="background-color: var(--brand-color, #006d5b);" data-i18n="sidebar_logout">
-            <i class="fa-solid fa-sign-out-alt me-2" style="color: white;"></i> Log Out
-        </button>
+        <form method="POST" action="{{ url_for('logout') }}" class="m-0">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn w-100 fw-bold rounded-3 py-2 text-white"
+                    style="background-color: var(--brand-color, #006d5b);" data-i18n="sidebar_logout">
+                <i class="fa-solid fa-right-from-bracket me-2" style="color: white;"></i> Log Out
+            </button>
+        </form>
     </div>
 </div>

@@ -49,3 +49,14 @@ htmlcov/
 
 # mypy
 .mypy_cache/
+# Artefactos de build y test
+.pytest_cache/
+*.pyc
+
+# Traducciones: NO ignorar (son parte del código)
+!FRONTEND/static/i18n/*.json
+
+# Notas de trabajo: se quedan en local, no van al repo
+CAMBIOS.md
+FALTANTES.md
+PROMPT_N8N.md
