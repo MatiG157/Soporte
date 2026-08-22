@@ -89,14 +89,58 @@ def crear_app():
 app = crear_app()
 
 
+def preparar_base():
+    """Crea las tablas que falten y aplica las migraciones pendientes.
+
+    Se hace al arrancar a propósito: después de un `git pull` nadie tiene que
+    acordarse de correr `migrate.py` a mano. Las migraciones son idempotentes,
+    así que en un arranque normal no hacen nada.
+    """
+    try:
+        with app.app_context():
+            db.create_all()
+    except Exception as exc:
+        # Sin base el servidor igual arranca: /health reporta el problema y el
+        # mensaje dice qué revisar, en vez de morir con un stacktrace de pymysql.
+        logger.error(
+            "No se pudo conectar a la base de datos: %s. "
+            "Revisá que MySQL esté levantado y que DB_USER/DB_PASSWORD/DB_NAME "
+            "de BACKEND/.env sean correctos. La API va a responder 503 en /health.",
+            exc,
+        )
+        return
+
+    if os.getenv("AUTO_MIGRATE", "true").lower() != "true":
+        logger.info("AUTO_MIGRATE=false: las migraciones no se aplican solas.")
+        return
+
+    try:
+        from migrate import aplicar_pendientes
+        aplicadas = aplicar_pendientes(silencioso=True)
+    except Exception as exc:
+        logger.error(
+            "No se pudieron aplicar las migraciones: %s. "
+            "Corré 'python migrate.py' a mano para ver el detalle.", exc
+        )
+        return
+
+    if aplicadas is None:
+        logger.warning("No hay conexión a la base: no se pudo verificar el esquema.")
+    elif aplicadas:
+        logger.info("Migraciones aplicadas: %s", ", ".join(aplicadas))
+    else:
+        logger.info("El esquema de la base está al día.")
+
+
 if __name__ == "__main__":
     if not os.getenv("API_KEY"):
-        logger.warning(
-            "API_KEY no está definida en el .env: la API va a rechazar todas las peticiones."
+        logger.error(
+            "API_KEY no está definida en BACKEND/.env: la API va a rechazar TODAS "
+            "las peticiones y no vas a poder ni registrarte ni loguearte. "
+            "Corré 'python setup.py' desde la raíz del proyecto para generarla."
         )
 
-    with app.app_context():
-        db.create_all()
+    preparar_base()
 
     app.run(
         debug=os.getenv("FLASK_DEBUG", "true").lower() == "true",

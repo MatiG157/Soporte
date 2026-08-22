@@ -19,6 +19,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+# En modo silencioso (arranque de la app) las migraciones no imprimen nada:
+# lo que interese lo loguea `app.py`.
+_SILENCIOSO = False
+
+
+def _log(mensaje):
+    if not _SILENCIOSO:
+        print(mensaje)
+
+
 # ─── Helpers de introspección ────────────────────────────────────────────────
 
 def _existe_tabla(cursor, tabla):
@@ -50,13 +60,13 @@ def _existe_constraint(cursor, tabla, nombre):
 
 def _agregar_columna(cursor, tabla, columna, definicion):
     if not _existe_tabla(cursor, tabla):
-        print(f"    · tabla '{tabla}' todavía no existe, se omite")
+        _log(f"    · tabla '{tabla}' todavía no existe, se omite")
         return
     if _existe_columna(cursor, tabla, columna):
-        print(f"    · '{tabla}.{columna}' ya existe")
+        _log(f"    · '{tabla}.{columna}' ya existe")
         return
     cursor.execute(f"ALTER TABLE {tabla} ADD COLUMN {columna} {definicion}")
-    print(f"    ✓ agregada '{tabla}.{columna}'")
+    _log(f"    ✓ agregada '{tabla}.{columna}'")
 
 
 # ─── Migraciones ─────────────────────────────────────────────────────────────
@@ -69,16 +79,16 @@ def m001_destinos_como_json(cursor):
 
         if not _existe_columna(cursor, tabla, "destinos"):
             cursor.execute(f"ALTER TABLE {tabla} ADD COLUMN destinos JSON NULL")
-            print(f"    ✓ agregada '{tabla}.destinos'")
+            _log(f"    ✓ agregada '{tabla}.destinos'")
 
         if _existe_columna(cursor, tabla, "destino"):
             cursor.execute(
                 f"UPDATE {tabla} SET destinos = JSON_ARRAY(destino) "
                 f"WHERE destino IS NOT NULL AND destinos IS NULL"
             )
-            print(f"    ✓ migradas {cursor.rowcount} filas de '{tabla}.destino'")
+            _log(f"    ✓ migradas {cursor.rowcount} filas de '{tabla}.destino'")
             cursor.execute(f"ALTER TABLE {tabla} DROP COLUMN destino")
-            print(f"    ✓ eliminada '{tabla}.destino'")
+            _log(f"    ✓ eliminada '{tabla}.destino'")
 
         # Los viajes necesitan destinos sí o sí.
         if tabla == "viajes":
@@ -98,9 +108,9 @@ def m002_campos_de_usuario(cursor):
             cursor.execute(
                 "ALTER TABLE usuarios ADD CONSTRAINT uq_usuarios_google_id UNIQUE (google_id)"
             )
-            print("    ✓ índice único sobre 'usuarios.google_id'")
+            _log("    ✓ índice único sobre 'usuarios.google_id'")
         except pymysql.err.OperationalError as exc:
-            print(f"    · no se pudo crear el índice único: {exc}")
+            _log(f"    · no se pudo crear el índice único: {exc}")
 
 
 def m003_estado_del_viaje(cursor):
@@ -127,9 +137,9 @@ def m004_preferencias_del_viaje(cursor):
                 "FOREIGN KEY (id_user_preferences) "
                 "REFERENCES preferencias_usuario(id_preferencia)"
             )
-            print("    ✓ FK 'fk_viajes_user_preferences'")
+            _log("    ✓ FK 'fk_viajes_user_preferences'")
         except pymysql.err.OperationalError as exc:
-            print(f"    · no se pudo crear la FK: {exc}")
+            _log(f"    · no se pudo crear la FK: {exc}")
 
 
 def m005_campos_de_preferencias(cursor):
@@ -151,7 +161,7 @@ def m005_campos_de_preferencias(cursor):
             "WHERE clima IS NOT NULL AND clima <> ''"
         )
         cursor.execute("ALTER TABLE preferencias_usuario DROP COLUMN clima")
-        print("    ✓ 'clima' migrada a 'otros' y eliminada")
+        _log("    ✓ 'clima' migrada a 'otros' y eliminada")
 
 
 def m006_normalizar_grupos(cursor):
@@ -171,7 +181,7 @@ def m006_normalizar_grupos(cursor):
             (destino, origen),
         )
         if cursor.rowcount:
-            print(f"    ✓ {cursor.rowcount} filas: '{origen}' → '{destino}'")
+            _log(f"    ✓ {cursor.rowcount} filas: '{origen}' → '{destino}'")
 
 
 MIGRACIONES = [
@@ -186,7 +196,8 @@ MIGRACIONES = [
 
 # ─── Runner ──────────────────────────────────────────────────────────────────
 
-def conectar():
+def conectar(silencioso=False):
+    """Abre la conexión. Con `silencioso=True` devuelve None en vez de cortar."""
     try:
         return pymysql.connect(
             host=os.getenv("DB_HOST", "localhost"),
@@ -196,6 +207,8 @@ def conectar():
             port=int(os.getenv("DB_PORT", 3306)),
         )
     except Exception as exc:
+        if silencioso:
+            return None
         print(f"No se pudo conectar a la base de datos: {exc}")
         sys.exit(1)
 
@@ -212,6 +225,47 @@ def asegurar_tabla_de_control(cursor):
 def aplicadas(cursor):
     cursor.execute("SELECT nombre FROM schema_migrations")
     return {fila[0] for fila in cursor.fetchall()}
+
+
+def aplicar_pendientes(silencioso=False):
+    """Aplica las migraciones que falten. Devuelve la lista de las aplicadas.
+
+    Pensada para llamarse desde `app.py` al arrancar, así nadie tiene que
+    acordarse de correr el migrador a mano después de un `git pull`.
+    Con `silencioso=True` no imprime nada y devuelve None si no hay base.
+    """
+    global _SILENCIOSO
+
+    conexion = conectar(silencioso=silencioso)
+    if conexion is None:
+        return None
+
+    anterior, _SILENCIOSO = _SILENCIOSO, silencioso
+    aplicadas_ahora = []
+    try:
+        with conexion.cursor() as cursor:
+            asegurar_tabla_de_control(cursor)
+            ya_aplicadas = aplicadas(cursor)
+
+            for nombre, funcion in MIGRACIONES:
+                if nombre in ya_aplicadas:
+                    continue
+                if not silencioso:
+                    print(f"→ {nombre}")
+                funcion(cursor)
+                cursor.execute(
+                    "INSERT INTO schema_migrations (nombre) VALUES (%s)", (nombre,)
+                )
+                aplicadas_ahora.append(nombre)
+
+        conexion.commit()
+        return aplicadas_ahora
+    except Exception:
+        conexion.rollback()
+        raise
+    finally:
+        _SILENCIOSO = anterior
+        conexion.close()
 
 
 def main():

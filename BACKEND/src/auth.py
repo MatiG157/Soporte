@@ -32,12 +32,20 @@ def verificar_api_key():
     esperada = api_key_esperada()
     if not esperada:
         return jsonify({
-            "error": "El backend no tiene API_KEY configurada. Revisá el archivo .env"
+            "codigo": "api_key_no_configurada",
+            "error": "El backend no tiene API_KEY configurada en BACKEND/.env. "
+                     "Corré 'python setup.py' desde la raíz del proyecto.",
         }), 500
 
     recibida = request.headers.get("X-API-KEY")
     if not recibida or not _comparar_seguro(recibida, esperada):
-        return jsonify({"error": "No autorizado"}), 401
+        # `codigo` distingue esto de un 401 por credenciales del usuario:
+        # sin él, un login fallaba con "credenciales inválidas" cuando en
+        # realidad lo que estaba mal era la configuración.
+        return jsonify({
+            "codigo": "api_key_invalida",
+            "error": "La API key del frontend no coincide con la del backend.",
+        }), 401
 
     return None
 

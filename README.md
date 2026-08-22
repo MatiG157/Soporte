@@ -53,29 +53,37 @@ pip install -r FRONTEND/requirements.txt
 
 ### 3. Variables de entorno
 
-```bash
-cp BACKEND/.env.example  BACKEND/.env
-cp FRONTEND/.env.example FRONTEND/.env
-```
-
-Generá **una** clave y poné el mismo valor en los dos archivos:
+Los `.env` **no están en el repo** (llevan claves), así que después de un clone
+o un pull hay que generarlos. Desde la raíz:
 
 ```bash
-python -c "import secrets; print(secrets.token_urlsafe(32))"
+python setup.py
 ```
 
-- `BACKEND/.env` → `API_KEY=<esa clave>`
-- `FRONTEND/.env` → `BACKEND_API_KEY=<la misma clave>`
+Eso crea `BACKEND/.env` y `FRONTEND/.env` a partir de los `.env.example`, genera
+las claves y —lo importante— **deja la misma en los dos lados**: `API_KEY` en el
+backend y `BACKEND_API_KEY` en el frontend tienen que coincidir o el backend
+rechaza todo con 401 y no se puede ni registrar ni loguear.
 
-Además, en `FRONTEND/.env` poné un `SECRET_KEY` propio (otra clave aleatoria).
-Si falta, las sesiones se invalidan en cada reinicio.
+Es idempotente: no pisa lo que ya esté configurado.
+
+```bash
+python setup.py --check    # sólo revisa y reporta qué falta
+python setup.py --rotar    # claves nuevas (cierra las sesiones abiertas)
+```
+
+Lo único que queda a mano es la conexión a MySQL en `BACKEND/.env`:
+`DB_USER`, `DB_PASSWORD`, `DB_NAME`. El script avisa si siguen en el placeholder.
 
 ### 4. Base de datos
 
+**El backend aplica las migraciones pendientes al arrancar**, así que en general
+no hay que hacer nada. Igual se puede correr a mano:
+
 ```bash
 cd BACKEND
-python migrate.py            # crea/actualiza el esquema (idempotente)
-python migrate.py --status   # ver qué migraciones están aplicadas
+python migrate.py            # aplica lo pendiente (idempotente)
+python migrate.py --status   # ver qué está aplicado y qué no
 python seed_dev.py           # datos de prueba (opcional)
 python seed_dev.py --con-drafts   # + 3 borradores para probar /compare
 ```
@@ -83,9 +91,11 @@ python seed_dev.py --con-drafts   # + 3 borradores para probar /compare
 Usuarios sembrados: `ana.gomez.dev@example.com`, `lucas.perez.dev@example.com`,
 `marta.lopez.dev@example.com` — contraseña `DevPass123`.
 
+Para desactivar la migración automática: `AUTO_MIGRATE=false` en `BACKEND/.env`.
+
 ### 5. Levantar
 
-En Windows, desde la raíz: `run.bat`
+En Windows, desde la raíz: `run.bat` (corre `setup.py` y levanta los dos servidores).
 
 O a mano, en dos terminales:
 
@@ -93,6 +103,25 @@ O a mano, en dos terminales:
 cd BACKEND  && python app.py    # http://localhost:5000
 cd FRONTEND && python app.py    # http://localhost:8080
 ```
+
+---
+
+## Problemas frecuentes
+
+**`Unknown column 'usuarios.idioma'`**
+La base quedó con el esquema viejo. Reiniciá el backend (migra al arrancar) o
+corré `cd BACKEND && python migrate.py`.
+
+**No puedo registrarme ni loguearme / todo devuelve 401**
+`API_KEY` y `BACKEND_API_KEY` no coinciden, o falta algún `.env`. Corré
+`python setup.py` desde la raíz y reiniciá los dos servidores. Con
+`python setup.py --check` lo verificás sin escribir nada.
+
+**`El backend no tiene API_KEY configurada`**
+Falta `BACKEND/.env`. Mismo remedio: `python setup.py`.
+
+**El backend arranca pero `/health` devuelve 503**
+MySQL no está levantado, o las credenciales de `BACKEND/.env` están mal.
 
 ---
 
@@ -154,19 +183,22 @@ verifican que el recurso pertenezca a ese usuario.
 ## Tests
 
 ```bash
-cd BACKEND
-python -m pytest -v
+cd BACKEND  && python -m pytest    # 63 tests
+cd FRONTEND && python -m pytest    # 51 tests
 ```
 
-Los tests usan SQLite en memoria: no tocan la base de MySQL.
+El backend corre sobre SQLite en memoria y el frontend con el backend simulado:
+ninguno toca MySQL ni la red.
 
 ---
 
 ## Estructura
 
 ```
+setup.py                  genera y sincroniza los .env (correr tras cada pull)
+
 BACKEND/
-  app.py                  fábrica de la app y registro de blueprints
+  app.py                  fábrica de la app; migra la base al arrancar
   migrate.py              migraciones idempotentes
   seed_dev.py             datos de desarrollo
   src/

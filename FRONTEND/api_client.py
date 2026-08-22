@@ -42,6 +42,18 @@ def _mensaje_de_error(respuesta):
         return respuesta.text[:200] or f"Error {respuesta.status_code}", {}
 
     if isinstance(cuerpo, dict):
+        # Un 401 por API key mal configurada se parece a un 401 por contraseña
+        # incorrecta. El backend los distingue con `codigo`, así el usuario ve
+        # el problema real en vez de "credenciales inválidas".
+        codigo = cuerpo.get("codigo")
+        if codigo in ("api_key_invalida", "api_key_no_configurada"):
+            return (
+                "Problema de configuración del servidor: la clave compartida "
+                "entre el frontend y el backend no coincide. Corré "
+                "'python setup.py' desde la raíz del proyecto y reiniciá los dos.",
+                cuerpo,
+            )
+
         if "error" in cuerpo:
             return cuerpo["error"], cuerpo
         if "errores_validacion" in cuerpo:
