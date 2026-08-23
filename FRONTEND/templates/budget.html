@@ -40,19 +40,36 @@
                     </p>
                 </div>
 
-                {% if viajes|length > 1 %}
-                <div style="min-width: 260px;">
-                    <label for="trip-select" class="form-label small fw-bold text-uppercase text-secondary"
-                           data-i18n="budget_pick_trip">Trip</label>
-                    <select id="trip-select" class="form-select">
-                        {% for v in viajes %}
-                        <option value="{{ v.id_viaje }}" {% if v.id_viaje == viaje.id_viaje %}selected{% endif %}>
-                            {{ v.destinos | join(' → ') }} · {{ v.tipo_viaje }}
-                        </option>
-                        {% endfor %}
-                    </select>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="fa-solid fa-users me-1"></i> <span id="people-btn-text">Total Cost</span>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="setPeopleFilter('total', event)">Total Cost</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="setPeopleFilter('per_person', event)">Per Person</a></li>
+                        </ul>
+                    </div>
                 </div>
-                {% endif %}
+            </div>
+
+            <!-- Filters -->
+            <div class="mb-4">
+                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                    <span class="text-secondary fw-bold small text-uppercase">Destinations:</span>
+                    <span class="badge rounded p-1 px-2 border fw-semibold dest-badge active" data-dest="all" style="cursor: pointer; background-color: var(--brand-color, #006d5b); color: white;">All</span>
+                    {% for destino in viaje.destinos %}
+                    <span class="badge bg-light text-secondary rounded p-1 px-2 border fw-semibold dest-badge" data-dest="{% if destino is mapping %}{{ destino.nombre }}{% else %}{{ destino }}{% endif %}" style="cursor: pointer;">{% if destino is mapping %}{{ destino.nombre }}{% else %}{{ destino }}{% endif %}</span>
+                    {% endfor %}
+                </div>
+                
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="text-secondary fw-bold small text-uppercase">Days:</span>
+                    <span class="badge rounded p-1 px-2 border fw-semibold day-badge active" data-day="all" style="cursor: pointer; background-color: var(--brand-color, #006d5b); color: white;">All Days</span>
+                    {% for itin in viaje.itinerarios %}
+                    <span class="badge bg-light text-secondary rounded p-1 px-2 border fw-semibold day-badge" data-day="{{ itin.dia }}" style="cursor: pointer;">Day {{ itin.dia }}</span>
+                    {% endfor %}
+                </div>
             </div>
 
             <!-- Resumen del viaje -->
@@ -88,7 +105,7 @@
                     <div class="card border rounded-4 shadow-sm p-3 h-100">
                         <span class="text-secondary fw-bold" style="font-size: 0.75rem; letter-spacing: .5px;"
                               data-i18n="budget_base">Base total</span>
-                        <div class="fs-3 fw-bold mt-2">${{ '{:,.0f}'.format(costos.get('costo_total_base') or 0) }}</div>
+                        <div class="fs-3 fw-bold mt-2" id="val-base-total">${{ '{:,.0f}'.format(costos.get('costo_total_base') or 0) }}</div>
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -96,7 +113,7 @@
                          style="border-color: #006d5b !important; border-width: 2px !important;">
                         <span class="text-secondary fw-bold" style="font-size: 0.75rem; letter-spacing: .5px;"
                               data-i18n="budget_total">Adjusted total</span>
-                        <div class="fs-3 fw-bold mt-2" style="color: #006d5b;">
+                        <div class="fs-3 fw-bold mt-2" style="color: #006d5b;" id="val-adjusted-total">
                             ${{ '{:,.0f}'.format(costos.get('costo_total_ajustado') or viaje.costo_total_estimado or 0) }}
                         </div>
                     </div>
@@ -137,7 +154,7 @@
                                           style="width: 10px; height: 10px; background-color: {{ color }};"></span>
                                     <span data-i18n="{{ clave }}">{{ etiqueta }}</span>
                                 </span>
-                                <strong>${{ '{:,.0f}'.format(monto) }}</strong>
+                                <strong class="breakdown-amount" data-clave="{{ clave }}">${{ '{:,.0f}'.format(monto) }}</strong>
                             </li>
                             {% endfor %}
                         </ul>
@@ -170,100 +187,144 @@
 {% if viaje and costos %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-const DATOS = {
-    desglose: {
-        // [clave i18n, texto por defecto] para no mostrar la clave cruda
-        // en el primer render, antes de que cargue el diccionario.
-        etiquetas: [
-            ['budget_lodging', 'Accommodation'],
-            ['budget_transport', 'Transport'],
-            ['budget_activities', 'Activities'],
-            ['budget_food', 'Food']
-        ],
-        valores: [
-            {{ costos.get('costo_alojamiento') or 0 }},
-            {{ costos.get('costo_transporte') or 0 }},
-            {{ costos.get('costo_actividades') or 0 }},
-            {{ costos.get('costo_comidas') or 0 }}
-        ],
-        colores: ['#0f766e', '#0369a1', '#7c3aed', '#b45309']
-    },
-    porDia: {{ por_dia | tojson }},
-    porCategoria: {{ por_categoria | tojson }}
-};
+const VIAJE_ITINERARIOS = {{ viaje.itinerarios | tojson }};
+const COSTO_BASE = {{ (costos.get('costo_total_base') or 0) | tojson }};
+const COSTO_AJUSTADO = {{ (costos.get('costo_total_ajustado') or viaje.costo_total_estimado or 0) | tojson }};
+const CANTIDAD_PERSONAS = {{ viaje.get('cantidad_personas', 1) | tojson }} || 1;
 
+let currentDest = 'all';
+let currentDay = 'all';
+let currentPeople = 'total'; // 'total' or 'per_person'
 let graficos = [];
 
-function construirGraficos() {
+function getFilteredData() {
+    let totalActividades = 0;
+    let porDia = {};
+    let porCategoria = {};
+    
+    VIAJE_ITINERARIOS.forEach(itin => {
+        if (currentDay !== 'all' && String(itin.dia) !== String(currentDay)) return;
+        
+        let diaTotal = 0;
+        (itin.actividades || []).forEach(act => {
+            const dest = act.destino || '';
+            if (currentDest !== 'all' && dest !== currentDest) return;
+            
+            let costo = parseFloat(act.precio_estimado) || 0;
+            if (currentPeople === 'per_person') {
+                costo = costo / CANTIDAD_PERSONAS;
+            }
+            
+            diaTotal += costo;
+            totalActividades += costo;
+            
+            const cat = act.categoria || 'Otros';
+            porCategoria[cat] = (porCategoria[cat] || 0) + costo;
+        });
+        
+        if (currentDay === 'all' || String(itin.dia) === String(currentDay)) {
+            porDia[itin.dia] = (porDia[itin.dia] || 0) + diaTotal;
+        }
+    });
+
+    // Calcula otros costos si no hay filtro de destino ni dia
+    let factorPersonas = currentPeople === 'per_person' ? CANTIDAD_PERSONAS : 1;
+    let costoAlojamiento = (currentDest === 'all' && currentDay === 'all') ? ({{ costos.get('costo_alojamiento') or 0 }} / factorPersonas) : 0;
+    let costoTransporte = (currentDest === 'all' && currentDay === 'all') ? ({{ costos.get('costo_transporte') or 0 }} / factorPersonas) : 0;
+    let costoComidas = (currentDest === 'all' && currentDay === 'all') ? ({{ costos.get('costo_comidas') or 0 }} / factorPersonas) : 0;
+    
+    let totalFiltrado = totalActividades + costoAlojamiento + costoTransporte + costoComidas;
+    
+    return {
+        totalActividades, costoAlojamiento, costoTransporte, costoComidas, totalFiltrado,
+        porDia: Object.entries(porDia).map(([dia, total]) => ({ dia, total })),
+        porCategoria: Object.entries(porCategoria).sort((a,b) => b[1] - a[1])
+    };
+}
+
+function updateUI() {
+    const data = getFilteredData();
+    
+    // Update Totals
+    const baseTotalEl = document.getElementById('val-base-total');
+    const adjTotalEl = document.getElementById('val-adjusted-total');
+    
+    // For simplicity, when filtering, we just show the filtered total in both places, 
+    // or keep the adjustment ratio. Let's just show filtered total.
+    if (baseTotalEl) baseTotalEl.textContent = '$' + data.totalFiltrado.toLocaleString(undefined, {maximumFractionDigits: 0});
+    if (adjTotalEl) adjTotalEl.textContent = '$' + data.totalFiltrado.toLocaleString(undefined, {maximumFractionDigits: 0});
+    
+    // Update breakdown list
+    document.querySelectorAll('.breakdown-amount').forEach(el => {
+        const clave = el.dataset.clave;
+        if (clave === 'budget_activities') el.textContent = '$' + data.totalActividades.toLocaleString(undefined, {maximumFractionDigits: 0});
+        if (clave === 'budget_lodging') el.textContent = '$' + data.costoAlojamiento.toLocaleString(undefined, {maximumFractionDigits: 0});
+        if (clave === 'budget_transport') el.textContent = '$' + data.costoTransporte.toLocaleString(undefined, {maximumFractionDigits: 0});
+        if (clave === 'budget_food') el.textContent = '$' + data.costoComidas.toLocaleString(undefined, {maximumFractionDigits: 0});
+    });
+
+    construirGraficos(data);
+}
+
+function construirGraficos(data) {
     graficos.forEach(g => g.destroy());
     graficos = [];
 
     Chart.defaults.font.family = "system-ui, -apple-system, 'Segoe UI', sans-serif";
 
-    // Desglose de costos (dona).
-    graficos.push(new Chart(document.getElementById('chart-breakdown'), {
-        type: 'doughnut',
-        data: {
-            labels: DATOS.desglose.etiquetas.map(([clave, defecto]) => t(clave, defecto)),
-            datasets: [{
-                data: DATOS.desglose.valores,
-                backgroundColor: DATOS.desglose.colores,
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            cutout: '62%',
-            plugins: {
-                legend: { display: false },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => ` ${ctx.label}: $${ctx.parsed.toLocaleString()}`
-                    }
-                }
+    const doughnutCanvas = document.getElementById('chart-breakdown');
+    if (doughnutCanvas) {
+        graficos.push(new Chart(doughnutCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: [t('budget_lodging', 'Accommodation'), t('budget_transport', 'Transport'), t('budget_activities', 'Activities'), t('budget_food', 'Food')],
+                datasets: [{
+                    data: [data.costoAlojamiento, data.costoTransporte, data.totalActividades, data.costoComidas],
+                    backgroundColor: ['#0f766e', '#0369a1', '#7c3aed', '#b45309'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                cutout: '62%',
+                plugins: { legend: { display: false } }
             }
-        }
-    }));
+        }));
+    }
 
-    // Gasto por día (barras).
-    graficos.push(new Chart(document.getElementById('chart-per-day'), {
-        type: 'bar',
-        data: {
-            labels: DATOS.porDia.map(d => `${t('iti_day', 'Day')} ${d.dia}`),
-            datasets: [{
-                label: t('budget_activities', 'Activities'),
-                data: DATOS.porDia.map(d => d.total),
-                backgroundColor: '#0f766e',
-                borderRadius: 6,
-                maxBarThickness: 42
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { callback: valor => '$' + valor },
-                    grid: { color: '#f1f5f9' }
-                },
-                x: { grid: { display: false } }
-            }
-        }
-    }));
-
-    // Actividades por categoría (barras horizontales).
-    const lienzoCategorias = document.getElementById('chart-by-category');
-    if (lienzoCategorias && DATOS.porCategoria.length) {
-        graficos.push(new Chart(lienzoCategorias, {
+    const barCanvas = document.getElementById('chart-per-day');
+    if (barCanvas && data.porDia.length) {
+        graficos.push(new Chart(barCanvas, {
             type: 'bar',
             data: {
-                labels: DATOS.porCategoria.map(par => par[0]),
+                labels: data.porDia.map(d => `${t('iti_day', 'Day')} ${d.dia}`),
                 datasets: [{
-                    data: DATOS.porCategoria.map(par => par[1]),
+                    label: t('budget_activities', 'Activities'),
+                    data: data.porDia.map(d => d.total),
+                    backgroundColor: '#0f766e',
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { callback: v => '$' + v } }
+                }
+            }
+        }));
+    }
+
+    const catCanvas = document.getElementById('chart-by-category');
+    if (catCanvas && data.porCategoria.length) {
+        graficos.push(new Chart(catCanvas, {
+            type: 'bar',
+            data: {
+                labels: data.porCategoria.map(p => p[0]),
+                datasets: [{
+                    data: data.porCategoria.map(p => p[1]),
                     backgroundColor: '#7c3aed',
-                    borderRadius: 6,
-                    maxBarThickness: 26
+                    borderRadius: 6
                 }]
             },
             options: {
@@ -271,41 +332,56 @@ function construirGraficos() {
                 responsive: true,
                 plugins: { legend: { display: false } },
                 scales: {
-                    x: {
-                        beginAtZero: true,
-                        ticks: { callback: valor => '$' + valor },
-                        grid: { color: '#f1f5f9' }
-                    },
-                    y: { grid: { display: false } }
+                    x: { beginAtZero: true, ticks: { callback: v => '$' + v } }
                 }
             }
         }));
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    construirGraficos();
-
-    // Al cambiar el idioma se redibujan las etiquetas de los gráficos.
-    document.addEventListener('idiomaCambiado', construirGraficos);
-
-    const selector = document.getElementById('trip-select');
-    if (selector) {
-        selector.addEventListener('change', () => {
-            window.location.href = '/budget/' + selector.value;
+function bindFilters() {
+    document.querySelectorAll('.dest-badge').forEach(b => {
+        b.addEventListener('click', e => {
+            document.querySelectorAll('.dest-badge').forEach(el => {
+                el.classList.remove('active', 'text-white');
+                el.classList.add('bg-light', 'text-secondary');
+                el.style.backgroundColor = '';
+            });
+            b.classList.add('active', 'text-white');
+            b.classList.remove('bg-light', 'text-secondary');
+            b.style.backgroundColor = 'var(--brand-color, #006d5b)';
+            currentDest = b.dataset.dest;
+            updateUI();
         });
-    }
-});
-</script>
-{% else %}
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const selector = document.getElementById('trip-select');
-    if (selector) {
-        selector.addEventListener('change', () => {
-            window.location.href = '/budget/' + selector.value;
+    });
+
+    document.querySelectorAll('.day-badge').forEach(b => {
+        b.addEventListener('click', e => {
+            document.querySelectorAll('.day-badge').forEach(el => {
+                el.classList.remove('active', 'text-white');
+                el.classList.add('bg-light', 'text-secondary');
+                el.style.backgroundColor = '';
+            });
+            b.classList.add('active', 'text-white');
+            b.classList.remove('bg-light', 'text-secondary');
+            b.style.backgroundColor = 'var(--brand-color, #006d5b)';
+            currentDay = b.dataset.day;
+            updateUI();
         });
-    }
+    });
+}
+
+window.setPeopleFilter = function(val, e) {
+    e.preventDefault();
+    currentPeople = val;
+    document.getElementById('people-btn-text').textContent = val === 'total' ? 'Total Cost' : 'Per Person';
+    updateUI();
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    bindFilters();
+    updateUI();
+    document.addEventListener('idiomaCambiado', updateUI);
 });
 </script>
 {% endif %}

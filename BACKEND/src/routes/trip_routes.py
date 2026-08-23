@@ -27,7 +27,14 @@ trip_bp = Blueprint('trip_bp', __name__)
 def _serializar_resumen(v):
     return {
         "id_viaje": v.id_viaje,
-        "destinos": v.destinos,
+        "destinos": [
+            {
+                "id_viaje_destino": d.id_viaje_destino,
+                "nombre": d.nombre,
+                "fecha_llegada": d.fecha_llegada.isoformat() if d.fecha_llegada else None,
+                "fecha_partida": d.fecha_partida.isoformat() if d.fecha_partida else None
+            } for d in v.viaje_destinos
+        ] if hasattr(v, 'viaje_destinos') else [],
         "fecha_inicio": v.fecha_inicio.isoformat(),
         "fecha_fin": v.fecha_fin.isoformat(),
         "tipo_viaje": v.tipo_viaje,
@@ -76,7 +83,10 @@ def get_viajes_usuario(id_usuario):
 def get_viaje(id_viaje):
     v = (
         Viaje.query
-        .options(joinedload(Viaje.itinerarios).joinedload(Itinerario.actividades))
+        .options(
+            joinedload(Viaje.viaje_destinos),
+            joinedload(Viaje.itinerarios).joinedload(Itinerario.actividades)
+        )
         .filter_by(id_viaje=id_viaje)
         .first()
     )

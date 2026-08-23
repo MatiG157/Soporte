@@ -68,8 +68,13 @@
                 <div class="form-group mb-4">
                     <label for="foto" class="form-label text-muted" style="font-size: 0.85rem;"
                            data-i18n="reg_photo">Profile photo (optional)</label>
-                    <input type="url" id="foto" class="form-control underline-input"
-                           placeholder="https://example.com/your-photo.jpg">
+                    <div class="photo-upload-wrapper">
+                        <div class="photo-preview" id="photoPreview">
+                            <i class="fa-solid fa-camera"></i>
+                        </div>
+                        <input type="file" id="foto" class="form-control" accept="image/png, image/jpeg"
+                               style="font-size: 0.85rem;" onchange="previewPhoto(this)">
+                    </div>
                 </div>
 
                 <div id="registerMessage" class="mb-3 text-center" style="font-size: 0.9rem;">
@@ -106,6 +111,19 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    window.previewPhoto = function(input) {
+        const preview = document.getElementById('photoPreview');
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                preview.innerHTML = '<img src="' + e.target.result + '" alt="Preview">';
+            };
+            reader.readAsDataURL(input.files[0]);
+        } else {
+            preview.innerHTML = '<i class="fa-solid fa-camera"></i>';
+        }
+    };
+
     const toggle = document.querySelector('.toggle-password');
     const password = document.getElementById('password');
     if (toggle && password) {
@@ -131,17 +149,22 @@ document.addEventListener('DOMContentLoaded', () => {
         mostrar(t('reg_creating', 'Creating account…'), 'text-secondary');
 
         try {
-            // Va contra el propio frontend, que proxea al backend con su API key.
-            const resp = await apiFetch("{{ url_for('register') }}", {
+            const formData = new FormData();
+            formData.append('nombre', document.getElementById('nombre').value.trim());
+            formData.append('apellido', document.getElementById('apellido').value.trim());
+            formData.append('email', document.getElementById('email').value.trim());
+            formData.append('contrasena', password.value);
+            formData.append('nacionalidad', document.getElementById('nacionalidad').value.trim());
+            const fotoInput = document.getElementById('foto');
+            if (fotoInput.files && fotoInput.files[0]) {
+                formData.append('foto', fotoInput.files[0]);
+            }
+            formData.append('csrf_token', window.CSRF_TOKEN);
+
+            const resp = await fetch("{{ url_for('register') }}", {
                 method: 'POST',
-                body: JSON.stringify({
-                    nombre: document.getElementById('nombre').value.trim(),
-                    apellido: document.getElementById('apellido').value.trim(),
-                    email: document.getElementById('email').value.trim(),
-                    contrasena: password.value,
-                    nacionalidad: document.getElementById('nacionalidad').value.trim(),
-                    foto: document.getElementById('foto').value.trim()
-                })
+                headers: { 'X-CSRF-Token': window.CSRF_TOKEN },
+                body: formData
             });
 
             const data = await resp.json();

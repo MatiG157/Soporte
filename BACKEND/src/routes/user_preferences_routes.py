@@ -34,6 +34,17 @@ def get_preferencias_usuario(id_usuario):
     return jsonify(user_preferences_schema.dump(preferencias, many=True)), 200
 
 
+@user_preferences_bp.route('/<int:id_preferencia>', methods=['GET'])
+@requiere_usuario
+def get_preferencia(id_preferencia):
+    preferencia = db.session.get(PreferenciasUsuario, id_preferencia)
+    if not preferencia:
+        return jsonify({"error": "Preferencias no encontradas"}), 404
+    if not es_el_mismo_usuario(preferencia.id_usuario):
+        return prohibido()
+    return jsonify(user_preferences_schema.dump(preferencia)), 200
+
+
 @user_preferences_bp.route('/', methods=['POST'])
 @requiere_usuario
 def alta_preferencia():

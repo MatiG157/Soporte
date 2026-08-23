@@ -10,7 +10,7 @@ class Viaje(db.Model):
     id_usuario = db.Column(db.Integer, db.ForeignKey(
         "usuarios.id_usuario"), nullable=False)
 
-    destinos = db.Column(db.JSON, nullable=False)  # Lista de destinos ["Buenos Aires", "Mendoza"]
+    # Lista de destinos eliminada, ahora en tabla viaje_destinos
     fecha_inicio = db.Column(db.Date, nullable=False)
     fecha_fin = db.Column(db.Date, nullable=False)
     tipo_viaje = db.Column(db.String(20), nullable=False)
@@ -29,6 +29,7 @@ class Viaje(db.Model):
     # Relaciones...
     usuario = db.relationship("Usuario", back_populates="viajes")
     preferencias = db.relationship("PreferenciasUsuario", backref="viajes_generados")
+    viaje_destinos = db.relationship("ViajeDestino", back_populates="viaje", cascade="all, delete-orphan", order_by="ViajeDestino.fecha_llegada")
     costo = db.relationship("Costo", back_populates="viaje",
                             uselist=False, cascade="all, delete-orphan")
     itinerarios = db.relationship(

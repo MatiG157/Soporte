@@ -11,3 +11,4 @@ from src.models.cost import Costo
 from src.models.itinerary import Itinerario
 from src.models.activity import Actividad
 from src.models.ai_recommendation import RecomendacionIA
+from src.models.trip_destination import ViajeDestino

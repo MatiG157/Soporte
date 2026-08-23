@@ -53,8 +53,6 @@
                         <div class="fw-bold small">{{ session.get('user_nombre', '') }} {{ session.get('user_apellido', '') }}</div>
                         <div class="text-secondary" style="font-size: 0.75rem;">{{ session.get('user_email', '') }}</div>
                     </li>
-                    <li><a class="dropdown-item" href="{{ url_for('mytrips') }}" data-i18n="nav_mytrips"><i class="fa-solid fa-suitcase-rolling me-2"></i>My Trips</a></li>
-                    <li><a class="dropdown-item" href="{{ url_for('budget') }}" data-i18n="sidebar_budget"><i class="fa-solid fa-piggy-bank me-2"></i>Budget</a></li>
                     <li><a class="dropdown-item" href="{{ url_for('settings') }}" data-i18n="nav_settings"><i class="fa-solid fa-gear me-2"></i>Settings</a></li>
                     <li><hr class="dropdown-divider"></li>
                     <li>

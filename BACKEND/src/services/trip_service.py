@@ -72,6 +72,24 @@ def crear_viaje(datos):
         estado=datos_validados.get('estado', 'draft'),
     )
 
+    from src.models.trip_destination import ViajeDestino
+    destinos = datos_validados['destinos']
+    # If they are strings, we map them evenly over the dates or just use the trip dates
+    for idx, d in enumerate(destinos):
+        if isinstance(d, dict):
+            vd = ViajeDestino(
+                nombre=d.get("nombre", "Sin Destino"),
+                fecha_llegada=_a_fecha(d.get("fecha_llegada", nuevo_viaje.fecha_inicio)),
+                fecha_partida=_a_fecha(d.get("fecha_partida", nuevo_viaje.fecha_fin))
+            )
+        else:
+            vd = ViajeDestino(
+                nombre=str(d),
+                fecha_llegada=nuevo_viaje.fecha_inicio,
+                fecha_partida=nuevo_viaje.fecha_fin
+            )
+        nuevo_viaje.viaje_destinos.append(vd)
+
     db.session.add(nuevo_viaje)
     db.session.commit()
     return nuevo_viaje
@@ -97,7 +115,24 @@ def actualizar_viaje(id_viaje, datos):
     if not viaje:
         return None
 
-    viaje.destinos = datos_validados.get('destinos', viaje.destinos)
+    if 'destinos' in datos_validados:
+        viaje.viaje_destinos.clear()
+        from src.models.trip_destination import ViajeDestino
+        for d in datos_validados['destinos']:
+            if isinstance(d, dict):
+                vd = ViajeDestino(
+                    nombre=d.get("nombre", "Sin Destino"),
+                    fecha_llegada=_a_fecha(d.get("fecha_llegada", viaje.fecha_inicio)),
+                    fecha_partida=_a_fecha(d.get("fecha_partida", viaje.fecha_fin))
+                )
+            else:
+                vd = ViajeDestino(
+                    nombre=str(d),
+                    fecha_llegada=viaje.fecha_inicio,
+                    fecha_partida=viaje.fecha_fin
+                )
+            viaje.viaje_destinos.append(vd)
+            
     viaje.fecha_inicio = datos_validados.get('fecha_inicio', viaje.fecha_inicio)
     viaje.fecha_fin = datos_validados.get('fecha_fin', viaje.fecha_fin)
     viaje.tipo_viaje = datos_validados.get('tipo_viaje', viaje.tipo_viaje)
@@ -138,6 +173,22 @@ def _guardar_itinerario(viaje, itinerario_data):
         nuevo_itinerario.viaje = viaje
         db.session.add(nuevo_itinerario)
 
+        # Attempt to determine which destination this day belongs to
+        # by checking the day's date against the trip's destinations
+        from datetime import timedelta
+        fecha_dia = _a_fecha(viaje.fecha_inicio) + timedelta(days=nuevo_itinerario.dia - 1) if viaje.fecha_inicio else None
+        
+        destino_del_dia = None
+        if fecha_dia:
+            for vd in viaje.viaje_destinos:
+                if vd.fecha_llegada <= fecha_dia <= vd.fecha_partida:
+                    destino_del_dia = vd
+                    break
+        
+        # fallback
+        if not destino_del_dia and viaje.viaje_destinos:
+            destino_del_dia = viaje.viaje_destinos[0]
+
         for act_data in dia_data.get("actividades", []):
             nueva_actividad = Actividad(
                 nombre=_recortar(act_data.get("nombre"), LIMITES["nombre"]) or "Actividad",
@@ -147,6 +198,8 @@ def _guardar_itinerario(viaje, itinerario_data):
                 horario_sugerido=_recortar(
                     act_data.get("horario_sugerido"), LIMITES["horario_sugerido"]) or "",
                 ubicacion=_recortar(act_data.get("ubicacion"), LIMITES["ubicacion"]) or "",
+                destino_viaje=destino_del_dia
+
             )
             nueva_actividad.itinerario = nuevo_itinerario
             db.session.add(nueva_actividad)
@@ -184,7 +237,6 @@ def guardar_viajes_generados(id_usuario, opciones_generadas, id_user_preferences
 
         viaje = Viaje(
             id_usuario=id_usuario,
-            destinos=opcion["destinos"],
             id_user_preferences=id_user_preferences,
             fecha_inicio=_a_fecha(opcion["fecha_inicio"]),
             fecha_fin=_a_fecha(opcion["fecha_fin"]),
@@ -194,6 +246,22 @@ def guardar_viajes_generados(id_usuario, opciones_generadas, id_user_preferences
             group_id=group_id,
             estado="draft",
         )
+        
+        from src.models.trip_destination import ViajeDestino
+        for idx, d in enumerate(opcion.get("destinos", [])):
+            if isinstance(d, dict):
+                vd = ViajeDestino(
+                    nombre=d.get("nombre", "Sin Destino"),
+                    fecha_llegada=_a_fecha(d.get("fecha_llegada", viaje.fecha_inicio)),
+                    fecha_partida=_a_fecha(d.get("fecha_partida", viaje.fecha_fin))
+                )
+            else:
+                vd = ViajeDestino(
+                    nombre=str(d),
+                    fecha_llegada=viaje.fecha_inicio,
+                    fecha_partida=viaje.fecha_fin
+                )
+            viaje.viaje_destinos.append(vd)
         db.session.add(viaje)
         db.session.flush()  # necesito el id_viaje para costos y recomendación
 

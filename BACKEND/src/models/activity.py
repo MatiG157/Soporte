@@ -18,7 +18,18 @@ class Actividad(db.Model):
     horario_sugerido = db.Column(db.String(30))
     ubicacion = db.Column(db.String(150))
 
+    id_viaje_destino = db.Column(
+        db.Integer,
+        db.ForeignKey("viaje_destinos.id_viaje_destino"),
+        nullable=True
+    )
+
     itinerario = db.relationship(
         "Itinerario",
+        back_populates="actividades"
+    )
+
+    destino_viaje = db.relationship(
+        "ViajeDestino",
         back_populates="actividades"
     )

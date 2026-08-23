@@ -117,7 +117,11 @@ def variables_globales():
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    has_drafts = False
+    if session.get("user_id"):
+        drafts = api_client.get_o_defecto(f"/viajes/usuario/{session['user_id']}/drafts", defecto=[])
+        has_drafts = len(drafts) > 0 if drafts else False
+    return render_template("index.html", has_drafts=has_drafts)
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -126,13 +130,26 @@ def register():
         return render_template("register.html")
 
     datos = request.get_json() if request.is_json else request.form
+
+    foto_url = (datos.get("foto") or "").strip() or None
+    foto_file = request.files.get("foto") if not request.is_json else None
+
+    if foto_file and foto_file.filename:
+        upload_dir = os.path.join(app.root_path, "static", "uploads")
+        os.makedirs(upload_dir, exist_ok=True)
+        ext = foto_file.filename.rsplit('.', 1)[-1].lower()
+        if ext in ['png', 'jpg', 'jpeg']:
+            filename = f"{secrets.token_hex(8)}.{ext}"
+            foto_file.save(os.path.join(upload_dir, filename))
+            foto_url = url_for("static", filename=f"uploads/{filename}")
+
     payload = {
         "nombre": (datos.get("nombre") or "").strip(),
         "apellido": (datos.get("apellido") or "").strip(),
         "email": (datos.get("email") or "").strip().lower(),
         "contrasena": datos.get("contrasena") or datos.get("password"),
         "nacionalidad": (datos.get("nacionalidad") or "").strip() or None,
-        "foto": (datos.get("foto") or "").strip() or None,
+        "foto": foto_url,
     }
     payload = {k: v for k, v in payload.items() if v not in (None, "")}
 
@@ -228,7 +245,22 @@ def mytrips():
         f"/viajes/usuario/{session['user_id']}", defecto=[]
     ) or []
 
-    guardados = [v for v in viajes if v.get("estado") == "guardado"]
+    # Include 'draft' trips as well and group them
+    guardados = []
+    drafts_vistos = set()
+
+    for v in viajes:
+        estado = v.get("estado")
+        if estado == "guardado":
+            guardados.append(v)
+        elif estado in ("draft", "borrador"):
+            destinos_list = v.get("destinos") or []
+            dest_nombres = tuple(d.get("nombre", str(d)) if isinstance(d, dict) else str(d) for d in destinos_list)
+            clave = v.get("group_id") or (dest_nombres, v.get("fecha_inicio"), v.get("fecha_fin"))
+            if clave not in drafts_vistos:
+                drafts_vistos.add(clave)
+                guardados.append(v)
+
     hoy = date.today()
 
     guardados.sort(key=lambda v: _fecha(v.get("fecha_inicio")) or date.min, reverse=True)
@@ -244,6 +276,8 @@ def mytrips():
         fin = _fecha(v.get("fecha_fin"))
         en_curso = bool(inicio and fin and inicio <= hoy <= fin)
 
+        v["is_draft"] = v.get("estado") in ("draft", "borrador")
+
         if fin and fin < hoy:
             v["filter_class"], v["is_past"] = "past-trip", True
         elif inicio and inicio > hoy:
@@ -251,7 +285,9 @@ def mytrips():
         else:
             v["filter_class"], v["is_past"] = "current-trip", False
 
-        if en_curso:
+        if v["is_draft"]:
+            v["status_label"] = "draft"
+        elif en_curso:
             v["status_label"] = "current trip"
         elif proximo and v["id_viaje"] == proximo["id_viaje"]:
             v["status_label"] = "upcoming trip"
@@ -262,7 +298,8 @@ def mytrips():
 
         v["fecha_inicio_fmt"] = _formatear_fecha(v.get("fecha_inicio"))
         v["fecha_fin_fmt"] = _formatear_fecha(v.get("fecha_fin"))
-        v["destinos_display"] = " → ".join(v.get("destinos") or []) or "Sin destino"
+        dest_str = [d.get("nombre", str(d)) if isinstance(d, dict) else str(d) for d in (v.get("destinos") or [])]
+        v["destinos_display"] = " → ".join(dest_str) or "Sin destino"
         v["imagen"] = v.get("imagen") or IMAGEN_POR_DEFECTO
 
     return render_template("mytrips.html", viajes=guardados)
@@ -353,7 +390,8 @@ def compare():
 
     viajes_por_tipo = {"Economy": None, "Balanced": None, "Luxury": None}
     for draft in drafts:
-        draft["destinos_display"] = " → ".join(draft.get("destinos") or [])
+        dest_str = [d.get("nombre", str(d)) if isinstance(d, dict) else str(d) for d in (draft.get("destinos") or [])]
+        draft["destinos_display"] = " → ".join(dest_str)
         draft["fecha_inicio_fmt"] = _formatear_fecha(draft.get("fecha_inicio"), "%d %b")
         draft["fecha_fin_fmt"] = _formatear_fecha(draft.get("fecha_fin"), "%d %b")
 
@@ -425,9 +463,32 @@ def _cargar_viaje(id_viaje):
 
     viaje["fecha_inicio_fmt"] = _formatear_fecha(viaje.get("fecha_inicio"), "%d %b")
     viaje["fecha_fin_fmt"] = _formatear_fecha(viaje.get("fecha_fin"), "%d %b")
-    viaje["destinos_display"] = " → ".join(viaje.get("destinos") or []) or "Sin destino"
-    destinos = viaje.get("destinos") or []
-    viaje["destino_principal"] = destinos[0] if destinos else ""
+    # Fetch preferences to ensure 'cantidad_personas' is available
+    if "cantidad_personas" not in viaje:
+        id_prefs = viaje.get("id_user_preferences")
+        if id_prefs:
+            try:
+                prefs = api_client.get(f"/preferencias/{id_prefs}")
+                viaje["cantidad_personas"] = prefs.get("cantidad_personas", 1)
+            except Exception:
+                viaje["cantidad_personas"] = 1
+        else:
+            viaje["cantidad_personas"] = 1
+
+    destinos_raw = viaje.get("destinos") or []
+    destinos_obj = []
+    destinos_str = []
+    for d in destinos_raw:
+        if isinstance(d, dict):
+            destinos_obj.append(d)
+            destinos_str.append(d.get("nombre", ""))
+        else:
+            destinos_obj.append({"nombre": str(d)})
+            destinos_str.append(str(d))
+
+    viaje["destinos_obj"] = destinos_obj
+    viaje["destinos_display"] = " → ".join(destinos_str) or "Sin destino"
+    viaje["destino_principal"] = destinos_str[0] if destinos_str else ""
     viaje["imagen"] = viaje.get("imagen") or IMAGEN_POR_DEFECTO
     viaje["dias_totales"] = (fin - inicio).days + 1 if inicio and fin else 0
 
@@ -448,6 +509,8 @@ def _cargar_viaje(id_viaje):
         viaje["countdown_estado"] = "desconocido"
 
     itinerarios = sorted(viaje.get("itinerarios") or [], key=lambda i: i.get("dia") or 0)
+    
+    destino_anterior = None
     for indice, itin in enumerate(itinerarios):
         fecha_dia = inicio + timedelta(days=indice) if inicio else None
         itin["fecha_fmt"] = fecha_dia.strftime("%d %b") if fecha_dia else ""
@@ -455,6 +518,32 @@ def _cargar_viaje(id_viaje):
         itin["total_dia"] = round(
             sum(a.get("precio_estimado") or 0 for a in (itin.get("actividades") or [])), 2
         )
+
+        destino_del_dia = ""
+        if fecha_dia:
+            for dest in destinos_obj:
+                ll = _fecha(dest.get("fecha_llegada"))
+                pa = _fecha(dest.get("fecha_partida"))
+                if ll and pa and ll <= fecha_dia <= pa:
+                    destino_del_dia = dest.get("nombre")
+                    break
+        
+        if not destino_del_dia and destinos_str:
+            destino_del_dia = destinos_str[0]
+            
+        itin["destino_del_dia"] = destino_del_dia
+        
+        if destino_anterior is not None and destino_del_dia != destino_anterior:
+            itin["cambio_destino"] = True
+        else:
+            itin["cambio_destino"] = False
+            
+        destino_anterior = destino_del_dia
+
+        for act in (itin.get("actividades") or []):
+            if not act.get("destino"):
+                act["destino"] = destino_del_dia
+
     viaje["itinerarios"] = itinerarios
 
     return viaje

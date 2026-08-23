@@ -24,11 +24,14 @@
         <!-- Encabezado -->
         <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
             <div>
-                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap dest-badges-container">
+                    <span class="badge rounded p-1 px-2 border fw-semibold dest-badge active" 
+                          data-dest="all" style="cursor: pointer; background-color: var(--brand-color, #006d5b); color: white;">All</span>
                     {% for destino in viaje.destinos %}
-                    <span class="badge bg-light text-secondary rounded p-1 px-2 border fw-semibold">{{ destino }}</span>
+                    <span class="badge bg-light text-secondary rounded p-1 px-2 border fw-semibold dest-badge"
+                          data-dest="{% if destino is mapping %}{{ destino.nombre }}{% else %}{{ destino }}{% endif %}" style="cursor: pointer;">{% if destino is mapping %}{{ destino.nombre }}{% else %}{{ destino }}{% endif %}</span>
                     {% endfor %}
-                    <span class="text-secondary fw-bold fs-6">
+                    <span class="text-secondary fw-bold fs-6 ms-2">
                         &bull; {{ viaje.fecha_inicio_fmt }} – {{ viaje.fecha_fin_fmt }}
                     </span>
                 </div>
@@ -121,6 +124,9 @@
             <button class="btn {% if loop.first %}btn-brand text-white shadow-sm border-0{% else %}btn-outline-secondary bg-light text-secondary border-1{% endif %} rounded-pill px-4 fw-bold day-tab-btn"
                     data-day="{{ loop.index }}">
                 <span data-i18n="iti_day">Day</span> {{ itin.dia }} &bull; {{ itin.fecha_fmt }}
+                {% if itin.cambio_destino %}
+                <i class="fa-solid fa-plane ms-2" style="color: var(--brand-color, #006d5b);" title="Change of destination"></i>
+                {% endif %}
             </button>
             {% endfor %}
         </div>
@@ -140,7 +146,7 @@
                     {% endif %}
 
                     {% for act in itin.actividades %}
-                    <div class="timeline-item mb-4">
+                    <div class="timeline-item mb-4 activity-item" data-dest="{{ act.destino or '' }}">
                         <div class="timeline-dot {% if loop.first %}active-dot{% endif %}"></div>
                         <div class="card timeline-card border rounded-4 shadow-sm">
                             <div class="row g-0">
@@ -295,7 +301,7 @@
 <script>
 const VIAJE = {
     id: {{ viaje.id_viaje }},
-    destinos: {{ viaje.destinos | tojson }},
+    destinos: [{% for d in viaje.destinos %}"{% if d is mapping %}{{ d.nombre }}{% else %}{{ d }}{% endif %}"{% if not loop.last %}, {% endif %}{% endfor %}],
     fecha_inicio: {{ viaje.fecha_inicio | tojson }},
     fecha_fin: {{ viaje.fecha_fin | tojson }}
 };
@@ -391,7 +397,7 @@ async function inicializarMapa() {
         const p = await geocodificar(destino);
         if (!p) continue;
         puntos.push([p.lat, p.lon]);
-        L.marker([p.lat, p.lon]).addTo(mapa).bindPopup(`<strong>${destino}</strong>`);
+        L.marker([p.lat, p.lon]).addTo(capaMarcadores).bindPopup(`<strong>${destino}</strong>`);
     }
 
     if (puntos.length > 1) mapa.fitBounds(puntos, { padding: [30, 30] });
@@ -515,6 +521,115 @@ function inicializarEdicion() {
     });
 }
 
+function inicializarFiltrosDestino() {
+    const badges = document.querySelectorAll('.dest-badge');
+    const activities = document.querySelectorAll('.activity-item');
+    const days = document.querySelectorAll('.day-tab-btn');
+    const daysContent = document.querySelectorAll('.day-content');
+
+    badges.forEach(badge => {
+        badge.addEventListener('click', () => {
+            // Update active state of badges
+            badges.forEach(b => {
+                b.classList.remove('active', 'text-white');
+                b.classList.add('bg-light', 'text-secondary');
+                b.style.backgroundColor = '';
+            });
+            badge.classList.add('active', 'text-white');
+            badge.classList.remove('bg-light', 'text-secondary');
+            badge.style.backgroundColor = 'var(--brand-color, #006d5b)';
+
+            const dest = badge.dataset.dest;
+            let currentDestPoint = null;
+
+            // Optional: find dest coordinates for map zoom and weather
+            if (dest !== 'all' && cacheGeo[dest]) {
+                currentDestPoint = cacheGeo[dest];
+                if (mapa) {
+                    mapa.setView([currentDestPoint.lat, currentDestPoint.lon], 13);
+                }
+                // Update weather
+                actualizarClimaParcial(currentDestPoint);
+            } else if (dest === 'all') {
+                if (mapa && capaMarcadores) {
+                    const markers = capaMarcadores.getLayers();
+                    if (markers.length > 1) {
+                        const group = new L.featureGroup(markers);
+                        mapa.fitBounds(group.getBounds(), { padding: [30, 30] });
+                    } else if (markers.length === 1) {
+                        mapa.setView(markers[0].getLatLng(), 11);
+                    }
+                }
+                cargarClima(); // reload original weather
+            }
+
+            // Filter activities and recalculate budget
+            let totalDest = 0;
+            activities.forEach(act => {
+                if (dest === 'all' || act.dataset.dest === dest) {
+                    act.style.display = 'block';
+                    // Get price from the badge
+                    const priceBadge = act.querySelector('.badge.bg-light');
+                    if (priceBadge) {
+                        const price = parseFloat(priceBadge.textContent.replace(/[^0-9.-]+/g,""));
+                        if (!isNaN(price)) totalDest += price;
+                    }
+                } else {
+                    act.style.display = 'none';
+                }
+            });
+
+            // Hide days with no visible activities
+            daysContent.forEach((content, index) => {
+                const visibleActs = content.querySelectorAll('.activity-item[style="display: block;"]');
+                const hasVisible = visibleActs.length > 0 || dest === 'all';
+                // Find corresponding day button
+                if (days[index]) {
+                    days[index].style.display = hasVisible ? 'inline-block' : 'none';
+                }
+            });
+
+            // Update budget widget visually (if you want to show partial budget)
+            const budgetEl = document.querySelector('.widget-card .fs-2.fw-bold');
+            if (budgetEl && dest !== 'all') {
+                budgetEl.textContent = '$' + totalDest.toLocaleString();
+            } else if (budgetEl && dest === 'all') {
+                budgetEl.textContent = '$' + ({{ viaje.costo_total_estimado or 0 }}).toLocaleString();
+            }
+        });
+    });
+}
+
+async function actualizarClimaParcial(punto) {
+    if (!punto) return;
+    const valor = document.getElementById('weather-value');
+    const detalle = document.getElementById('weather-detail');
+    valor.innerHTML = '<span class="spinner-border spinner-border-sm text-secondary" role="status"></span>';
+    
+    // Simulate or actually fetch weather for this point
+    // For simplicity, we just update the name
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${punto.lat}&longitude=${punto.lon}&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
+    try {
+        const datos = await (await fetch(url)).json();
+        const max = Math.round(datos.daily.temperature_2m_max[0]);
+        const min = Math.round(datos.daily.temperature_2m_min[0]);
+        valor.innerHTML = `${max}°C <span class="fs-6 fw-normal text-secondary">/ ${Math.round(max * 9 / 5 + 32)}°F</span>`;
+        detalle.textContent = `${min}°C – ${max}°C · ${punto.nombre}`;
+    } catch(e) {
+        valor.textContent = '—';
+        detalle.textContent = punto.nombre;
+    }
+}
+
+// Add the check for edit parameter
+function verificarEdicion() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('edit') === '1') {
+        const editModal = new bootstrap.Modal(document.getElementById('editTripModal'));
+        editModal.show();
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     pintarIconos();
     inicializarPestanas();
@@ -522,6 +637,8 @@ document.addEventListener('DOMContentLoaded', () => {
     inicializarEdicion();
     inicializarMapa();
     cargarClima();
+    inicializarFiltrosDestino();
+    verificarEdicion();
 });
 </script>
 {% endblock %}

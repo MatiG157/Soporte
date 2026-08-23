@@ -217,4 +217,8 @@ body {
     font-size: 0.85rem;
     color: #6b7280;
     max-width: 80%;
+}/* Estilos para el filtro alineado a la derecha */
+.trips-title {
+    font-size: 2.5rem;
+    font-weight: 700;
 }

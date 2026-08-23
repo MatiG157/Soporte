@@ -118,4 +118,10 @@
 /* Logistics Section */
 .logistics-card {
     background-color: #ffffff;
+}/* Estilos para los badges de destinos clickeables */
+.dest-badge {
+    transition: background-color 0.2s, color 0.2s;
+}
+.dest-badge:not(.active):hover {
+    background-color: #e2e8f0 !important;
 }

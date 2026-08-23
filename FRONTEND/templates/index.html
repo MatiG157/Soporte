@@ -304,10 +304,32 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Advertencia de Borradores -->
+<div class="modal fade" id="draftWarningModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" data-i18n="index_draft_warning_title">Drafts pending</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-secondary">
+                <p class="mb-0" data-i18n="index_draft_warning">You already have a trip draft in progress. Generating a new trip will permanently delete your previous drafts. Do you want to continue?</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="common_cancel">Cancel</button>
+                <button type="button" class="btn text-white" style="background-color: var(--brand-color, #006d5b);" id="confirmDraftBtn" data-i18n="common_continue">Continue</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
 <script>
+    const HAS_DRAFTS = {{ 'true' if has_drafts else 'false' }};
+
 // ─── Autocompletado de ciudades (Photon / Komoot) ────────────────────────────
 
 const temporizadores = new WeakMap();
@@ -505,6 +527,18 @@ async function submitTripForm(evento) {
     if (!datos.cantidad_personas || datos.cantidad_personas < 1)  return mostrarAlerta(t('err_travelers'));
     if (datos.costo_min && datos.costo_max && datos.costo_min > datos.costo_max) {
         return mostrarAlerta(t('err_budget'));
+    }
+
+    if (HAS_DRAFTS && !window.draftConfirmed) {
+        const modal = new bootstrap.Modal(document.getElementById('draftWarningModal'));
+        document.getElementById('confirmDraftBtn').onclick = function() {
+            window.draftConfirmed = true;
+            modal.hide();
+            submitTripForm();
+        };
+        modal.show();
+        restaurarBoton(boton);
+        return;
     }
 
     boton.disabled = true;

@@ -184,6 +184,70 @@ def m006_normalizar_grupos(cursor):
             _log(f"    ✓ {cursor.rowcount} filas: '{origen}' → '{destino}'")
 
 
+def m007_destinos_relacionales(cursor):
+    """Crea la tabla viaje_destinos, migra JSON de viajes, y añade id_viaje_destino a actividades."""
+    if not _existe_tabla(cursor, "viaje_destinos"):
+        cursor.execute(
+            """
+            CREATE TABLE viaje_destinos (
+                id_viaje_destino INT AUTO_INCREMENT PRIMARY KEY,
+                id_viaje INT NOT NULL,
+                nombre VARCHAR(150) NOT NULL,
+                fecha_llegada DATE NOT NULL,
+                fecha_partida DATE NOT NULL,
+                CONSTRAINT fk_viajedestinos_viaje FOREIGN KEY (id_viaje) REFERENCES viajes(id_viaje) ON DELETE CASCADE
+            )
+            """
+        )
+        _log("    ✓ Tabla 'viaje_destinos' creada")
+        
+    _agregar_columna(cursor, "actividades", "id_viaje_destino", "INT NULL")
+
+    if (_existe_tabla(cursor, "actividades")
+            and _existe_tabla(cursor, "viaje_destinos")
+            and not _existe_constraint(cursor, "actividades", "fk_actividades_viajedestinos")):
+        try:
+            cursor.execute(
+                "ALTER TABLE actividades ADD CONSTRAINT fk_actividades_viajedestinos "
+                "FOREIGN KEY (id_viaje_destino) REFERENCES viaje_destinos(id_viaje_destino) ON DELETE SET NULL"
+            )
+            _log("    ✓ FK 'fk_actividades_viajedestinos'")
+        except pymysql.err.OperationalError as exc:
+            _log(f"    · no se pudo crear la FK: {exc}")
+
+    # Migrar los destinos viejos
+    if _existe_columna(cursor, "viajes", "destinos"):
+        cursor.execute("SELECT id_viaje, destinos, fecha_inicio, fecha_fin FROM viajes WHERE destinos IS NOT NULL")
+        viajes_viejos = cursor.fetchall()
+        import json
+        for id_viaje, destinos_json, fecha_inicio, fecha_fin in viajes_viejos:
+            if not destinos_json: continue
+            try:
+                destinos = json.loads(destinos_json) if isinstance(destinos_json, str) else destinos_json
+            except:
+                continue
+            
+            if not isinstance(destinos, list): continue
+            
+            for dest in destinos:
+                # Asumimos fecha_inicio y fecha_fin para los destinos viejos
+                nombre = dest if isinstance(dest, str) else dest.get("nombre", "Sin destino")
+                # Insert if not already inserted
+                cursor.execute(
+                    "SELECT 1 FROM viaje_destinos WHERE id_viaje = %s AND nombre = %s",
+                    (id_viaje, nombre)
+                )
+                if not cursor.fetchone():
+                    cursor.execute(
+                        "INSERT INTO viaje_destinos (id_viaje, nombre, fecha_llegada, fecha_partida) VALUES (%s, %s, %s, %s)",
+                        (id_viaje, nombre, fecha_inicio, fecha_fin)
+                    )
+        
+        # Eliminar la columna JSON vieja
+        cursor.execute("ALTER TABLE viajes DROP COLUMN destinos")
+        _log("    ✓ Columna 'destinos' eliminada de 'viajes'")
+
+
 MIGRACIONES = [
     ("001_destinos_como_json", m001_destinos_como_json),
     ("002_campos_de_usuario", m002_campos_de_usuario),
@@ -191,6 +255,7 @@ MIGRACIONES = [
     ("004_preferencias_del_viaje", m004_preferencias_del_viaje),
     ("005_campos_de_preferencias", m005_campos_de_preferencias),
     ("006_normalizar_grupos", m006_normalizar_grupos),
+    ("007_destinos_relacionales", m007_destinos_relacionales),
 ]
 
 

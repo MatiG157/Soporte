@@ -4,10 +4,22 @@
 {% block body %}
 <main class="container pt-5 mt-5 pb-5 px-lg-5">
 
-    <div class="d-flex align-items-center mt-5 flex-wrap gap-2">
-        <h1 class="trips-title mt-0 mb-0" data-i18n="mytrips_title">My Trips</h1>
+    <div class="text-center mt-5 mb-2">
+        <h1 class="trips-title mt-0 mb-0 d-inline-block" data-i18n="mytrips_title">My Trips</h1>
+        <p class="trips-subtitle-mod mb-2 text-secondary" style="font-size: 1.1rem;" data-i18n="mytrips_subtitle">
+            Your upcoming, current and past adventures.
+        </p>
+    </div>
 
-        <div class="dropdown ms-3">
+    <div class="d-flex justify-content-end mb-3 gap-3 align-items-center flex-wrap">
+        <div id="filter-chip-container" style="min-height: 32px;">
+            <span class="badge rounded-pill align-items-center px-3 py-2 text-white" id="active-chip"
+                  style="background-color: rgba(0, 109, 91, 0.7); backdrop-filter: blur(6px); font-weight: 500; font-size: 0.9rem;">
+                <i class="fa-solid fa-xmark me-2 text-white" style="cursor: pointer; display: none;" id="clear-filter-btn"></i>
+                <span id="chip-text" data-i18n="mytrips_all">All trips</span>
+            </span>
+        </div>
+        <div class="dropdown">
             <button class="btn dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown"
                     aria-expanded="false" style="color: var(--brand-color, #006d5b); border-color: var(--brand-color, #006d5b);">
                 <i class="fa-solid fa-filter"></i> <span data-i18n="mytrips_filter">Filter</span>
@@ -21,18 +33,6 @@
         </div>
     </div>
 
-    <p class="trips-subtitle-mod mb-2 text-secondary" style="font-size: 1.1rem;" data-i18n="mytrips_subtitle">
-        Your upcoming, current and past adventures.
-    </p>
-
-    <div class="mb-4" id="filter-chip-container" style="min-height: 32px;">
-        <span class="badge rounded-pill align-items-center px-3 py-2 text-white" id="active-chip"
-              style="background-color: rgba(0, 109, 91, 0.7); backdrop-filter: blur(6px); font-weight: 500; font-size: 0.9rem;">
-            <i class="fa-solid fa-xmark me-2 text-white" style="cursor: pointer; display: none;" id="clear-filter-btn"></i>
-            <span id="chip-text" data-i18n="mytrips_all">All trips</span>
-        </span>
-    </div>
-
     <div id="trips-alert"></div>
 
     <div class="row g-4 mt-1" id="trips-container">
@@ -40,7 +40,7 @@
         <div class="col-12 col-md-6 col-lg-4 trip-item {{ viaje.filter_class }}" data-id="{{ viaje.id_viaje }}">
             <div class="trip-card d-block position-relative {% if viaje.is_past %}past-trip{% endif %}">
 
-                <a href="{{ url_for('itinerary', id_viaje=viaje.id_viaje) }}" class="text-decoration-none">
+                <a href="{% if viaje.is_draft %}{{ url_for('compare') }}{% else %}{{ url_for('itinerary', id_viaje=viaje.id_viaje) }}{% endif %}" class="text-decoration-none">
                     <div class="trip-card-bg" style="background-image: url('{{ viaje.imagen }}');"></div>
                     <div class="trip-card-overlay">
                         {% if viaje.status_label == 'current trip' %}
@@ -58,17 +58,27 @@
                               style="background-color: rgba(108, 117, 125, 0.7); backdrop-filter: blur(6px); padding: 2px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;">
                             <i class="fa-solid fa-plane-arrival me-1"></i><span data-i18n="mytrips_past_f">Last Trip</span>
                         </span>
+                        {% elif viaje.is_draft %}
+                        <span class="badge-custom mb-2 d-inline-block text-white fw-bold"
+                              style="background-color: rgba(245, 158, 11, 0.8); backdrop-filter: blur(6px); padding: 2px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;">
+                            <i class="fa-solid fa-file-pen me-1"></i><span>Draft</span>
+                        </span>
                         {% endif %}
 
                         <div>
-                            <span class="trip-date">
+                            <span class="trip-date mb-2">
                                 <i class="fa-regular fa-calendar me-1"></i>
                                 {{ viaje.fecha_inicio_fmt }} - {{ viaje.fecha_fin_fmt }}
                             </span>
-                            <div class="trip-title">{{ viaje.destinos_display }}</div>
+                            <div class="trip-title">
+                                {% for dest in viaje.destinos %}
+                                    {% if dest is mapping %}{{ dest.nombre }}{% else %}{{ dest }}{% endif %}{% if not loop.last %} <i class="fa-solid fa-chevron-right mx-1 fs-6 text-white-50"></i> {% endif %}
+                                {% endfor %}
+                            </div>
                             <span class="trip-date d-block mt-1">
                                 <i class="fa-solid fa-wallet me-1"></i>
-                                ${{ '{:,.0f}'.format(viaje.costo_total_estimado or 0) }} · {{ viaje.tipo_viaje }}
+                                ${{ '{:,.0f}'.format(viaje.costo_total_estimado or 0) }} 
+                                {% if not viaje.is_draft %}· {{ viaje.tipo_viaje }}{% endif %}
                             </span>
                         </div>
                     </div>
@@ -82,15 +92,15 @@
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0">
                         <li>
-                            <a class="dropdown-item py-2" href="{{ url_for('itinerary', id_viaje=viaje.id_viaje) }}">
+                            <a class="dropdown-item py-2" href="{% if viaje.is_draft %}{{ url_for('compare') }}{% else %}{{ url_for('itinerary', id_viaje=viaje.id_viaje) }}{% endif %}">
                                 <i class="fa-solid fa-eye me-2" style="color: var(--brand-color, #006d5b);"></i>
                                 <span data-i18n="mytrips_view">View trip</span>
                             </a>
                         </li>
                         <li>
-                            <a class="dropdown-item py-2" href="{{ url_for('budget', id_viaje=viaje.id_viaje) }}">
-                                <i class="fa-solid fa-piggy-bank me-2" style="color: var(--brand-color, #006d5b);"></i>
-                                <span data-i18n="mytrips_budget">Budget</span>
+                            <a class="dropdown-item py-2" href="{{ url_for('itinerary', id_viaje=viaje.id_viaje) }}?edit=1">
+                                <i class="fa-solid fa-pen me-2" style="color: var(--brand-color, #006d5b);"></i>
+                                <span data-i18n="mytrips_edit">Edit trip</span>
                             </a>
                         </li>
                         <li><hr class="dropdown-divider"></li>

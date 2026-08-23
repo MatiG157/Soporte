@@ -10,7 +10,7 @@ class ViajeSchema(Schema):
         error_messages={"required": "El ID del usuario es obligatorio."}
     )
     destinos = fields.List(
-        fields.String(validate=validate.Length(min=2, max=120)),
+        fields.Raw(),
         required=True,
         validate=validate.Length(min=1, error="Debe haber al menos un destino."),
         error_messages={"required": "Los destinos son obligatorios."}
