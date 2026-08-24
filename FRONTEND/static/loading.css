@@ -1,0 +1,199 @@
+/* Pantalla de espera mientras el flujo de IA arma las tres variantes.
+   Tarda ~25s y puede llegar al minuto: sin algo que mirar, la espera se siente
+   rota. La animación avanza por pasos reales del proceso, no una barra falsa. */
+
+.loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background: linear-gradient(160deg, #04312a 0%, #006d5b 55%, #0a8f76 100%);
+    color: #fff;
+    text-align: center;
+    animation: overlay-in .35s ease-out;
+}
+
+.loading-overlay.visible { display: flex; }
+
+@keyframes overlay-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ── El avión dando vueltas sobre el globo ─────────────────────────────── */
+
+.loading-orbit {
+    position: relative;
+    width: 132px;
+    height: 132px;
+    margin-bottom: 2.25rem;
+}
+
+.loading-orbit__ring {
+    position: absolute;
+    inset: 0;
+    border: 2px dashed rgba(255, 255, 255, .28);
+    border-radius: 50%;
+    animation: orbit 14s linear infinite;
+}
+
+.loading-orbit__globe {
+    position: absolute;
+    inset: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.9rem;
+    color: rgba(255, 255, 255, .93);
+    background: rgba(255, 255, 255, .07);
+    border-radius: 50%;
+    animation: breathe 3.2s ease-in-out infinite;
+}
+
+/* El avión va montado sobre un eje que rota: así describe la órbita. */
+.loading-orbit__plane {
+    position: absolute;
+    inset: 0;
+    animation: orbit 3.6s linear infinite;
+}
+
+.loading-orbit__plane i {
+    position: absolute;
+    top: -11px;
+    left: 50%;
+    margin-left: -11px;
+    font-size: 1.4rem;
+    color: #ffd166;
+    transform: rotate(90deg);
+}
+
+@keyframes orbit {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes breathe {
+    0%, 100% { transform: scale(1);    opacity: .93; }
+    50%      { transform: scale(1.06); opacity: 1; }
+}
+
+/* ── Textos ────────────────────────────────────────────────────────────── */
+
+.loading-title {
+    font-size: 1.85rem;
+    font-weight: 700;
+    margin-bottom: .5rem;
+}
+
+.loading-subtitle {
+    font-size: 1rem;
+    opacity: .78;
+    margin-bottom: 2.25rem;
+    max-width: 30rem;
+}
+
+/* ── Pasos ─────────────────────────────────────────────────────────────── */
+
+.loading-steps {
+    width: 100%;
+    max-width: 22rem;
+    text-align: left;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 2rem;
+}
+
+.loading-steps li {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding: .45rem 0;
+    font-size: .95rem;
+    opacity: .35;
+    transition: opacity .4s ease;
+}
+
+.loading-steps li.activo { opacity: 1; font-weight: 600; }
+.loading-steps li.hecho  { opacity: .62; }
+
+.loading-steps .marca {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border: 2px solid rgba(255, 255, 255, .35);
+    border-radius: 50%;
+    font-size: .7rem;
+}
+
+.loading-steps li.activo .marca {
+    border-color: #ffd166;
+    color: #ffd166;
+    animation: pulso 1.4s ease-in-out infinite;
+}
+
+.loading-steps li.hecho .marca {
+    border-color: #7ae0c4;
+    background: #7ae0c4;
+    color: #04312a;
+}
+
+@keyframes pulso {
+    0%, 100% { box-shadow: 0 0 0 0    rgba(255, 209, 102, .55); }
+    70%      { box-shadow: 0 0 0 9px  rgba(255, 209, 102, 0); }
+}
+
+/* ── Barra de progreso ─────────────────────────────────────────────────── */
+
+.loading-bar {
+    width: 100%;
+    max-width: 22rem;
+    height: 5px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, .16);
+    overflow: hidden;
+}
+
+.loading-bar__fill {
+    height: 100%;
+    width: 0;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #7ae0c4, #ffd166);
+    transition: width .8s ease;
+}
+
+.loading-elapsed {
+    margin-top: .9rem;
+    font-size: .82rem;
+    opacity: .6;
+    font-variant-numeric: tabular-nums;
+}
+
+.loading-note {
+    margin-top: 1.5rem;
+    font-size: .88rem;
+    opacity: 0;
+    max-width: 26rem;
+    transition: opacity .5s ease;
+}
+
+.loading-note.visible { opacity: .8; }
+
+/* Quien prefiera menos movimiento, que no lo tenga. */
+@media (prefers-reduced-motion: reduce) {
+    .loading-orbit__ring,
+    .loading-orbit__plane,
+    .loading-orbit__globe,
+    .loading-steps li.activo .marca { animation: none; }
+}
+
+@media (max-width: 575.98px) {
+    .loading-title    { font-size: 1.45rem; }
+    .loading-orbit    { width: 104px; height: 104px; margin-bottom: 1.75rem; }
+    .loading-orbit__globe { inset: 18px; font-size: 2.2rem; }
+}

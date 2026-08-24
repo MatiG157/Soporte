@@ -73,6 +73,45 @@ def test_create_trip_valida_presupuesto(logueado, csrf):
     assert respuesta.status_code == 400
 
 
+def test_un_formulario_multipart_recibe_json_no_html(logueado, csrf, backend, monkeypatch):
+    """Regresión: el registro por FormData devolvía HTML y tapaba el error real.
+
+    `request.is_json` es False en multipart, así que los handlers respondían
+    con una plantilla. El navegador hacía `resp.json()`, fallaba, y mostraba
+    "no se pudo conectar" en vez del error de validación del backend.
+    """
+    import api_client
+
+    def falla_validacion(ruta, **kwargs):
+        raise api_client.BackendError(
+            "apellido: El apellido debe tener entre 2 y 80 caracteres.", status=400)
+
+    monkeypatch.setattr(api_client, "post", falla_validacion)
+
+    respuesta = logueado.post("/register", content_type="multipart/form-data",
+                              headers=csrf,
+                              data={"nombre": "Prueba", "apellido": "P",
+                                    "email": "x@y.com", "contrasena": "Prueba123",
+                                    "csrf_token": "token-de-test"})
+
+    assert respuesta.status_code == 400
+    assert respuesta.headers["Content-Type"].startswith("application/json")
+    assert "apellido" in respuesta.get_json()["error"]
+
+
+def test_el_error_de_validacion_nombra_el_campo():
+    """Un 'Length must be between 2 and 80' suelto no le sirve a nadie."""
+    import api_client
+
+    class RespuestaFalsa:
+        status_code = 400
+        def json(self):
+            return {"errores_validacion": {"apellido": ["Debe tener entre 2 y 80 caracteres."]}}
+
+    mensaje, _ = api_client._mensaje_de_error(RespuestaFalsa())
+    assert mensaje.startswith("apellido:")
+
+
 def test_login_no_redirige_a_sitios_externos(client, backend):
     with client.session_transaction() as sesion:
         sesion["_csrf_token"] = "token-de-test"

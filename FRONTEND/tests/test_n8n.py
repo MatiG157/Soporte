@@ -67,14 +67,16 @@ def n8n(monkeypatch):
     """Configura N8N_WEBHOOK_URL y captura lo que se le manda al webhook."""
     monkeypatch.setenv("N8N_WEBHOOK_URL", "https://n8n.example/webhook/generate-trips")
     monkeypatch.setenv("N8N_TOKEN", "token-secreto")
+    monkeypatch.delenv("N8N_BASIC_USER", raising=False)
     monkeypatch.setattr(trip_generator, "obtener_imagen_destino", lambda destino: None)
 
     capturado = {}
 
-    def falso_post(url, json=None, headers=None, timeout=None):
+    def falso_post(url, json=None, headers=None, auth=None, timeout=None):
         capturado["url"] = url
         capturado["body"] = json
         capturado["headers"] = headers
+        capturado["auth"] = auth
         return capturado["respuesta"]
 
     monkeypatch.setattr(trip_generator.requests, "post", falso_post)
@@ -99,6 +101,31 @@ def test_manda_el_token_y_la_cantidad_de_dias(n8n):
     assert n8n["headers"]["X-N8N-TOKEN"] == "token-secreto"
     assert n8n["body"]["cantidad_dias"] == 5
     assert n8n["body"]["destinos"] == ["Kioto, Japón"]
+
+
+def test_usa_basic_auth_cuando_esta_configurado(n8n, monkeypatch):
+    """El nodo Webhook de n8n puede pedir Basic Auth en vez de un header."""
+    monkeypatch.setenv("N8N_BASIC_USER", "pepe")
+    monkeypatch.setenv("N8N_BASIC_PASSWORD", "secreta")
+    n8n["respuesta"] = RespuestaFalsa([_opcion(t) for t in ("Economy", "Balanced", "Luxury")])
+
+    _, proveedor = trip_generator.generar_opciones(PREFERENCIAS)
+
+    assert proveedor == "n8n"
+    assert n8n["auth"] == ("pepe", "secreta")
+    # Con Basic no se manda el header del token.
+    assert "X-N8N-TOKEN" not in n8n["headers"]
+
+
+def test_header_configurable(n8n, monkeypatch):
+    """N8N_HEADER se adapta al campo `Name` de la credencial Header Auth."""
+    monkeypatch.setenv("N8N_HEADER", "X-API-KEY")
+    n8n["respuesta"] = RespuestaFalsa([_opcion(t) for t in ("Economy", "Balanced", "Luxury")])
+
+    trip_generator.generar_opciones(PREFERENCIAS)
+
+    assert n8n["headers"]["X-API-KEY"] == "token-secreto"
+    assert n8n["auth"] is None
 
 
 def test_acepta_la_respuesta_envuelta_en_un_objeto(n8n):
@@ -186,6 +213,21 @@ def test_las_fechas_y_destinos_los_impone_el_usuario():
 
     assert all(o["destinos"] == ["Kioto, Japón"] for o in validadas)
     assert all(o["fecha_inicio"] == "2030-03-10" for o in validadas)
+
+
+def test_conserva_los_campos_extra_del_flujo():
+    """`fuente_datos` (trazabilidad de precios) tiene que llegar al backend."""
+    opciones = [_opcion(t) for t in ("Economy", "Balanced", "Luxury")]
+    for opcion in opciones:
+        opcion["fuente_datos"] = {
+            "fuentes": {"vuelo": "amadeus", "alojamiento": "amadeus"},
+            "vuelo": {"ruta": "COR - KIX - COR", "precio_grupo": 1840.0},
+        }
+
+    validadas = trip_generator.validar_opciones(opciones, PREFERENCIAS)
+
+    assert all("fuente_datos" in o for o in validadas)
+    assert validadas[0]["fuente_datos"]["vuelo"]["precio_grupo"] == 1840.0
 
 
 def test_renumera_los_dias_de_forma_correlativa():

@@ -1,6 +1,10 @@
 {% extends "layout.html" %}
 {% block title %}Travel Planner{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='loading.css') }}">
+{% endblock %}
+
 {% block body %}
 <main class="bg-overlay d-flex flex-column align-items-center justify-content-center py-5 px-3 min-vh-100">
 
@@ -324,6 +328,41 @@
     </div>
 </div>
 
+
+<!-- Pantalla de espera: el flujo de IA tarda ~25s y puede llegar al minuto -->
+<div class="loading-overlay" id="loading-overlay" role="status" aria-live="polite" aria-hidden="true">
+    <div class="loading-orbit">
+        <div class="loading-orbit__ring"></div>
+        <div class="loading-orbit__globe"><i class="fa-solid fa-earth-americas"></i></div>
+        <div class="loading-orbit__plane"><i class="fa-solid fa-plane"></i></div>
+    </div>
+
+    <h2 class="loading-title" data-i18n="load_title">Designing your three trips</h2>
+    <p class="loading-subtitle" data-i18n="load_subtitle">
+        This takes up to a minute. Leave the tab open.
+    </p>
+
+    <ul class="loading-steps" id="loading-steps">
+        <li data-paso="0"><span class="marca"><i class="fa-solid fa-check"></i></span>
+            <span data-i18n="load_step1">Reading your preferences</span></li>
+        <li data-paso="1"><span class="marca"><i class="fa-solid fa-check"></i></span>
+            <span data-i18n="load_step2">Looking up flights and places to stay</span></li>
+        <li data-paso="2"><span class="marca"><i class="fa-solid fa-check"></i></span>
+            <span data-i18n="load_step3">Finding real places at your destination</span></li>
+        <li data-paso="3"><span class="marca"><i class="fa-solid fa-check"></i></span>
+            <span data-i18n="load_step4">Building your day-by-day itinerary</span></li>
+        <li data-paso="4"><span class="marca"><i class="fa-solid fa-check"></i></span>
+            <span data-i18n="load_step5">Working out the costs</span></li>
+        <li data-paso="5"><span class="marca"><i class="fa-solid fa-check"></i></span>
+            <span data-i18n="load_step6">Almost there</span></li>
+    </ul>
+
+    <div class="loading-bar"><div class="loading-bar__fill" id="loading-bar-fill"></div></div>
+    <div class="loading-elapsed" id="loading-elapsed">0:00</div>
+    <p class="loading-note" id="loading-note" data-i18n="load_slow">
+        Still working. Complex trips take a bit longer.
+    </p>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -509,6 +548,67 @@ function restaurarBoton(boton) {
     boton.innerHTML = `<i class="fa-regular fa-compass me-2"></i> <span data-i18n="index_create">${t('index_create', 'Create Trip')}</span>`;
 }
 
+// ─── Pantalla de espera ──────────────────────────────────────────────────────
+
+const Espera = {
+    // Segundo en el que arranca cada paso. Se apoyan en los tiempos reales del
+    // flujo: normalizar es instantáneo, las APIs tardan, el modelo es lo lento.
+    HITOS: [0, 2, 6, 12, 26, 42],
+    TOPE: 60,          // referencia para la barra, no un límite duro
+    AVISO_LENTO: 45,   // a partir de acá se avisa que sigue trabajando
+
+    iniciar() {
+        this.comienzo = Date.now();
+        this.overlay = document.getElementById('loading-overlay');
+        this.pasos = Array.from(document.querySelectorAll('#loading-steps li'));
+        this.barra = document.getElementById('loading-bar-fill');
+        this.reloj = document.getElementById('loading-elapsed');
+        this.nota = document.getElementById('loading-note');
+
+        this.overlay.classList.add('visible');
+        this.overlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+
+        this.pintar();
+        this.tic = setInterval(() => this.pintar(), 500);
+    },
+
+    pintar() {
+        const seg = (Date.now() - this.comienzo) / 1000;
+
+        // Paso actual: el último hito ya superado.
+        let actual = 0;
+        this.HITOS.forEach((hito, i) => { if (seg >= hito) actual = i; });
+
+        this.pasos.forEach((li, i) => {
+            li.classList.toggle('hecho', i < actual);
+            li.classList.toggle('activo', i === actual);
+        });
+
+        // La barra nunca llega a 100: la completa la respuesta real.
+        this.barra.style.width = Math.min(95, (seg / this.TOPE) * 100) + '%';
+
+        const m = Math.floor(seg / 60);
+        const s = String(Math.floor(seg % 60)).padStart(2, '0');
+        this.reloj.textContent = `${m}:${s}`;
+
+        this.nota.classList.toggle('visible', seg >= this.AVISO_LENTO);
+    },
+
+    terminar() {
+        clearInterval(this.tic);
+        this.barra.style.width = '100%';
+        this.pasos.forEach(li => { li.classList.add('hecho'); li.classList.remove('activo'); });
+    },
+
+    cancelar() {
+        clearInterval(this.tic);
+        this.overlay.classList.remove('visible');
+        this.overlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    }
+};
+
 async function submitTripForm(evento) {
     if (evento) evento.preventDefault();
 
@@ -543,6 +643,7 @@ async function submitTripForm(evento) {
 
     boton.disabled = true;
     boton.innerHTML = `<i class="fa-solid fa-spinner fa-spin me-2"></i> ${t('index_creating', 'Creating…')}`;
+    Espera.iniciar();
 
     try {
         const resp = await apiFetch("{{ url_for('create_trip') }}", {
@@ -553,13 +654,17 @@ async function submitTripForm(evento) {
 
         if (resp.ok && respuesta.redirect) {
             sessionStorage.removeItem('pendingTripForm');
-            window.location.href = respuesta.redirect;
+            Espera.terminar();
+            // Un instante con la barra llena antes de cambiar de página.
+            setTimeout(() => { window.location.href = respuesta.redirect; }, 400);
         } else {
+            Espera.cancelar();
             mostrarAlerta(respuesta.error || t('err_server'));
             restaurarBoton(boton);
         }
     } catch (err) {
         console.error(err);
+        Espera.cancelar();
         mostrarAlerta(t('err_server'));
         restaurarBoton(boton);
     }

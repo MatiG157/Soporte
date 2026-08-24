@@ -178,6 +178,30 @@ def asegurar_secret_key(cambios, solo_chequear, rotar):
     cambios.append("SECRET_KEY")
 
 
+def revisar_url_del_backend(cambios, solo_chequear):
+    """Avisa si BACKEND_URL usa 'localhost' en vez de 127.0.0.1.
+
+    En Windows 'localhost' resuelve primero a ::1 y el servidor de Flask solo
+    escucha en IPv4: cada peticion al backend pierde ~2 segundos esperando que
+    falle el intento por IPv6.
+    """
+    frontend = leer(FRONTEND_ENV)
+    url = frontend.get("BACKEND_URL", "")
+
+    if "localhost" not in url:
+        print(f"{OK} BACKEND_URL: {url or '127.0.0.1:5000 (por defecto)'}")
+        return
+
+    if solo_chequear:
+        print(f"{AVISO}BACKEND_URL usa 'localhost': suma ~2s por peticion en Windows")
+        cambios.append("BACKEND_URL")
+        return
+
+    escribir_clave(FRONTEND_ENV, "BACKEND_URL", url.replace("localhost", "127.0.0.1"))
+    print(f"{NUEVO}BACKEND_URL cambiada a 127.0.0.1 (evita el retardo de IPv6)")
+    cambios.append("BACKEND_URL")
+
+
 def revisar_base_de_datos():
     backend = leer(BACKEND_ENV)
     faltan = [c for c in ("DB_USER", "DB_NAME") if es_placeholder(backend.get(c, ""))]
@@ -221,6 +245,9 @@ def main():
 
     print("\nClave de sesión del frontend")
     asegurar_secret_key(cambios, args.check, args.rotar)
+
+    print("\nConexion con el backend")
+    revisar_url_del_backend(cambios, args.check)
 
     print("\nBase de datos")
     base_ok = revisar_base_de_datos()

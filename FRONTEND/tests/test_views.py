@@ -66,6 +66,55 @@ def test_compare_renderiza_con_borradores(logueado, backend):
     assert "Actividad 1" in html
 
 
+def test_login_sin_viajes_va_al_formulario(client, backend, monkeypatch):
+    """Mandar a una lista vacía no sirve: si no tiene viajes, va a crear uno."""
+    import api_client
+    monkeypatch.setattr(api_client, "get_o_defecto",
+                        lambda ruta, defecto=None, **kw: [] if "usuario" in ruta else defecto)
+
+    with client.session_transaction() as sesion:
+        sesion["_csrf_token"] = "token-de-test"
+
+    respuesta = client.post("/login", json={"email": "a@b.com", "contrasena": "x"},
+                            headers={"X-CSRF-Token": "token-de-test"})
+    assert respuesta.get_json()["redirect"] == "/"
+
+
+def test_login_con_viajes_va_a_mytrips(client, backend):
+    with client.session_transaction() as sesion:
+        sesion["_csrf_token"] = "token-de-test"
+
+    respuesta = client.post("/login", json={"email": "a@b.com", "contrasena": "x"},
+                            headers={"X-CSRF-Token": "token-de-test"})
+    assert respuesta.get_json()["redirect"] == "/mytrips"
+
+
+def test_el_sidebar_de_compare_tiene_todos_los_links(logueado, backend):
+    """Regresión: en /compare no existía `viaje`, así que faltaba el link de
+    Compare y el de Itinerary caía a My Trips."""
+    backend.drafts = [
+        {"id_viaje": i, "destinos": ["Osaka, Japan"], "fecha_inicio": "2030-03-10",
+         "fecha_fin": "2030-03-14", "costo_total_estimado": 1000.0 * i, "estado": "draft",
+         "group_id": "g", "imagen": None, "created_at": None, "tipo_viaje": tipo}
+        for i, tipo in enumerate(["Economy", "Balanced", "Luxury"], start=1)
+    ]
+
+    html = logueado.get("/compare").get_data(as_text=True)
+
+    assert 'href="/compare"' in html
+    assert 'href="/itinerary/1"' in html      # al primer borrador, no a mytrips
+    assert 'href="/budget/1"' in html
+
+
+def test_index_muestra_la_pantalla_de_espera(client):
+    """La generación tarda ~25s: sin feedback la espera se siente rota."""
+    html = client.get("/").get_data(as_text=True)
+
+    assert 'id="loading-overlay"' in html
+    assert "loading.css" in html
+    assert 'data-i18n="load_subtitle"' in html
+
+
 def test_pagina_404(client):
     respuesta = client.get("/ruta-que-no-existe")
     assert respuesta.status_code == 404

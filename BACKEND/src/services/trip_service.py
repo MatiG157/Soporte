@@ -267,11 +267,30 @@ def guardar_viajes_generados(id_usuario, opciones_generadas, id_user_preferences
 
         _guardar_itinerario(viaje, opcion.get("itinerario", []))
 
-        # Regla de negocio de cálculo + reoptimización si se pasa del presupuesto.
-        desglose = opcion.get("desglose_costos") or desglosar_costo_total(
-            viaje.costo_total_estimado)
-        costo, reoptimizado = guardar_costo_de_viaje(viaje.id_viaje, desglose, costo_max)
-        viaje.costo_total_estimado = apply_cost_adjustment(costo.costo_total_base, tipo)
+        # Costos. Hay dos caminos, y cuál se toma depende de si el generador
+        # ya hizo el trabajo:
+        #
+        #   - Con `desglose_costos`: el flujo de n8n cotizó vuelo y alojamiento
+        #     contra APIs reales y ya diferenció los tres niveles. Ese número se
+        #     respeta tal cual. Aplicarle encima el multiplicador por tipo sería
+        #     contar el premium dos veces, y reoptimizar la variante Luxury la
+        #     dejaría con precio de presupuesto medio y contenido de cinco
+        #     estrellas. Que Luxury exceda el presupuesto es intencional: para
+        #     eso están las tres opciones.
+        #
+        #   - Sin desglose: el costo es una estimación, así que se reparte por
+        #     categoría y ahí sí corren las reglas de negocio del TP
+        #     (multiplicador por tipo de viaje y reoptimización por presupuesto).
+        desglose_del_generador = opcion.get("desglose_costos")
+
+        if desglose_del_generador:
+            costo, reoptimizado = guardar_costo_de_viaje(
+                viaje.id_viaje, desglose_del_generador, costo_max=None)
+            viaje.costo_total_estimado = costo.costo_total_base
+        else:
+            costo, reoptimizado = guardar_costo_de_viaje(
+                viaje.id_viaje, desglosar_costo_total(viaje.costo_total_estimado), costo_max)
+            viaje.costo_total_estimado = apply_cost_adjustment(costo.costo_total_base, tipo)
 
         if reoptimizado:
             logger.info(

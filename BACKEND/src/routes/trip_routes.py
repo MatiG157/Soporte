@@ -101,7 +101,9 @@ def get_viaje(id_viaje):
     respuesta.update({
         "id_usuario": v.id_usuario,
         "id_user_preferences": v.id_user_preferences,
-        "costos": get_cost_by_trip(v.id_viaje, v.tipo_viaje),
+        # Sin tipo explícito: informa el costo tal como quedó guardado,
+        # sin volver a aplicarle el multiplicador.
+        "costos": get_cost_by_trip(v.id_viaje),
         "itinerarios": [
             {
                 "id_itinerario": iti.id_itinerario,

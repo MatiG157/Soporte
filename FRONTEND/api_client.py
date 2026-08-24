@@ -13,7 +13,7 @@ from flask import session
 
 logger = logging.getLogger(__name__)
 
-BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5000").rstrip("/")
+BACKEND_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:5000").rstrip("/")
 BACKEND_API_KEY = os.getenv("BACKEND_API_KEY", "")
 TIMEOUT = float(os.getenv("BACKEND_TIMEOUT", "15"))
 
@@ -59,8 +59,13 @@ def _mensaje_de_error(respuesta):
         if "errores_validacion" in cuerpo:
             errores = cuerpo["errores_validacion"]
             if isinstance(errores, dict):
-                planos = [m for lista in errores.values()
-                          for m in (lista if isinstance(lista, list) else [lista])]
+                # Con el nombre del campo delante: "Length must be between 2 and 80"
+                # sin decir de qué campo no le sirve a nadie.
+                planos = [
+                    f"{campo}: {m}"
+                    for campo, lista in errores.items()
+                    for m in (lista if isinstance(lista, list) else [lista])
+                ]
             else:
                 planos = errores if isinstance(errores, list) else [str(errores)]
             return " ".join(str(m) for m in planos), cuerpo

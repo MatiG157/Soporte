@@ -3,14 +3,20 @@ from marshmallow import Schema, fields, validate
 class UsuariosSchema(Schema):
     # Campos obligatorios (required=True)
     nombre = fields.String(
-        required=True, 
-        validate=validate.Length(min=2, max=80),
+        required=True,
+        validate=validate.Length(
+            min=2, max=80,
+            error="El nombre debe tener entre 2 y 80 caracteres."
+        ),
         error_messages={"required": "El nombre es obligatorio."}
     )
-    
+
     apellido = fields.String(
-        required=True, 
-        validate=validate.Length(min=2, max=80),
+        required=True,
+        validate=validate.Length(
+            min=2, max=80,
+            error="El apellido debe tener entre 2 y 80 caracteres."
+        ),
         error_messages={"required": "El apellido es obligatorio."}
     )
     

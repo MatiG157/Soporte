@@ -1,50 +1,55 @@
-{# Navegación lateral. `active_page` la define cada plantilla que lo incluye. #}
-{% set id_viaje = viaje.id_viaje if viaje else None %}
-{% set es_draft = viaje.estado == 'draft' if viaje and viaje.estado else false %}
+{# Navegación lateral.
+
+   Cada vista que la incluye pasa `nav` (ver `_sidebar()` en app.py) con los
+   destinos ya resueltos. Antes se derivaban de la variable `viaje`, que en
+   /compare no existe: ahí el link de Compare no se dibujaba y el de Itinerary
+   caía a My Trips. #}
 
 <div class="sidebar">
 
     <div class="nav flex-column mb-auto mt-4">
-        {% if es_draft %}
-        <a href="{{ url_for('compare') }}"
+        {% if nav.compare %}
+        <a href="{{ nav.compare }}"
            class="sidebar-link {% if active_page == 'compare' %}active-link{% endif %}"
            data-i18n="sidebar_compare">
             <i class="fa-solid fa-arrow-right-arrow-left"></i> Compare
         </a>
         {% endif %}
 
-        <a href="{% if id_viaje %}{{ url_for('itinerary', id_viaje=id_viaje) }}{% else %}{{ url_for('mytrips') }}{% endif %}"
+        <a href="{{ nav.itinerary }}"
            class="sidebar-link {% if active_page == 'itinerary' %}active-link{% endif %}"
            data-i18n="sidebar_itinerary">
             <i class="fa-solid fa-map"></i> Itinerary
         </a>
 
-        <a href="{% if id_viaje %}{{ url_for('budget', id_viaje=id_viaje) }}{% else %}{{ url_for('budget') }}{% endif %}"
+        <a href="{{ nav.budget }}"
            class="sidebar-link {% if active_page == 'budget' %}active-link{% endif %}"
            data-i18n="sidebar_budget">
             <i class="fa-solid fa-piggy-bank"></i> Budget
         </a>
+
+        <a href="{{ url_for('mytrips') }}" class="sidebar-link" data-i18n="nav_mytrips">
+            <i class="fa-solid fa-suitcase-rolling"></i> My Trips
+        </a>
     </div>
 
-    {% if es_draft %}
+    {% if nav.es_draft %}
     <div class="mt-auto pt-4">
         <button type="button" class="btn w-100 fw-bold rounded-3 py-2 text-white sidebar-select-btn"
                 style="background-color: var(--brand-color, #006d5b);"
-                id="sidebarSelectBtn"
-                onclick="sidebarSelectTrip()">
+                id="sidebarSelectBtn" onclick="sidebarSelectTrip()">
             <i class="fa-solid fa-check me-2"></i>
-            SELECT <span id="sidebarSelectType">{{ viaje.tipo_viaje or '' }}</span>
+            <span data-i18n="compare_select">SELECT</span> {{ viaje.tipo_viaje or '' }}
         </button>
     </div>
+
     <script>
     function sidebarSelectTrip() {
-        const idViaje = {{ id_viaje | tojson }};
-        if (!idViaje) return;
         if (!confirm(t('compare_confirm', 'Choosing this plan discards the other two options. Continue?'))) return;
 
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = '/select_trip/' + idViaje;
+        form.action = '/select_trip/' + {{ viaje.id_viaje | tojson }};
         const csrf = document.createElement('input');
         csrf.type = 'hidden';
         csrf.name = 'csrf_token';
@@ -53,12 +58,6 @@
         document.body.appendChild(form);
         form.submit();
     }
-
-    // Update the SELECT button label with the previewed type from sessionStorage
-    document.addEventListener('DOMContentLoaded', function() {
-        const stored = sessionStorage.getItem('selectedViajeId');
-        // The tipo_viaje is already set server-side via the viaje object
-    });
     </script>
     {% endif %}
 </div>

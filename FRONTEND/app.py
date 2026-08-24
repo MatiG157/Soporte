@@ -70,11 +70,30 @@ def login_requerido(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
         if "user_id" not in session:
-            if request.is_json:
+            if quiere_json():
                 return jsonify({"error": "Tenés que iniciar sesión."}), 401
             return redirect(url_for("login", next=request.path))
         return f(*args, **kwargs)
     return wrapper
+
+
+def quiere_json():
+    """¿El cliente espera una respuesta JSON?
+
+    `request.is_json` sólo mira el Content-Type de la petición, así que un
+    formulario enviado por fetch como multipart daba False y recibía HTML.
+    El navegador hacía `resp.json()`, explotaba, y el catch mostraba un error
+    de conexión que tapaba el error real de validación.
+    """
+    if request.is_json:
+        return True
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        return True
+    # Nuestros formularios mandan este header en cada POST por fetch.
+    if request.headers.get("X-CSRF-Token"):
+        return True
+    aceptado = request.accept_mimetypes
+    return aceptado["application/json"] > aceptado["text/html"]
 
 
 def _guardar_sesion(datos_usuario, recordar=True):
@@ -85,6 +104,46 @@ def _guardar_sesion(datos_usuario, recordar=True):
     session["user_apellido"] = datos_usuario.get("apellido")
     session["user_foto"] = datos_usuario.get("foto") or ""
     session["user_lang"] = datos_usuario.get("idioma") or "en"
+
+
+def _sidebar(viaje=None, drafts=None):
+    """Resuelve a dónde apunta cada link de la navegación lateral.
+
+    Se calcula en la vista y no en la plantilla porque depende de datos que la
+    plantilla no tiene: si hay borradores activos y cuál es el viaje en foco.
+    """
+    if drafts is None:
+        drafts = api_client.get_o_defecto(
+            f"/viajes/usuario/{session['user_id']}/drafts", defecto=[]) or []
+
+    # El viaje en foco: el que se está viendo, o el primer borrador, o el
+    # último guardado. Sin ninguno, los links van a My Trips.
+    id_viaje = (viaje or {}).get("id_viaje")
+    if not id_viaje and drafts:
+        id_viaje = drafts[0].get("id_viaje")
+    if not id_viaje:
+        guardados = [
+            v for v in (api_client.get_o_defecto(
+                f"/viajes/usuario/{session['user_id']}", defecto=[]) or [])
+            if v.get("estado") == "guardado"
+        ]
+        if guardados:
+            id_viaje = guardados[0].get("id_viaje")
+
+    return {
+        "compare": url_for("compare") if drafts else None,
+        "itinerary": (url_for("itinerary", id_viaje=id_viaje) if id_viaje
+                      else url_for("mytrips")),
+        "budget": (url_for("budget", id_viaje=id_viaje) if id_viaje
+                   else url_for("budget")),
+        "es_draft": bool(viaje and viaje.get("estado") == "draft"),
+    }
+
+
+def _tiene_viajes_guardados():
+    viajes = api_client.get_o_defecto(
+        f"/viajes/usuario/{session['user_id']}", defecto=[]) or []
+    return any(v.get("estado") == "guardado" for v in viajes)
 
 
 def _formatear_fecha(valor, formato="%d/%m/%Y"):
@@ -156,11 +215,11 @@ def register():
     try:
         api_client.post("/usuarios/", json=payload, con_usuario=False)
     except BackendError as exc:
-        if request.is_json:
+        if quiere_json():
             return jsonify({"error": exc.mensaje}), exc.status or 400
         return render_template("register.html", error=exc.mensaje)
 
-    if request.is_json:
+    if quiere_json():
         return jsonify({"redirect": url_for("login")})
     return redirect(url_for("login"))
 
@@ -185,7 +244,7 @@ def login():
             con_usuario=False,
         )
     except BackendError as exc:
-        if request.is_json:
+        if quiere_json():
             return jsonify({"error": exc.mensaje}), exc.status or 401
         return render_template("login.html", error=exc.mensaje)
 
@@ -194,9 +253,11 @@ def login():
     destino = datos.get("next") or request.args.get("next")
     # Sólo aceptamos rutas internas: evita open redirect.
     if not destino or not destino.startswith("/") or destino.startswith("//"):
-        destino = url_for("mytrips")
+        # Sin viajes guardados no tiene sentido mandarlo a una lista vacía:
+        # va directo al formulario, que es lo único que puede hacer.
+        destino = url_for("mytrips") if _tiene_viajes_guardados() else url_for("index")
 
-    if request.is_json:
+    if quiere_json():
         return jsonify({"redirect": destino})
     return redirect(destino)
 
@@ -233,7 +294,7 @@ def authorize_google():
         return render_template("login.html", error=exc.mensaje)
 
     _guardar_sesion(usuario, recordar=True)
-    return redirect(url_for("mytrips"))
+    return redirect(url_for("mytrips") if _tiene_viajes_guardados() else url_for("index"))
 
 
 # ─── Mis viajes ──────────────────────────────────────────────────────────────
@@ -409,7 +470,8 @@ def compare():
         viaje["highlights"] = _highlights_de(detalle)
         viaje["costos"] = detalle.get("costos") or {}
 
-    return render_template("compare.html", viajes_por_tipo=viajes_por_tipo)
+    return render_template("compare.html", viajes_por_tipo=viajes_por_tipo,
+                           nav=_sidebar(drafts=drafts))
 
 
 def _highlights_de(detalle, cantidad=3):
@@ -561,7 +623,7 @@ def itinerary(id_viaje):
             return render_template("403.html"), 403
         return render_template("500.html", detalle=exc.mensaje), 500
 
-    return render_template("itinerary.html", viaje=viaje)
+    return render_template("itinerary.html", viaje=viaje, nav=_sidebar(viaje))
 
 
 # Alias histórico: /viaje/<id> apunta al mismo itinerario.
@@ -610,7 +672,8 @@ def budget(id_viaje=None):
         ) or []
         guardados = [v for v in viajes if v.get("estado") == "guardado"]
         if not guardados:
-            return render_template("budget.html", viaje=None, viajes=[])
+            return render_template("budget.html", viaje=None, viajes=[],
+                                   nav=_sidebar())
         guardados.sort(key=lambda v: _fecha(v.get("fecha_inicio")) or date.min, reverse=True)
         id_viaje = guardados[0]["id_viaje"]
 
@@ -647,6 +710,7 @@ def budget(id_viaje=None):
 
     return render_template(
         "budget.html",
+        nav=_sidebar(viaje),
         viaje=viaje,
         costos=costos,
         por_dia=por_dia,
@@ -726,7 +790,7 @@ def eliminar_cuenta():
 @app.errorhandler(400)
 def solicitud_invalida(e):
     detalle = getattr(e, "description", "La solicitud no es válida.")
-    if request.is_json:
+    if quiere_json():
         return jsonify({"error": detalle}), 400
     return render_template("400.html", detalle=detalle), 400
 
@@ -738,7 +802,7 @@ def prohibido(_e):
 
 @app.errorhandler(404)
 def no_encontrado(_e):
-    if request.is_json:
+    if quiere_json():
         return jsonify({"error": "Recurso no encontrado."}), 404
     return render_template("404.html"), 404
 
@@ -746,7 +810,7 @@ def no_encontrado(_e):
 @app.errorhandler(500)
 def error_interno(e):
     logger.exception("Error interno no controlado: %s", e)
-    if request.is_json:
+    if quiere_json():
         return jsonify({"error": "Error interno del servidor."}), 500
     return render_template("500.html"), 500
 

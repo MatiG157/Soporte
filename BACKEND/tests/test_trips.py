@@ -80,9 +80,58 @@ def test_se_guardan_imagen_costos_y_recomendacion(client, auth, usuario):
     assert costos is not None
     assert costos["costo_alojamiento"] == 350.0
     assert costos["costo_total_base"] == 1000.0
-    # Balanced multiplica por 1.10.
-    assert costos["costo_total_ajustado"] == 1100.0
+
+    # El generador mandó su propio desglose: se respeta sin multiplicador.
+    # Contar el premium del nivel dos veces daría un precio que no se
+    # corresponde con el itinerario cotizado.
+    assert costos["costo_total_ajustado"] == 1000.0
+    assert viaje["costo_total_estimado"] == 1000.0
+
+
+def test_sin_desglose_se_aplican_las_reglas_de_negocio(client, auth, usuario):
+    """Cuando el costo es una estimación sí corren multiplicador y reoptimización."""
+    opcion = opcion_de_viaje(tipo="Balanced", dias=3, total=1000.0)
+    del opcion["desglose_costos"]
+
+    client.post("/viajes/generate", json={
+        "id_usuario": usuario, "opciones": [opcion],
+    }, headers=auth)
+
+    id_viaje = client.get(f"/viajes/usuario/{usuario}/drafts", headers=auth).get_json()[0]["id_viaje"]
+    viaje = client.get(f"/viajes/{id_viaje}", headers=auth).get_json()
+
+    # Reparto por defecto 35/30/20/15 sobre el total declarado.
+    assert viaje["costos"]["costo_alojamiento"] == 350.0
+    # Y ahí sí, Balanced multiplica por 1.10.
     assert viaje["costo_total_estimado"] == 1100.0
+
+
+def test_no_se_recorta_la_variante_cara_del_grupo(client, auth, usuario):
+    """Luxury puede exceder el presupuesto: para eso están las tres opciones."""
+    preferencias = client.post("/preferencias/", json={
+        "id_usuario": usuario,
+        "destinos": ["Osaka, Japan"],
+        "costo_min": 1500,
+        "costo_max": 3000,
+    }, headers=auth).get_json()["id"]
+
+    opciones = [
+        opcion_de_viaje(tipo="Economy", dias=5, total=827.0),
+        opcion_de_viaje(tipo="Balanced", dias=5, total=1938.0),
+        opcion_de_viaje(tipo="Luxury", dias=5, total=5820.0),
+    ]
+    client.post("/viajes/generate", json={
+        "id_usuario": usuario,
+        "id_user_preferences": preferencias,
+        "opciones": opciones,
+    }, headers=auth)
+
+    drafts = client.get(f"/viajes/usuario/{usuario}/drafts", headers=auth).get_json()
+    por_tipo = {d["tipo_viaje"]: d["costo_total_estimado"] for d in drafts}
+
+    assert por_tipo["Economy"] == 827.0
+    assert por_tipo["Balanced"] == 1938.0
+    assert por_tipo["Luxury"] == 5820.0   # sin recortar a 3000
 
 
 def test_los_textos_largos_se_recortan_a_la_columna(client, auth, usuario):

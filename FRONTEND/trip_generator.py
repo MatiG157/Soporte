@@ -131,6 +131,18 @@ def _recortar(texto, limite):
     return texto[:limite] if len(texto) > limite else texto
 
 
+def _hora_de_inicio(actividad):
+    """Minutos desde medianoche del horario de una actividad, para ordenarlas.
+
+    `horario_sugerido` viene como "HH:MM - HH:MM". Lo que no parsea va al final
+    en vez de romper el orden del resto.
+    """
+    coincidencia = re.match(r"\s*(\d{1,2})[:.](\d{2})", str(actividad.get("horario_sugerido") or ""))
+    if not coincidencia:
+        return 24 * 60
+    return int(coincidencia.group(1)) * 60 + int(coincidencia.group(2))
+
+
 def _lista_desde_csv(valor):
     if not valor:
         return []
@@ -324,24 +336,28 @@ def validar_opciones(opciones, preferencias):
             if not isinstance(actividades, list) or not actividades:
                 raise ValueError(f"El día {indice} no trae actividades")
 
+            normalizadas_del_dia = [
+                {
+                    "nombre": _recortar(a.get("nombre") or "Actividad", LIMITES["nombre"]),
+                    "descripcion": str(a.get("descripcion") or ""),
+                    "precio_estimado": float(a.get("precio_estimado") or 0),
+                    "categoria": _recortar(a.get("categoria") or "", LIMITES["categoria"]),
+                    "horario_sugerido": _recortar(
+                        a.get("horario_sugerido") or "", LIMITES["horario_sugerido"]),
+                    "ubicacion": _recortar(a.get("ubicacion") or "", LIMITES["ubicacion"]),
+                } for a in actividades
+            ]
+
             dias_normalizados.append({
                 "dia": indice,
                 "resumen": str(dia.get("resumen") or f"Día {indice}"),
-                "actividades": [
-                    {
-                        "nombre": _recortar(a.get("nombre") or "Actividad", LIMITES["nombre"]),
-                        "descripcion": str(a.get("descripcion") or ""),
-                        "precio_estimado": float(a.get("precio_estimado") or 0),
-                        "categoria": _recortar(a.get("categoria") or "", LIMITES["categoria"]),
-                        "horario_sugerido": _recortar(
-                            a.get("horario_sugerido") or "", LIMITES["horario_sugerido"]),
-                        "ubicacion": _recortar(a.get("ubicacion") or "", LIMITES["ubicacion"]),
-                    } for a in actividades
-                ],
+                # El modelo no siempre devuelve las actividades en orden horario,
+                # y el timeline del itinerario las muestra tal cual vienen.
+                "actividades": sorted(normalizadas_del_dia, key=_hora_de_inicio),
             })
 
         # El destino y las fechas los manda el usuario, no la IA.
-        normalizadas.append({
+        normalizada = {
             "destinos": destinos or opcion.get("destinos") or [],
             "fecha_inicio": preferencias.get("fecha_inicio") or opcion.get("fecha_inicio"),
             "fecha_fin": preferencias.get("fecha_fin") or opcion.get("fecha_fin"),
@@ -350,7 +366,16 @@ def validar_opciones(opciones, preferencias):
             "imagen": opcion.get("imagen"),
             "desglose_costos": opcion.get("desglose_costos"),
             "itinerario": dias_normalizados,
-        })
+        }
+
+        # Lo que el flujo agregue de más (por ejemplo `fuente_datos`: de dónde
+        # salió cada precio) se conserva tal cual. El backend lo guarda en
+        # `recomendaciones_ia` y sirve para justificar los números en la defensa.
+        for clave, valor in opcion.items():
+            if clave not in normalizada and clave != "tipo_viaje":
+                normalizada[clave] = valor
+
+        normalizadas.append(normalizada)
 
     return normalizadas
 
@@ -362,10 +387,25 @@ def _generar_con_n8n(preferencias):
     if not url:
         return None
 
-    cabeceras = {"Content-Type": "application/json"}
-    token = os.getenv("N8N_TOKEN", "").strip()
-    if token:
-        cabeceras["X-N8N-TOKEN"] = token
+    # Sin User-Agent propio, requests manda "python-requests/x.y" y la opcion
+    # "Ignore Bots" del nodo Webhook lo rechaza con 403.
+    cabeceras = {
+        "Content-Type": "application/json",
+        "User-Agent": "TravelPlanner/1.0",
+    }
+
+    # El nodo Webhook de n8n admite dos tipos de credencial y hay que hablarle
+    # en el mismo idioma que tenga configurado:
+    #   - Basic Auth  -> usuario y contrasena (N8N_BASIC_USER / N8N_BASIC_PASSWORD)
+    #   - Header Auth -> un token en un header (N8N_TOKEN / N8N_HEADER)
+    auth = None
+    usuario = os.getenv("N8N_BASIC_USER", "").strip()
+    if usuario:
+        auth = (usuario, os.getenv("N8N_BASIC_PASSWORD", ""))
+    else:
+        token = os.getenv("N8N_TOKEN", "").strip()
+        if token:
+            cabeceras[os.getenv("N8N_HEADER", "X-N8N-TOKEN").strip()] = token
 
     cuerpo = dict(preferencias)
     cuerpo["cantidad_dias"] = cantidad_de_dias(
@@ -376,6 +416,7 @@ def _generar_con_n8n(preferencias):
         url,
         json=cuerpo,
         headers=cabeceras,
+        auth=auth,
         timeout=float(os.getenv("N8N_TIMEOUT", "120")),
     )
     respuesta.raise_for_status()

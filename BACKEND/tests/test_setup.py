@@ -57,7 +57,17 @@ def test_el_migrador_expone_una_api_programatica():
     import migrate
 
     assert callable(migrate.aplicar_pendientes)
-    # Sin base disponible devuelve None en vez de matar el proceso.
+
+
+def test_sin_base_el_migrador_no_mata_el_proceso(monkeypatch):
+    """Si MySQL no esta levantado devuelve None, no una excepcion.
+
+    Se simula la caida en vez de depender de que MySQL este apagado: el
+    resultado del test no puede cambiar segun la maquina donde corra.
+    """
+    import migrate
+
+    monkeypatch.setattr(migrate, "conectar", lambda silencioso=False: None)
     assert migrate.aplicar_pendientes(silencioso=True) is None
 
 

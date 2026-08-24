@@ -169,15 +169,24 @@ def get_cost_by_trip(id_viaje, tipo_viaje=None):
         "costo_total_base": costo.costo_total_base,
     }
 
-    # Si no me dicen el tipo, uso el del propio viaje.
+    # Sin `tipo_viaje` explícito se informa lo que quedó persistido en el viaje:
+    # el ajuste se decide al guardar, no al leer. Recalcularlo acá volvería a
+    # aplicar el multiplicador sobre costos que ya venían cotizados.
     if tipo_viaje is None:
         viaje = db.session.get(Viaje, id_viaje)
-        tipo_viaje = viaje.tipo_viaje if viaje else None
+        if viaje:
+            respuesta["tipo_viaje_aplicado"] = viaje.tipo_viaje
+            respuesta["costo_total_ajustado"] = (
+                viaje.costo_total_estimado
+                if viaje.costo_total_estimado is not None
+                else costo.costo_total_base
+            )
+        return respuesta
 
-    if tipo_viaje:
-        respuesta["tipo_viaje_aplicado"] = tipo_viaje
-        respuesta["costo_total_ajustado"] = apply_cost_adjustment(
-            costo.costo_total_base, tipo_viaje
-        )
-
+    # Con `tipo_viaje` explícito se simula: "¿cuánto costaría este viaje si
+    # fuera de otro nivel?". Ahí sí se recalcula.
+    respuesta["tipo_viaje_aplicado"] = tipo_viaje
+    respuesta["costo_total_ajustado"] = apply_cost_adjustment(
+        costo.costo_total_base, tipo_viaje
+    )
     return respuesta
