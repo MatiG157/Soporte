@@ -1,63 +1,48 @@
-{# Navegación lateral.
-
-   Cada vista que la incluye pasa `nav` (ver `_sidebar()` en app.py) con los
-   destinos ya resueltos. Antes se derivaban de la variable `viaje`, que en
-   /compare no existe: ahí el link de Compare no se dibujaba y el de Itinerary
-   caía a My Trips. #}
+{# Navegación lateral. Cada vista que la incluye pasa `nav` (ver `_sidebar()` en app.py) con los destinos ya resueltos. Antes se derivaban de la variable `viaje`, que en /compare no existe: ahí el link de Compare no se dibujaba y el de Itinerary caía a My Trips. #}
 
 <div class="sidebar">
+  <div class="nav flex-column mb-auto mt-4">
+    {% if nav.compare %}
+    <a href="{{ nav.compare }}" class="sidebar-link {% if active_page == 'compare' %}active-link{% endif %}" data-i18n="sidebar_compare"> <i class="fa-solid fa-arrow-right-arrow-left"></i> Compare </a>
+    {% endif %}
 
-    <div class="nav flex-column mb-auto mt-4">
-        {% if nav.compare %}
-        <a href="{{ nav.compare }}"
-           class="sidebar-link {% if active_page == 'compare' %}active-link{% endif %}"
-           data-i18n="sidebar_compare">
-            <i class="fa-solid fa-arrow-right-arrow-left"></i> Compare
-        </a>
-        {% endif %}
+    <a href="{{ nav.itinerary }}" class="sidebar-link {% if active_page == 'itinerary' %}active-link{% endif %}" data-i18n="sidebar_itinerary"> <i class="fa-solid fa-map"></i> Itinerary </a>
 
-        <a href="{{ nav.itinerary }}"
-           class="sidebar-link {% if active_page == 'itinerary' %}active-link{% endif %}"
-           data-i18n="sidebar_itinerary">
-            <i class="fa-solid fa-map"></i> Itinerary
-        </a>
-
-        <a href="{{ nav.budget }}"
-           class="sidebar-link {% if active_page == 'budget' %}active-link{% endif %}"
-           data-i18n="sidebar_budget">
-            <i class="fa-solid fa-piggy-bank"></i> Budget
-        </a>
-
-        <a href="{{ url_for('mytrips') }}" class="sidebar-link" data-i18n="nav_mytrips">
-            <i class="fa-solid fa-suitcase-rolling"></i> My Trips
-        </a>
-    </div>
+    <a href="{{ nav.budget }}" class="sidebar-link {% if active_page == 'budget' %}active-link{% endif %}" data-i18n="sidebar_budget"> <i class="fa-solid fa-piggy-bank"></i> Budget </a>
 
     {% if nav.es_draft %}
-    <div class="mt-auto pt-4">
-        <button type="button" class="btn w-100 fw-bold rounded-3 py-2 text-white sidebar-select-btn"
-                style="background-color: var(--brand-color, #006d5b);"
-                id="sidebarSelectBtn" onclick="sidebarSelectTrip()">
-            <i class="fa-solid fa-check me-2"></i>
-            <span data-i18n="compare_select">SELECT</span> {{ viaje.tipo_viaje or '' }}
-        </button>
+    <div class="sidebar-select-wrap">
+      <button type="button" class="sidebar-select-btn" id="sidebarSelectBtn" data-viaje-id="{{ viaje.id_viaje }}" onclick="sidebarSelectTrip()">
+        <i class="fa-solid fa-check"></i>
+        <span class="sidebar-select-text">
+          <span class="sidebar-select-action" data-i18n="compare_select">SELECT</span>
+          <span class="sidebar-select-type">{{ viaje.tipo_viaje or '' }}</span>
+        </span>
+      </button>
     </div>
-
-    <script>
-    function sidebarSelectTrip() {
-        if (!confirm(t('compare_confirm', 'Choosing this plan discards the other two options. Continue?'))) return;
-
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/select_trip/' + {{ viaje.id_viaje | tojson }};
-        const csrf = document.createElement('input');
-        csrf.type = 'hidden';
-        csrf.name = 'csrf_token';
-        csrf.value = window.CSRF_TOKEN;
-        form.appendChild(csrf);
-        document.body.appendChild(form);
-        form.submit();
-    }
-    </script>
     {% endif %}
+  </div>
+
+  {% if nav.es_draft %}
+  <script>
+    function sidebarSelectTrip() {
+      if (!confirm(t("compare_confirm", "Choosing this plan discards the other two options. Continue?"))) return;
+
+      const trigger = document.getElementById("sidebarSelectBtn");
+      const viajeId = trigger ? trigger.dataset.viajeId : "";
+      if (!viajeId) return;
+
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = "/select_trip/" + encodeURIComponent(viajeId);
+      const csrf = document.createElement("input");
+      csrf.type = "hidden";
+      csrf.name = "csrf_token";
+      csrf.value = window.CSRF_TOKEN;
+      form.appendChild(csrf);
+      document.body.appendChild(form);
+      form.submit();
+    }
+  </script>
+  {% endif %}
 </div>

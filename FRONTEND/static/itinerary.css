@@ -1,127 +1,219 @@
 /* CSS for Itinerary Page */
 
 .itinerary-content {
-    background-color: #ffffff;
-    max-width: 1200px;
+  background-color: #ffffff;
+  max-width: 1200px;
 }
 
 /* Header & Typography */
 .text-brand {
-    color: var(--brand-color, #006d5b) !important;
+  color: var(--brand-color, #006d5b) !important;
 }
 .bg-brand {
-    background-color: var(--brand-color, #006d5b) !important;
+  background-color: var(--brand-color, #006d5b) !important;
 }
 .btn-brand {
-    background-color: var(--brand-color, #006d5b) !important;
-    color: #fff !important;
+  background-color: var(--brand-color, #006d5b) !important;
+  color: #fff !important;
 }
 .btn-brand:hover {
-    background-color: #005a4b !important;
+  background-color: #005a4b !important;
 }
 
 .fs-7 {
-    font-size: 0.85rem;
+  font-size: 0.85rem;
 }
 
 /* Widgets Row */
 .widget-card {
-    transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 .widget-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 15px rgba(0,0,0,0.05) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.05) !important;
 }
 .widget-title {
-    letter-spacing: 0.5px;
+  letter-spacing: 0.5px;
 }
 
 /* Timeline Layout */
 .timeline-line {
-    position: absolute;
-    left: 11px;
-    top: 20px;
-    bottom: 20px;
-    width: 2px;
-    background-color: #e2e8f0;
-    z-index: 1;
+  position: absolute;
+  left: 11px;
+  top: 20px;
+  bottom: 20px;
+  width: 2px;
+  background-color: #e2e8f0;
+  z-index: 1;
 }
 
 .timeline-item {
-    position: relative;
-    padding-left: 2.5rem;
+  position: relative;
+  padding-left: 2.5rem;
 }
 
 .timeline-dot {
-    position: absolute;
-    left: 5px;
-    top: 24px;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background-color: #ffffff;
-    border: 3px solid #cbd5e1;
-    z-index: 2;
+  position: absolute;
+  left: 5px;
+  top: 24px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  border: 3px solid #cbd5e1;
+  z-index: 2;
 }
 
 .timeline-dot.active-dot {
-    border-color: var(--brand-color, #006d5b);
+  border-color: var(--brand-color, #006d5b);
 }
 
 .timeline-card {
-    transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+.timeline-card .col-md-8 {
+  min-width: 0;
 }
 .timeline-card:hover {
-    box-shadow: 0 10px 15px rgba(0,0,0,0.05) !important;
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.05) !important;
 }
 
 /* Tag Badges */
 .tag-badge {
-    font-size: 0.75rem;
+  font-size: 0.75rem;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+  text-align: left;
+}
+.tag-badge i {
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
 }
 .tag-sightseeing {
-    background-color: #ccfbf1;
-    color: #115e59;
+  background-color: #ccfbf1;
+  color: #115e59;
 }
 .tag-activity {
-    background-color: #f1f5f9;
-    color: #475569;
+  background-color: #f1f5f9;
+  color: #475569;
 }
 .tag-food {
-    background-color: #ffedd5;
-    color: #9a3412;
+  background-color: #ffedd5;
+  color: #9a3412;
 }
 
 /* Map Simulation */
 .map-marker-pulse {
-    width: 16px;
-    height: 16px;
-    background-color: #14b8a6;
-    border-radius: 50%;
-    border: 3px solid white;
-    box-shadow: 0 0 0 rgba(20, 184, 166, 0.4);
-    animation: pulse 2s infinite;
+  width: 16px;
+  height: 16px;
+  background-color: #14b8a6;
+  border-radius: 50%;
+  border: 3px solid white;
+  box-shadow: 0 0 0 rgba(20, 184, 166, 0.4);
+  animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
-    0% {
-        box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.4);
-    }
-    70% {
-        box-shadow: 0 0 0 15px rgba(20, 184, 166, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(20, 184, 166, 0);
-    }
+  0% {
+    box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 15px rgba(20, 184, 166, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(20, 184, 166, 0);
+  }
 }
 
 /* Logistics Section */
 .logistics-card {
-    background-color: #ffffff;
-}/* Estilos para los badges de destinos clickeables */
+  background-color: #ffffff;
+}
+
+.days-tabs-shell {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+#daysTabsContainer {
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.1rem 0.2rem;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  cursor: grab;
+  user-select: none;
+}
+
+#daysTabsContainer::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+#daysTabsContainer.dragging {
+  cursor: grabbing;
+}
+
+#daysTabsContainer .day-tab-btn {
+  flex: 0 0 auto;
+}
+
+.days-scroll-btn {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  transition: all 0.2s ease;
+}
+
+.days-scroll-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  color: var(--brand-color, #006d5b);
+  border-color: #9ca3af;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.12);
+}
+
+.days-scroll-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .days-tabs-shell {
+    gap: 0.35rem;
+  }
+
+  .days-scroll-btn {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+}
+
+/* Estilos para los badges de destinos clickeables */
 .dest-badge {
-    transition: background-color 0.2s, color 0.2s;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
 }
 .dest-badge:not(.active):hover {
-    background-color: #e2e8f0 !important;
+  background-color: #e2e8f0 !important;
 }

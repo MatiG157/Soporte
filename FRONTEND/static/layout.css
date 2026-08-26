@@ -5,7 +5,7 @@ header {
   align-items: center;
   padding: 1rem 2rem;
   background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .logo {
@@ -17,7 +17,9 @@ header {
   gap: 0.5rem;
 }
 
-.logo i { color: var(--brand-color); }
+.logo i {
+  color: var(--brand-color);
+}
 
 .nav-links {
   display: flex;
@@ -44,79 +46,155 @@ header {
 
 /* Sidebar Sidebar general styles */
 .page-wrapper {
-    display: flex;
-    flex-direction: row;
-    min-height: calc(100vh - 72px);
-    width: 100%;
+  display: flex;
+  flex-direction: row;
+  min-height: calc(100vh - 72px);
+  width: 100%;
 }
 
 .sidebar {
-    width: 260px;
-    min-width: 260px;
-    background-color: #f9fbfb;
-    border-right: 1px solid #e2e8f0;
-    padding: 2rem 1.5rem;
-    display: flex;
-    flex-direction: column;
+  width: 260px;
+  min-width: 260px;
+  background-color: #f9fbfb;
+  border-right: 1px solid #e2e8f0;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .main-content {
-    flex-grow: 1;
-    padding: 2rem;
-    background-color: #ffffff;
-    width: calc(100% - 260px);
+  flex-grow: 1;
+  padding: 2rem;
+  background-color: #ffffff;
+  width: calc(100% - 260px);
 }
-    display: flex;
-    align-items: center;
-    padding: 0.75rem 1rem;
-    color: #64748b;
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 500;
-    margin-bottom: 0.5rem;
-    transition: all 0.2s;
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  color: #64748b;
+  text-decoration: none;
+  border-radius: 8px;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  transition: all 0.2s;
+}
+
+.sidebar-select-wrap {
+  margin-top: 0.35rem;
+}
+
+.sidebar-select-btn {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.68rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background-color: var(--brand-color, #006d5b);
+  color: #ffffff;
+  font-weight: 700;
+  line-height: 1.15;
+  box-shadow: 0 6px 14px rgba(0, 109, 91, 0.18);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
+}
+
+.sidebar-select-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 9px 18px rgba(0, 109, 91, 0.26);
+  filter: brightness(0.97);
+}
+
+.sidebar-select-btn:focus-visible {
+  outline: 3px solid rgba(0, 109, 91, 0.28);
+  outline-offset: 2px;
+}
+
+.sidebar-select-btn i {
+  position: absolute;
+  left: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.95rem;
+}
+
+.sidebar-select-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.12;
+}
+
+.sidebar-select-action,
+.sidebar-select-type {
+  display: block;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.sidebar-select-action {
+  font-size: 0.74rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  opacity: 0.94;
+}
+
+.sidebar-select-type {
+  font-size: 1rem;
+  font-weight: 800;
 }
 
 .sidebar-link:hover {
-    background-color: #f1f5f9;
-    color: #0f172a;
+  background-color: #f1f5f9;
+  color: #0f172a;
 }
 
 .sidebar-link.active-link {
-    background-color: #ffffff;
-    color: var(--brand-color, #006d5b);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    border: 1px solid #f1f5f9;
-    pointer-events: none;
+  background-color: #ffffff;
+  color: var(--brand-color, #006d5b);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #f1f5f9;
+  pointer-events: none;
 }
 
 .sidebar-link i {
-    width: 24px;
-    text-align: center;
-    margin-right: 10px;
-    font-size: 1.1rem;
-    color: #94a3b8; /* Gris por defecto */
-    transition: color 0.2s;
+  width: 24px;
+  text-align: center;
+  margin-right: 10px;
+  font-size: 1.1rem;
+  color: #94a3b8; /* Gris por defecto */
+  transition: color 0.2s;
 }
 
 .sidebar-link.active-link i {
-    color: var(--brand-color, #006d5b);
+  color: var(--brand-color, #006d5b);
 }
 
 .sidebar-link:hover i {
-    color: var(--brand-color, #006d5b);
+  color: var(--brand-color, #006d5b);
 }
 
 .sidebar-user {
-    display: flex;
-    align-items: center;
-    margin-bottom: 2.5rem;
+  display: flex;
+  align-items: center;
+  margin-bottom: 2.5rem;
 }
 
 .sidebar-user img {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    object-fit: cover;
-    margin-right: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 12px;
 }
