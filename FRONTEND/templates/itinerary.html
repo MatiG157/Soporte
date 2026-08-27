@@ -34,18 +34,16 @@
           {% for destino in viaje.destinos %}
           <span class="badge bg-light text-secondary rounded p-1 px-2 border fw-semibold dest-badge" data-dest="{% if destino is mapping %}{{ destino.nombre }}{% else %}{{ destino }}{% endif %}" style="cursor: pointer">{% if destino is mapping %}{{ destino.nombre }}{% else %}{{ destino }}{% endif %}</span>
           {% endfor %}
-          <span class="text-secondary fw-bold fs-6 ms-2"> &bull; {{ viaje.fecha_inicio_fmt }} – {{ viaje.fecha_fin_fmt }} </span>
+          <span class="text-secondary fw-bold fs-6 ms-2" id="header-duration"> &bull; {{ viaje.fecha_inicio_fmt }} – {{ viaje.fecha_fin_fmt }} </span>
         </div>
-        <h1 class="display-5 fw-bold mb-0">{{ viaje.tipo_viaje }} <span data-i18n="iti_trip_to">Trip to</span> {{ viaje.destinos_display }}</h1>
+        <h1 class="display-5 fw-bold mb-0">{{ viaje.titulo }}</h1>
       </div>
 
       <div class="d-flex gap-2">
         <button id="share-btn" class="btn btn-outline-secondary rounded-circle icon-btn shadow-sm" data-i18n-title="iti_share" title="Share">
           <i class="fa-solid fa-share-nodes"></i>
         </button>
-        <a href="{{ url_for('budget', id_viaje=viaje.id_viaje) }}" class="btn btn-outline-secondary rounded-circle icon-btn shadow-sm" data-i18n-title="sidebar_budget" title="Budget">
-          <i class="fa-solid fa-piggy-bank"></i>
-        </a>
+
       </div>
     </div>
 
@@ -54,31 +52,26 @@
       <div class="col-md-4">
         <div class="card h-100 widget-card border rounded-4 shadow-sm p-3">
           <div class="d-flex justify-content-between align-items-center mb-3">
-            <span class="text-secondary fw-bold fs-7 widget-title" data-i18n="iti_budget">TOTAL BUDGET</span>
+            <span class="text-secondary fw-bold fs-7 widget-title" data-i18n="iti_daily_budget">PRESUPUESTO DEL DIA</span>
             <i class="fa-solid fa-wallet text-brand"></i>
           </div>
-          <div class="fs-2 fw-bold mb-1">${{ '{:,.0f}'.format(viaje.costo_total_estimado or 0) }}</div>
-          {% set costos = viaje.costos or {} %} {% set base = costos.get('costo_total_base') or 0 %} {% set actividades = costos.get('costo_actividades') or 0 %} {% set proporcion = (actividades / base * 100) if base else 0 %}
-          <div class="text-secondary fs-7 mb-2"><span data-i18n="budget_activities">Activities</span>: ${{ '{:,.0f}'.format(actividades) }}</div>
-          <div class="progress" style="height: 8px; border-radius: 4px; background-color: #e2e8f0">
-            <div class="progress-bar bg-brand" role="progressbar" style="width: {{ '%.0f'|format(proporcion) }}%;" aria-valuenow="{{ '%.0f'|format(proporcion) }}" aria-valuemin="0" aria-valuemax="100"></div>
-          </div>
+          <div class="fs-2 fw-bold mb-1" id="daily-budget-value">$0</div>
+          <div class="text-secondary fs-7 mb-2"><span id="daily-activities-count">0</span> <span data-i18n="budget_activities">Actividades</span></div>
         </div>
       </div>
 
       <div class="col-md-4">
         <div class="card h-100 widget-card border rounded-4 shadow-sm p-3">
           <div class="d-flex justify-content-between align-items-center mb-3">
-            <span class="text-secondary fw-bold fs-7 widget-title" data-i18n="iti_countdown">COUNTDOWN</span>
-            <i class="fa-regular fa-calendar text-brand"></i>
+            <span class="text-secondary fw-bold fs-7 widget-title" data-i18n="iti_next_activity">PROXIMA ACTIVIDAD</span>
+            <i class="fa-solid fa-clock text-brand"></i>
           </div>
-          <div class="fs-2 fw-bold mb-1">
-            {{ viaje.countdown }}
-            <span class="fs-6 fw-normal text-secondary"> {% if viaje.countdown_estado == 'faltan' %}<span data-i18n="iti_days_left">Days left</span> {% elif viaje.countdown_estado == 'en_curso' %}<span data-i18n="iti_in_progress">Days to go</span> {% else %}<span data-i18n="iti_finished">Days since it ended</span>{% endif %} </span>
+          <div class="fs-5 fw-bold mb-1 text-truncate" id="next-activity-name">
+            -
           </div>
           <div class="d-flex align-items-center text-secondary fs-7">
-            <i class="fa-solid fa-calendar-day text-brand me-2"></i>
-            {{ viaje.dias_totales }} <span data-i18n="compare_days" class="ms-1">days</span>
+            <i class="fa-solid fa-hourglass-half text-brand me-2"></i>
+            <span id="next-activity-time">-</span>
           </div>
         </div>
       </div>
@@ -87,7 +80,7 @@
         <div class="card h-100 widget-card border rounded-4 shadow-sm p-3">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <span class="text-secondary fw-bold fs-7 widget-title" data-i18n="iti_weather">WEATHER AVG</span>
-            <i class="fa-regular fa-sun text-brand"></i>
+            <i class="fa-solid fa-cloud-sun text-brand" id="weather-icon"></i>
           </div>
           <div class="fs-2 fw-bold mb-1" id="weather-value">
             <span class="spinner-border spinner-border-sm text-secondary" role="status"></span>
@@ -187,11 +180,7 @@
             </button>
           </div>
 
-          <div class="ps-4 pb-4 text-secondary fs-7">
-            <span data-i18n="iti_day_total">Estimated for the day</span>:
-            <strong>${{ '{:,.0f}'.format(itin.total_dia) }}</strong>
-            <span data-i18n="iti_per_person">per person</span>
-          </div>
+
         </div>
         {% endfor %}
       </div>
@@ -349,9 +338,20 @@
 <script>
   const VIAJE = {
       id: {{ viaje.id_viaje }},
+      destinos_obj: [
+          {% for d in viaje.destinos %}
+          {
+              nombre: "{% if d is mapping %}{{ d.nombre }}{% else %}{{ d }}{% endif %}",
+              fecha_llegada: "{% if d is mapping %}{{ d.fecha_llegada }}{% else %}{{ viaje.fecha_inicio }}{% endif %}",
+              fecha_partida: "{% if d is mapping %}{{ d.fecha_partida }}{% else %}{{ viaje.fecha_fin }}{% endif %}"
+          }{% if not loop.last %}, {% endif %}
+          {% endfor %}
+      ],
       destinos: [{% for d in viaje.destinos %}"{% if d is mapping %}{{ d.nombre }}{% else %}{{ d }}{% endif %}"{% if not loop.last %}, {% endif %}{% endfor %}],
       fecha_inicio: {{ viaje.fecha_inicio | tojson }},
-      fecha_fin: {{ viaje.fecha_fin | tojson }}
+      fecha_fin: {{ viaje.fecha_fin | tojson }},
+      fecha_inicio_fmt: "{{ viaje.fecha_inicio_fmt }}",
+      fecha_fin_fmt: "{{ viaje.fecha_fin_fmt }}"
   };
 
   // ─── Iconos por categoría (reemplazan las fotos genéricas) ───────────────────
@@ -424,6 +424,7 @@
 
               recordarDia(dia);
               dibujarMarcadores(dia);
+              actualizarPresupuestoDia(dia);
           });
       });
   }
@@ -637,6 +638,24 @@
       });
   }
 
+  function actualizarPresupuestoDia(dia) {
+      const contenedor = document.getElementById('day-content-' + dia);
+      if(!contenedor) return;
+      
+      let total = 0;
+      let cont = 0;
+      contenedor.querySelectorAll('.activity-item').forEach(act => {
+          if(act.style.display !== 'none') {
+              const price = parseFloat(act.dataset.precio || 0);
+              total += price;
+              cont++;
+          }
+      });
+      
+      document.getElementById('daily-budget-value').textContent = '$' + total.toLocaleString();
+      document.getElementById('daily-activities-count').textContent = cont;
+  }
+
   function inicializarFiltrosDestino() {
       const badges = document.querySelectorAll('.dest-badge');
       const activities = document.querySelectorAll('.activity-item');
@@ -645,7 +664,6 @@
 
       badges.forEach(badge => {
           badge.addEventListener('click', () => {
-              // Update active state of badges
               badges.forEach(b => {
                   b.classList.remove('active', 'text-white');
                   b.classList.add('bg-light', 'text-secondary');
@@ -658,13 +676,23 @@
               const dest = badge.dataset.dest;
               let currentDestPoint = null;
 
-              // Optional: find dest coordinates for map zoom and weather
+              const headerDuration = document.getElementById('header-duration');
+              if(dest === 'all') {
+                  headerDuration.innerHTML = `&bull; ${VIAJE.fecha_inicio_fmt} – ${VIAJE.fecha_fin_fmt}`;
+              } else {
+                  const dObj = VIAJE.destinos_obj.find(x => x.nombre === dest);
+                  if(dObj) {
+                      const d1 = new Date(dObj.fecha_llegada).toLocaleDateString('en-GB', {day: '2-digit', month: 'short'});
+                      const d2 = new Date(dObj.fecha_partida).toLocaleDateString('en-GB', {day: '2-digit', month: 'short'});
+                      headerDuration.innerHTML = `&bull; ${d1} – ${d2}`;
+                  }
+              }
+
               if (dest !== 'all' && cacheGeo[dest]) {
                   currentDestPoint = cacheGeo[dest];
                   if (mapa) {
                       mapa.setView([currentDestPoint.lat, currentDestPoint.lon], 13);
                   }
-                  // Update weather
                   actualizarClimaParcial(currentDestPoint);
               } else if (dest === 'all') {
                   if (mapa && capaMarcadores) {
@@ -676,41 +704,44 @@
                           mapa.setView(markers[0].getLatLng(), 11);
                       }
                   }
-                  cargarClima(); // reload original weather
+                  cargarClima();
               }
 
-              // Filter activities and recalculate budget
               let totalDest = 0;
+              let totalActs = 0;
               activities.forEach(act => {
                   if (dest === 'all' || act.dataset.dest === dest) {
                       act.style.display = 'block';
-                      // Get price from the badge
-                      const priceBadge = act.querySelector('.badge.bg-light');
-                      if (priceBadge) {
-                          const price = parseFloat(priceBadge.textContent.replace(/[^0-9.-]+/g,""));
-                          if (!isNaN(price)) totalDest += price;
-                      }
+                      const price = parseFloat(act.dataset.precio || 0);
+                      totalDest += price;
+                      totalActs++;
                   } else {
                       act.style.display = 'none';
                   }
               });
 
-              // Hide days with no visible activities
+              const mapCount = document.getElementById('map-activity-count');
+              const mapHeader = document.querySelector('#trip-map + div h6');
+              if (dest === 'all') {
+                  if(mapHeader) mapHeader.textContent = "Todos Los Destinos";
+              } else {
+                  if(mapHeader) mapHeader.textContent = dest;
+              }
+              if (mapCount) {
+                  mapCount.textContent = totalActs;
+              }
+
               daysContent.forEach((content, index) => {
                   const visibleActs = content.querySelectorAll('.activity-item[style="display: block;"]');
                   const hasVisible = visibleActs.length > 0 || dest === 'all';
-                  // Find corresponding day button
                   if (days[index]) {
                       days[index].style.display = hasVisible ? 'inline-block' : 'none';
                   }
               });
 
-              // Update budget widget visually (if you want to show partial budget)
-              const budgetEl = document.querySelector('.widget-card .fs-2.fw-bold');
-              if (budgetEl && dest !== 'all') {
-                  budgetEl.textContent = '$' + totalDest.toLocaleString();
-              } else if (budgetEl && dest === 'all') {
-                  budgetEl.textContent = '$' + ({{ viaje.costo_total_estimado or 0 }}).toLocaleString();
+              const activeDayBtn = document.querySelector('.day-tab-btn.btn-brand');
+              if(activeDayBtn) {
+                  actualizarPresupuestoDia(activeDayBtn.dataset.day);
               }
           });
       });
@@ -1219,6 +1250,62 @@
       if (boton) boton.click();
   }
 
+  function inicializarProximaActividad() {
+      const ahora = new Date();
+      const parseTime = (timeStr) => {
+          const [h,m] = timeStr.split(':').map(Number);
+          return h*60+m;
+      };
+      
+      let proxima = null;
+      let difMin = Infinity;
+      
+      const startStr = VIAJE.fecha_inicio;
+      const start = new Date(startStr);
+      start.setHours(0,0,0,0);
+      
+      document.querySelectorAll('.day-content').forEach((diaElem, idx) => {
+          const diaFecha = new Date(start);
+          diaFecha.setDate(diaFecha.getDate() + idx);
+          
+          diaElem.querySelectorAll('.activity-item').forEach(act => {
+              const horarioStr = act.dataset.horario;
+              let actStartMin = 0;
+              if(horarioStr && horarioStr.includes(':')) {
+                  actStartMin = parseTime(horarioStr.split('-')[0].trim());
+              }
+              
+              const actStart = new Date(diaFecha);
+              actStart.setHours(Math.floor(actStartMin/60), actStartMin%60, 0, 0);
+              
+              const dif = actStart - ahora;
+              if(dif > 0 && dif < difMin) {
+                  difMin = dif;
+                  proxima = { nombre: act.dataset.nombre, tiempo: dif };
+              }
+          });
+      });
+      
+      const nameEl = document.getElementById('next-activity-name');
+      const timeEl = document.getElementById('next-activity-time');
+      if(proxima) {
+          nameEl.textContent = proxima.nombre;
+          const d = Math.floor(proxima.tiempo / (1000*60*60*24));
+          const h = Math.floor((proxima.tiempo / (1000*60*60)) % 24);
+          const m = Math.floor((proxima.tiempo / (1000*60)) % 60);
+          
+          let msg = [];
+          if(d>0) msg.push(`${d}d`);
+          if(h>0) msg.push(`${h}h`);
+          msg.push(`${m}m`);
+          timeEl.textContent = msg.join(' ');
+      } else {
+          nameEl.textContent = "Ninguna programada";
+          nameEl.classList.remove('fs-5'); nameEl.classList.add('fs-6');
+          timeEl.textContent = "Viaje finalizado o sin fechas";
+      }
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
       pintarIconos();
       inicializarPestanas();
@@ -1230,6 +1317,12 @@
       inicializarActividades();
       dibujarFranjaHoraria();
       restaurarDia();
+      inicializarProximaActividad();
+      
+      const activeDayBtn = document.querySelector('.day-tab-btn.btn-brand');
+      if(activeDayBtn) {
+          actualizarPresupuestoDia(activeDayBtn.dataset.day);
+      }
   });
 </script>
 {% endblock %}

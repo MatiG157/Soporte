@@ -34,6 +34,7 @@ class ViajeSchema(Schema):
         validate=validate.Length(max=20),
         error_messages={"required": "El tipo de viaje es obligatorio."}
     )
+    titulo = fields.String(validate=validate.Length(max=255), allow_none=True)
     costo_total_estimado = fields.Float()
     imagen = fields.String(validate=validate.Length(max=500), allow_none=True)
     estado = fields.String(

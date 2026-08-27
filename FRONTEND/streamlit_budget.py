@@ -84,7 +84,7 @@ TEXTOS = {
     "es": {
         "destinations": "Destinos", "all": "Todos", "day_range": "Rango de días",
         "per_person": "Por persona", "of": "de",
-        "kpi_total": "Total del viaje", "kpi_per_day": "Costo por día",
+        "kpi_total": "Total del viaje", "kpi_per_day": "Promedio por día",
         "kpi_budget": "Presupuesto usado", "kpi_selection": "Tramo seleccionado",
         "no_budget": "sin presupuesto fijado", "over_budget": "por encima",
         "left": "disponible",
@@ -134,6 +134,22 @@ st.markdown(
     [data-testid="stMetricValue"] { font-size: 1.6rem; font-weight: 700; }
     [data-testid="stMetricLabel"] { font-size: 0.72rem; font-weight: 700;
                                     letter-spacing: .5px; text-transform: uppercase; }
+    /* Estilo de pills para que se parezcan a los del itinerario */
+    div[data-testid="stVerticalBlock"] div[data-testid="stPills"] button {
+        border-radius: 0.25rem !important;
+        border: 1px solid #dee2e6 !important;
+        background-color: #f8f9fa !important;
+        color: #6c757d !important;
+        font-weight: 600 !important;
+        padding: 0.25rem 0.5rem !important;
+        min-height: 0 !important;
+    }
+    div[data-testid="stVerticalBlock"] div[data-testid="stPills"] button[aria-pressed="true"],
+    div[data-testid="stVerticalBlock"] div[data-testid="stPills"] button[data-pressed="true"] {
+        background-color: #006d5b !important;
+        color: white !important;
+        border-color: #006d5b !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,

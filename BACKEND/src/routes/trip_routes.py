@@ -38,6 +38,7 @@ def _serializar_resumen(v):
         "fecha_inicio": v.fecha_inicio.isoformat(),
         "fecha_fin": v.fecha_fin.isoformat(),
         "tipo_viaje": v.tipo_viaje,
+        "titulo": v.titulo,
         "costo_total_estimado": v.costo_total_estimado,
         "estado": v.estado,
         "group_id": v.group_id,

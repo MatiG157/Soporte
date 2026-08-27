@@ -136,6 +136,7 @@ def actualizar_viaje(id_viaje, datos):
     viaje.fecha_inicio = datos_validados.get('fecha_inicio', viaje.fecha_inicio)
     viaje.fecha_fin = datos_validados.get('fecha_fin', viaje.fecha_fin)
     viaje.tipo_viaje = datos_validados.get('tipo_viaje', viaje.tipo_viaje)
+    viaje.titulo = datos_validados.get('titulo', viaje.titulo)
     viaje.costo_total_estimado = datos_validados.get(
         'costo_total_estimado', viaje.costo_total_estimado)
     viaje.imagen = datos_validados.get('imagen', viaje.imagen)

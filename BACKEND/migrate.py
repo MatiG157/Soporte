@@ -248,6 +248,26 @@ def m007_destinos_relacionales(cursor):
         _log("    ✓ Columna 'destinos' eliminada de 'viajes'")
 
 
+def m008_viajes_titulo(cursor):
+    """Agrega la columna titulo a viajes y setea el titulo por defecto en inglés si no lo tiene."""
+    _agregar_columna(cursor, "viajes", "titulo", "VARCHAR(255) NULL")
+    
+    cursor.execute("SELECT id_viaje, tipo_viaje FROM viajes WHERE titulo IS NULL")
+    viajes_sin_titulo = cursor.fetchall()
+    
+    for id_viaje, tipo_viaje in viajes_sin_titulo:
+        cursor.execute("SELECT nombre FROM viaje_destinos WHERE id_viaje = %s ORDER BY fecha_llegada", (id_viaje,))
+        destinos = [row[0] for row in cursor.fetchall()]
+        if destinos:
+            destinos_str = " --> ".join(destinos)
+            titulo = f"{tipo_viaje.capitalize()} Trip To: {destinos_str}"
+        else:
+            titulo = f"{tipo_viaje.capitalize()} Trip"
+        
+        cursor.execute("UPDATE viajes SET titulo = %s WHERE id_viaje = %s", (titulo, id_viaje))
+        
+    _log("    ✔️ Títulos generados para los viajes existentes")
+
 MIGRACIONES = [
     ("001_destinos_como_json", m001_destinos_como_json),
     ("002_campos_de_usuario", m002_campos_de_usuario),
@@ -256,6 +276,7 @@ MIGRACIONES = [
     ("005_campos_de_preferencias", m005_campos_de_preferencias),
     ("006_normalizar_grupos", m006_normalizar_grupos),
     ("007_destinos_relacionales", m007_destinos_relacionales),
+    ("008_viajes_titulo", m008_viajes_titulo),
 ]
 
 

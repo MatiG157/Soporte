@@ -18,6 +18,7 @@ class Viaje(db.Model):
 
     # NUEVOS CAMPOS:
     estado = db.Column(db.String(20), default="draft", nullable=False)
+    titulo = db.Column(db.String(255), nullable=True)
     group_id = db.Column(db.String(50), nullable=True)
     created_at = db.Column(
         db.DateTime, default=lambda: datetime.now(timezone.utc))
