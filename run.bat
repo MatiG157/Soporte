@@ -34,8 +34,10 @@ echo.
 
 start "TravelPlanner Backend"  cmd /k "cd /d %~dp0BACKEND  && call "%VENV%" && python app.py"
 start "TravelPlanner Frontend" cmd /k "cd /d %~dp0FRONTEND && call "%VENV%" && python app.py"
+start "TravelPlanner Budget Dashboard" cmd /k "cd /d %~dp0FRONTEND && call "%VENV%" && streamlit run streamlit_budget.py --server.port 8501 --server.headless true"
 
 echo Backend  -^> http://localhost:5000
 echo Frontend -^> http://localhost:8080
+echo Budget dashboard (Streamlit) -^> http://localhost:8501
 echo.
 endlocal

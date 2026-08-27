@@ -217,3 +217,183 @@
 .dest-badge:not(.active):hover {
   background-color: #e2e8f0 !important;
 }
+
+/* ─── Acciones sobre las actividades ──────────────────────────────────────────
+   El viaje que recomienda la IA se puede editar: cada tarjeta lleva un lápiz y
+   un tacho, y cada día un botón para agregar. Se mantienen discretos (sólo se
+   tiñen al pasar por encima) para no competir con el contenido. */
+
+.act-action-btn {
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  padding: 0.25rem 0.4rem;
+  line-height: 1;
+  border-radius: 0.5rem;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.act-action-btn:hover,
+.act-action-btn:focus-visible {
+  background-color: #f1f5f9;
+  color: var(--brand-color, #006d5b);
+}
+
+.act-delete-btn:hover,
+.act-delete-btn:focus-visible {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.act-add-btn {
+  border: 1px dashed var(--brand-color, #006d5b);
+  color: var(--brand-color, #006d5b);
+  background-color: transparent;
+  border-radius: 0.75rem;
+  padding: 0.4rem 1rem;
+}
+
+.act-add-btn:hover,
+.act-add-btn:focus-visible {
+  background-color: #ccfbf1;
+  color: #065f46;
+}
+
+/* ─── Franja horaria del día ──────────────────────────────────────────────────
+   Una regla de horas con las actividades ubicadas donde caen. Las que se
+   superponen se reparten en carriles, así se ven todas. */
+
+.timeline-strip {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.9rem 0.75rem;
+  background-color: #fbfbfc;
+}
+
+.timeline-hours {
+  position: relative;
+  height: 1.1rem;
+  margin-bottom: 0.35rem;
+}
+
+.timeline-hour {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.timeline-lanes {
+  position: relative;
+}
+
+.timeline-gridline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background-color: #eceff3;
+}
+
+.timeline-block {
+  position: absolute;
+  height: 24px;
+  border: none;
+  border-radius: 0.4rem;
+  padding: 0 0.5rem;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: left;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  opacity: 0.9;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.timeline-block:hover,
+.timeline-block:focus-visible {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.timeline-block span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timeline-unscheduled {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.timeline-chip {
+  border: 1px dashed #cbd5e1;
+  background-color: #fff;
+  color: #475569;
+  border-radius: 999px;
+  padding: 0.15rem 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.timeline-chip:hover {
+  border-color: var(--brand-color, #006d5b);
+  color: var(--brand-color, #006d5b);
+}
+
+/* Al llegar desde la franja, la tarjeta parpadea para ubicarla. */
+.activity-destacada .timeline-card {
+  box-shadow: 0 0 0 3px rgba(0, 109, 91, 0.35) !important;
+  transition: box-shadow 0.3s ease;
+}
+
+/* ─── Sugerencias de lugares en el formulario de actividad ───────────────── */
+
+.act-autocomplete-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  list-style: none;
+  padding: 0;
+  margin: 0.25rem 0 0;
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 1060;
+  display: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.act-autocomplete-list.show {
+  display: block;
+}
+
+.act-autocomplete-list li {
+  padding: 0.55rem 0.8rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #444;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.act-autocomplete-list li:last-child {
+  border-bottom: none;
+}
+
+.act-autocomplete-list li:hover {
+  background-color: #f8f9fa;
+  color: var(--brand-color, #006d5b);
+}

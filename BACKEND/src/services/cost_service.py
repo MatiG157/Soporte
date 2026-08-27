@@ -129,6 +129,52 @@ def guardar_costo_de_viaje(id_viaje, desglose, costo_max=None):
     return costo, reoptimizado
 
 
+def ajustar_costo_por_actividades(id_viaje, delta):
+    """Mueve el costo del viaje cuando se agrega, edita o borra una actividad.
+
+    Se aplica la **diferencia** en vez de recalcular `costo_actividades` como la
+    suma de las actividades cargadas. El motivo es que el desglose que manda n8n
+    y la suma de los precios actividad por actividad son dos salidas
+    independientes del flujo y no coinciden: recalcular haría saltar el costo
+    del viaje entero la primera vez que el usuario toca cualquier actividad.
+    Con el delta, borrar una actividad de $380 baja el viaje exactamente $380,
+    que es lo que el usuario espera ver.
+
+    No hace commit: lo hace quien llama, junto con el cambio de la actividad.
+    """
+    delta = _a_float(delta)
+    if not delta:
+        return None
+
+    costo = Costo.query.filter_by(id_viaje=id_viaje).first()
+    viaje = db.session.get(Viaje, id_viaje)
+    if costo is None or viaje is None:
+        return None
+
+    # El viaje puede tener el multiplicador del tipo aplicado (cuando el costo
+    # fue una estimación) o no (cuando n8n mandó desglose). Se conserva la
+    # relación que ya tenía en vez de volver a decidirla acá, que es lo que
+    # haría `apply_cost_adjustment` y contaría el premium dos veces.
+    base_previa = _a_float(costo.costo_total_base)
+    factor = (_a_float(viaje.costo_total_estimado) / base_previa) if base_previa else 1.0
+
+    costo.costo_actividades = max(
+        0.0, round(_a_float(costo.costo_actividades) + delta, 2)
+    )
+    costo.costo_total_base = round(
+        calculate_base_cost({
+            "costo_alojamiento": costo.costo_alojamiento,
+            "costo_transporte": costo.costo_transporte,
+            "costo_actividades": costo.costo_actividades,
+            "costo_comidas": costo.costo_comidas,
+        }),
+        2,
+    )
+    viaje.costo_total_estimado = round(costo.costo_total_base * factor, 2)
+
+    return costo
+
+
 def create_or_update_cost(data):
     id_viaje = data["id_viaje"]
 

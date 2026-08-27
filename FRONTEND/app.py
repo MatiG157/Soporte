@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import secrets
 from datetime import date, datetime, timedelta
 from functools import wraps
@@ -53,6 +54,10 @@ security.registrar(app)
 IDIOMAS = ["en", "es", "fr", "it", "de", "ru", "zh", "ja", "pt"]
 
 IMAGEN_POR_DEFECTO = trip_generator.IMAGEN_POR_DEFECTO
+
+# Dashboard de presupuesto: corre aparte (streamlit_budget.py) y se embebe
+# como iframe en /budget. Ver README para cómo levantarlo.
+STREAMLIT_URL = os.getenv("STREAMLIT_URL", "http://127.0.0.1:8501").rstrip("/")
 
 oauth = OAuth(app)
 google = oauth.register(
@@ -160,6 +165,19 @@ def _fecha(valor):
         return datetime.fromisoformat(str(valor)).date()
     except (TypeError, ValueError):
         return None
+
+
+def _hora_de_inicio(actividad):
+    """Minutos desde medianoche del `horario_sugerido` ("08:00 - 16:00").
+
+    Sirve para ordenar el día. Lo que no se pueda leer va al final, para que una
+    actividad con el horario escrito de otra forma no se pierda arriba de todo.
+    """
+    horario = (actividad.get("horario_sugerido") or "").strip()
+    match = re.match(r"(\d{1,2}):(\d{2})", horario)
+    if not match:
+        return (1, 0)
+    return (0, int(match.group(1)) * 60 + int(match.group(2)))
 
 
 @app.context_processor
@@ -571,14 +589,19 @@ def _cargar_viaje(id_viaje):
         viaje["countdown_estado"] = "desconocido"
 
     itinerarios = sorted(viaje.get("itinerarios") or [], key=lambda i: i.get("dia") or 0)
-    
+
     destino_anterior = None
     for indice, itin in enumerate(itinerarios):
         fecha_dia = inicio + timedelta(days=indice) if inicio else None
         itin["fecha_fmt"] = fecha_dia.strftime("%d %b") if fecha_dia else ""
         itin["fecha_iso"] = fecha_dia.isoformat() if fecha_dia else ""
+
+        # La base las devuelve en el orden en que se insertaron: una actividad
+        # agregada a mano caería al final del día aunque sea de la mañana.
+        itin["actividades"] = sorted(itin.get("actividades") or [], key=_hora_de_inicio)
+
         itin["total_dia"] = round(
-            sum(a.get("precio_estimado") or 0 for a in (itin.get("actividades") or [])), 2
+            sum(a.get("precio_estimado") or 0 for a in itin["actividades"]), 2
         )
 
         destino_del_dia = ""
@@ -623,7 +646,17 @@ def itinerary(id_viaje):
             return render_template("403.html"), 403
         return render_template("500.html", detalle=exc.mensaje), 500
 
-    return render_template("itinerary.html", viaje=viaje, nav=_sidebar(viaje))
+    # Para el datalist del formulario de actividades: las categorías que ya usa
+    # el viaje, que son las que tienen icono y color propios en la tarjeta.
+    categorias = sorted({
+        (act.get("categoria") or "").strip()
+        for itin in viaje.get("itinerarios") or []
+        for act in itin.get("actividades") or []
+        if (act.get("categoria") or "").strip()
+    })
+
+    return render_template("itinerary.html", viaje=viaje, nav=_sidebar(viaje),
+                           categorias_actividad=categorias)
 
 
 # Alias histórico: /viaje/<id> apunta al mismo itinerario.
@@ -643,21 +676,92 @@ def eliminar_viaje(id_viaje):
     return jsonify({"ok": True})
 
 
-@app.route("/trips/<int:id_viaje>", methods=["PATCH"])
-@login_requerido
-def editar_viaje(id_viaje):
-    datos = request.get_json() or {}
-    permitidos = {"destinos", "fecha_inicio", "fecha_fin", "imagen"}
-    payload = {k: v for k, v in datos.items() if k in permitidos}
+# El viaje en sí no se edita desde la web: lo que se puede tocar del plan que
+# armó la IA son las actividades (ver más arriba). Las fechas y el destino
+# definen el itinerario entero, así que cambiarlos a mano dejaba días sin
+# actividades y actividades fuera de rango.
 
-    if not payload:
-        return jsonify({"error": "No hay nada para actualizar."}), 400
+
+# ─── Actividades del itinerario ──────────────────────────────────────────────
+# El viaje que sugiere la IA es un punto de partida: desde /itinerary el usuario
+# puede borrar lo que no le sirve, editar lo que le sirve a medias y agregar lo
+# suyo. El backend recalcula el costo del viaje en cada uno de esos cambios.
+
+CAMPOS_ACTIVIDAD = {
+    "nombre", "descripcion", "precio_estimado",
+    "categoria", "horario_sugerido", "ubicacion",
+}
+
+
+def _payload_actividad(datos):
+    """Deja pasar sólo los campos editables, ya limpios."""
+    payload = {}
+    for campo in CAMPOS_ACTIVIDAD:
+        if campo not in datos:
+            continue
+        valor = datos[campo]
+        if campo == "precio_estimado":
+            try:
+                payload[campo] = float(valor or 0)
+            except (TypeError, ValueError):
+                return None, "El precio tiene que ser un número."
+        else:
+            payload[campo] = (valor or "").strip()
+    return payload, None
+
+
+@app.route("/activities", methods=["POST"])
+@login_requerido
+def crear_actividad():
+    datos = request.get_json() or {}
+
+    id_itinerario = datos.get("id_itinerario")
+    if not id_itinerario:
+        return jsonify({"error": "Falta el día al que agregar la actividad."}), 400
+
+    payload, error = _payload_actividad(datos)
+    if error:
+        return jsonify({"error": error}), 400
+    if not payload.get("nombre"):
+        return jsonify({"error": "El título de la actividad es obligatorio."}), 400
+
+    payload["id_itinerario"] = id_itinerario
 
     try:
-        api_client.request("PATCH", f"/viajes/{id_viaje}", json=payload)
+        respuesta = api_client.post("/actividades/", json=payload)
     except BackendError as exc:
         return jsonify({"error": exc.mensaje}), exc.status or 500
-    return jsonify({"ok": True})
+    return jsonify(respuesta or {"ok": True}), 201
+
+
+@app.route("/activities/<int:id_actividad>", methods=["PATCH"])
+@login_requerido
+def editar_actividad(id_actividad):
+    datos = request.get_json() or {}
+
+    payload, error = _payload_actividad(datos)
+    if error:
+        return jsonify({"error": error}), 400
+    if not payload:
+        return jsonify({"error": "No hay nada para actualizar."}), 400
+    if "nombre" in payload and not payload["nombre"]:
+        return jsonify({"error": "El título de la actividad es obligatorio."}), 400
+
+    try:
+        respuesta = api_client.request("PATCH", f"/actividades/{id_actividad}", json=payload)
+    except BackendError as exc:
+        return jsonify({"error": exc.mensaje}), exc.status or 500
+    return jsonify(respuesta or {"ok": True})
+
+
+@app.route("/activities/<int:id_actividad>", methods=["DELETE"])
+@login_requerido
+def eliminar_actividad(id_actividad):
+    try:
+        respuesta = api_client.delete(f"/actividades/{id_actividad}")
+    except BackendError as exc:
+        return jsonify({"error": exc.mensaje}), exc.status or 500
+    return jsonify(respuesta or {"ok": True})
 
 
 # ─── Presupuesto ─────────────────────────────────────────────────────────────
@@ -686,24 +790,6 @@ def budget(id_viaje=None):
 
     costos = viaje.get("costos") or {}
 
-    # Gasto por día y por categoría, calculado con las actividades reales.
-    por_dia = [
-        {
-            "dia": itin.get("dia"),
-            "fecha": itin.get("fecha_fmt"),
-            "total": itin.get("total_dia", 0),
-        }
-        for itin in viaje.get("itinerarios") or []
-    ]
-
-    por_categoria = {}
-    for itin in viaje.get("itinerarios") or []:
-        for act in itin.get("actividades") or []:
-            clave = act.get("categoria") or "Otros"
-            por_categoria[clave] = round(
-                por_categoria.get(clave, 0) + (act.get("precio_estimado") or 0), 2
-            )
-
     otros_viajes = api_client.get_o_defecto(
         f"/viajes/usuario/{session['user_id']}", defecto=[]
     ) or []
@@ -713,8 +799,7 @@ def budget(id_viaje=None):
         nav=_sidebar(viaje),
         viaje=viaje,
         costos=costos,
-        por_dia=por_dia,
-        por_categoria=sorted(por_categoria.items(), key=lambda kv: kv[1], reverse=True),
+        streamlit_url=STREAMLIT_URL,
         viajes=[v for v in otros_viajes if v.get("estado") == "guardado"],
     )
 

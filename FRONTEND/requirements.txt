@@ -5,3 +5,7 @@ python-dotenv==1.2.2
 requests==2.32.5
 Authlib==1.6.5
 pytest==8.4.2
+
+# Dashboard de presupuesto (streamlit_budget.py), embebido en /budget.
+streamlit==1.62.0
+plotly==7.0.0

@@ -59,7 +59,7 @@ class UserPreferencesSchema(Schema):
         validate=validate.Range(min=1, error="La cantidad de personas debe ser mayor a 0.")
     )
     grupo = GrupoField()
-    tipos_alojamiento = fields.List(fields.Integer(), required=False)
+    tipos_alojamiento = fields.List(fields.Integer(), required=False, load_only=True)
     hospedaje = fields.String(validate=validate.Length(max=100))
     edades_viajeros = fields.String(validate=validate.Length(max=100))
     tipo_transporte = fields.String(validate=validate.Length(max=100))

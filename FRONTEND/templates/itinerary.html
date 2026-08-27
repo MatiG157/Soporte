@@ -43,9 +43,6 @@
         <button id="share-btn" class="btn btn-outline-secondary rounded-circle icon-btn shadow-sm" data-i18n-title="iti_share" title="Share">
           <i class="fa-solid fa-share-nodes"></i>
         </button>
-        <button class="btn btn-outline-secondary rounded-circle icon-btn shadow-sm" data-bs-toggle="modal" data-bs-target="#editTripModal" data-i18n-title="iti_edit" title="Edit trip">
-          <i class="fa-solid fa-pen"></i>
-        </button>
         <a href="{{ url_for('budget', id_viaje=viaje.id_viaje) }}" class="btn btn-outline-secondary rounded-circle icon-btn shadow-sm" data-i18n-title="sidebar_budget" title="Budget">
           <i class="fa-solid fa-piggy-bank"></i>
         </a>
@@ -127,11 +124,27 @@
         <div class="timeline-line"></div>
 
         {% for itin in viaje.itinerarios %}
-        <div class="day-content" id="day-content-{{ loop.index }}" data-actividades="{{ itin.actividades | tojson }}" style="{% if not loop.first %}display: none;{% endif %}">
+        <div class="day-content" id="day-content-{{ loop.index }}" data-actividades="{{ itin.actividades | tojson }}" data-itinerario="{{ itin.id_itinerario }}" style="{% if not loop.first %}display: none;{% endif %}">
           {% if itin.resumen %}
-          <p class="text-secondary fst-italic mb-4 ps-4">{{ itin.resumen }}</p>
-          {% endif %} {% for act in itin.actividades %}
-          <div class="timeline-item mb-4 activity-item" data-dest="{{ act.destino or '' }}">
+          <p class="text-secondary fst-italic mb-3 ps-4">{{ itin.resumen }}</p>
+          {% endif %}
+
+          <!-- Franja horaria del día: se arma en JS con los horarios de las
+               actividades (ver `dibujarFranjaHoraria`). -->
+          <div class="day-timeline ps-4 mb-4"></div>
+
+          {% for act in itin.actividades %}
+          <div
+            class="timeline-item mb-4 activity-item"
+            data-dest="{{ act.destino or '' }}"
+            data-id="{{ act.id_actividad }}"
+            data-nombre="{{ act.nombre or '' }}"
+            data-descripcion="{{ act.descripcion or '' }}"
+            data-precio="{{ act.precio_estimado or 0 }}"
+            data-categoria-nombre="{{ act.categoria or '' }}"
+            data-horario="{{ act.horario_sugerido or '' }}"
+            data-ubicacion="{{ act.ubicacion or '' }}"
+          >
             <div class="timeline-dot {% if loop.first %}active-dot{% endif %}"></div>
             <div class="card timeline-card border rounded-4 shadow-sm">
               <div class="row g-0">
@@ -141,7 +154,15 @@
                 <div class="col-md-8 p-3">
                   <div class="d-flex justify-content-between align-items-start mb-2">
                     <div class="d-flex align-items-center text-secondary fw-bold mb-1 fs-7"><i class="fa-regular fa-clock me-2"></i> {{ act.horario_sugerido }}</div>
-                    <span class="badge bg-light text-secondary fs-6"> ${{ '{:,.0f}'.format(act.precio_estimado or 0) }} </span>
+                    <div class="d-flex align-items-center gap-1">
+                      <span class="badge bg-light text-secondary fs-6"> ${{ '{:,.0f}'.format(act.precio_estimado or 0) }} </span>
+                      <button type="button" class="btn btn-sm act-action-btn act-edit-btn" data-i18n-title="act_edit" title="Edit activity" aria-label="Edit activity">
+                        <i class="fa-solid fa-pen"></i>
+                      </button>
+                      <button type="button" class="btn btn-sm act-action-btn act-delete-btn" data-i18n-title="act_delete" title="Remove activity" aria-label="Remove activity">
+                        <i class="fa-solid fa-trash-can"></i>
+                      </button>
+                    </div>
                   </div>
                   <h4 class="fw-bold mb-2 text-dark">{{ act.nombre }}</h4>
                   <p class="text-secondary fs-7 mb-3">{{ act.descripcion }}</p>
@@ -159,6 +180,12 @@
           {% else %}
           <p class="text-secondary ps-4" data-i18n="iti_no_activities">No activities loaded for this day.</p>
           {% endfor %}
+
+          <div class="ps-4 pb-2">
+            <button type="button" class="btn btn-sm act-add-btn fw-bold" data-itinerario="{{ itin.id_itinerario }}">
+              <i class="fa-solid fa-plus me-2"></i><span data-i18n="act_add">Add activity</span>
+            </button>
+          </div>
 
           <div class="ps-4 pb-4 text-secondary fs-7">
             <span data-i18n="iti_day_total">Estimated for the day</span>:
@@ -229,35 +256,90 @@
   </div>
 </div>
 
-<!-- Modal: editar viaje -->
-<div class="modal fade" id="editTripModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
+<!-- Modal: alta y edición de una actividad -->
+<div class="modal fade" id="activityModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content rounded-4 border-0 shadow">
       <div class="modal-header border-0">
-        <h5 class="modal-title fw-bold" data-i18n="iti_edit">Edit trip</h5>
+        <h5 class="modal-title fw-bold" id="activity-modal-title" data-i18n="act_edit">Edit activity</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <div id="edit-alert"></div>
+        <div id="activity-alert"></div>
 
         <div class="mb-3">
-          <label for="edit-start" class="form-label fw-bold small text-uppercase" data-i18n="index_dep">Departure</label>
-          <input type="date" id="edit-start" class="form-control" value="{{ viaje.fecha_inicio }}" />
+          <label for="act-nombre" class="form-label fw-bold small text-uppercase" data-i18n="act_title">Title</label>
+          <input type="text" id="act-nombre" class="form-control" maxlength="120" required />
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-7">
+            <label for="act-hora-inicio" class="form-label fw-bold small text-uppercase" data-i18n="act_time">Time</label>
+            <div class="d-flex align-items-center gap-2">
+              <select id="act-hora-inicio" class="form-select" aria-label="Start time"></select>
+              <span class="text-secondary fw-bold">–</span>
+              <select id="act-hora-fin" class="form-select" aria-label="End time"></select>
+            </div>
+            <div class="form-text mt-2" id="act-horario-ocupado"></div>
+          </div>
+          <div class="col-md-5">
+            <label for="act-precio" class="form-label fw-bold small text-uppercase" data-i18n="act_price">Price</label>
+            <div class="input-group">
+              <span class="input-group-text">$</span>
+              <input type="number" id="act-precio" class="form-control" min="0" step="1" value="0" />
+            </div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label for="act-categoria" class="form-label fw-bold small text-uppercase" data-i18n="act_category">Category</label>
+            <select id="act-categoria" class="form-select"></select>
+          </div>
+          <div class="col-md-6 d-none" id="act-categoria-otra-wrap">
+            <label for="act-categoria-otra" class="form-label fw-bold small text-uppercase" data-i18n="act_category_other">Which one?</label>
+            <input type="text" id="act-categoria-otra" class="form-control" maxlength="80" />
+          </div>
+        </div>
+
+        <div class="mb-3 position-relative">
+          <label for="act-ubicacion" class="form-label fw-bold small text-uppercase" data-i18n="act_location">Location</label>
+          <input type="text" id="act-ubicacion" class="form-control" maxlength="150" autocomplete="off" />
+          <ul id="act-ubicacion-options" class="act-autocomplete-list"></ul>
         </div>
 
         <div class="mb-3">
-          <label for="edit-end" class="form-label fw-bold small text-uppercase" data-i18n="index_arr">Arrival</label>
-          <input type="date" id="edit-end" class="form-control" value="{{ viaje.fecha_fin }}" />
+          <label for="act-descripcion" class="form-label fw-bold small text-uppercase" data-i18n="act_description">Description</label>
+          <textarea id="act-descripcion" class="form-control" rows="3"></textarea>
         </div>
 
-        <div class="mb-3">
-          <label for="edit-image" class="form-label fw-bold small text-uppercase" data-i18n="settings_photo_url">Image URL</label>
-          <input type="url" id="edit-image" class="form-control" value="{{ viaje.imagen or '' }}" />
-        </div>
+        <p class="text-secondary fs-7 mb-0" data-i18n="act_budget_note">Changing the price updates the trip budget.</p>
       </div>
       <div class="modal-footer border-0">
         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="common_cancel">Cancel</button>
-        <button type="button" id="edit-save" class="btn text-white fw-bold" style="background-color: var(--brand-color, #006d5b)" data-i18n="common_save">Save</button>
+        <button type="button" id="activity-save" class="btn text-white fw-bold" style="background-color: var(--brand-color, #006d5b)" data-i18n="common_save">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: confirmar la baja de una actividad -->
+<div class="modal fade" id="deleteActivityModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4 border-0 shadow">
+      <div class="modal-header border-0">
+        <h5 class="modal-title fw-bold" data-i18n="act_delete">Remove activity</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="delete-activity-alert"></div>
+        <p class="mb-2" data-i18n="act_delete_confirm">Remove this activity from your itinerary?</p>
+        <p class="fw-bold mb-1" id="delete-activity-name"></p>
+        <p class="text-secondary fs-7 mb-0" data-i18n="act_delete_note">The trip budget goes down by its price.</p>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="common_cancel">Cancel</button>
+        <button type="button" id="delete-activity-confirm" class="btn btn-danger fw-bold" data-i18n="common_delete">Delete</button>
       </div>
     </div>
   </div>
@@ -275,19 +357,42 @@
   // ─── Iconos por categoría (reemplazan las fotos genéricas) ───────────────────
 
   const ESTILO_CATEGORIA = {
-      'sightseeing': ['fa-binoculars', '#0f766e'],
-      'turismo':     ['fa-binoculars', '#0f766e'],
-      'cultural':    ['fa-landmark', '#7c3aed'],
-      'aventura':    ['fa-person-hiking', '#c2410c'],
-      'adventure':   ['fa-person-hiking', '#c2410c'],
-      'deporte':     ['fa-person-running', '#c2410c'],
-      'gastronomía': ['fa-utensils', '#b45309'],
-      'gastronomia': ['fa-utensils', '#b45309'],
-      'relax':       ['fa-spa', '#0369a1'],
-      'compras':     ['fa-bag-shopping', '#be185d'],
-      'caminata':    ['fa-shoe-prints', '#15803d'],
-      'exclusivo':   ['fa-gem', '#a16207']
+      'sightseeing':   ['fa-binoculars', '#0f766e'],
+      'turismo':       ['fa-binoculars', '#0f766e'],
+      'cultural':      ['fa-landmark', '#7c3aed'],
+      'museos':        ['fa-building-columns', '#7c3aed'],
+      'aventura':      ['fa-person-hiking', '#c2410c'],
+      'adventure':     ['fa-person-hiking', '#c2410c'],
+      'deporte':       ['fa-person-running', '#c2410c'],
+      'deportes':      ['fa-person-running', '#c2410c'],
+      'gastronomía':   ['fa-utensils', '#b45309'],
+      'gastronomia':   ['fa-utensils', '#b45309'],
+      'comida':        ['fa-utensils', '#b45309'],
+      'comidas':       ['fa-utensils', '#b45309'],
+      'museo':         ['fa-building-columns', '#7c3aed'],
+      'excursión':     ['fa-person-hiking', '#c2410c'],
+      'excursion':     ['fa-person-hiking', '#c2410c'],
+      'relax':         ['fa-spa', '#0369a1'],
+      'compras':       ['fa-bag-shopping', '#be185d'],
+      'vida nocturna': ['fa-martini-glass', '#be185d'],
+      'espectáculos':  ['fa-masks-theater', '#9333ea'],
+      'espectaculos':  ['fa-masks-theater', '#9333ea'],
+      'naturaleza':    ['fa-tree', '#15803d'],
+      'caminata':      ['fa-shoe-prints', '#15803d'],
+      'playa':         ['fa-umbrella-beach', '#0891b2'],
+      'transporte':    ['fa-bus', '#475569'],
+      'exclusivo':     ['fa-gem', '#a16207']
   };
+
+  // Las que ofrece el desplegable del formulario, además de las que ya use el
+  // viaje. Cubren lo típico de un itinerario; para el resto está "Otra".
+  const CATEGORIAS_SUGERIDAS = [
+      'Sightseeing', 'Cultural', 'Museos', 'Gastronomía', 'Aventura', 'Relax',
+      'Naturaleza', 'Playa', 'Deportes', 'Compras', 'Vida nocturna',
+      'Espectáculos', 'Transporte'
+  ];
+  const CATEGORIAS_DEL_VIAJE = {{ categorias_actividad | tojson }};
+  const OTRA_CATEGORIA = '__otra__';
 
   function pintarIconos() {
       document.querySelectorAll('.activity-icon-wrapper').forEach(el => {
@@ -317,6 +422,7 @@
               const dia = this.dataset.day;
               document.getElementById('day-content-' + dia).style.display = 'block';
 
+              recordarDia(dia);
               dibujarMarcadores(dia);
           });
       });
@@ -531,38 +637,6 @@
       });
   }
 
-  function inicializarEdicion() {
-      document.getElementById('edit-save').addEventListener('click', async () => {
-          const alerta = document.getElementById('edit-alert');
-          const inicio = document.getElementById('edit-start').value;
-          const fin = document.getElementById('edit-end').value;
-
-          if (inicio && fin && new Date(inicio) > new Date(fin)) {
-              alerta.innerHTML = `<div class="alert alert-danger py-2">${t('err_dates')}</div>`;
-              return;
-          }
-
-          const cuerpo = {
-              fecha_inicio: inicio,
-              fecha_fin: fin,
-              imagen: document.getElementById('edit-image').value.trim() || null
-          };
-
-          try {
-              const resp = await apiFetch(`/trips/${VIAJE.id}`, {
-                  method: 'PATCH',
-                  body: JSON.stringify(cuerpo)
-              });
-              const datos = await resp.json();
-
-              if (resp.ok) window.location.reload();
-              else alerta.innerHTML = `<div class="alert alert-danger py-2">${datos.error}</div>`;
-          } catch (err) {
-              alerta.innerHTML = `<div class="alert alert-danger py-2">${t('err_server')}</div>`;
-          }
-      });
-  }
-
   function inicializarFiltrosDestino() {
       const badges = document.querySelectorAll('.dest-badge');
       const activities = document.querySelectorAll('.activity-item');
@@ -663,13 +737,486 @@
       }
   }
 
-  // Add the check for edit parameter
-  function verificarEdicion() {
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('edit') === '1') {
-          const editModal = new bootstrap.Modal(document.getElementById('editTripModal'));
-          editModal.show();
+  // ─── Editar el itinerario que recomendó la IA ────────────────────────────────
+  // Lo que sugiere el flujo es un punto de partida: se puede sacar lo que no
+  // sirve, corregir precio y horario, y agregar lo propio. Cada cambio hace que
+  // el backend recalcule el costo del viaje, así que después se recarga la
+  // página: el widget de presupuesto, el total del día y el mapa se arman en el
+  // servidor y tienen que quedar coherentes entre sí.
+
+  let actividadEnEdicion = null;   // {id} al editar, {id_itinerario} al crear
+  let actividadABorrar = null;
+
+  function modalDe(id) {
+      return bootstrap.Modal.getOrCreateInstance(document.getElementById(id));
+  }
+
+  function mostrarError(contenedor, mensaje) {
+      document.getElementById(contenedor).innerHTML =
+          `<div class="alert alert-danger py-2 mb-3">${mensaje}</div>`;
+  }
+
+  // ─── Horarios ────────────────────────────────────────────────────────────────
+
+  const PASO_MINUTOS = 30;
+  const DIA_COMPLETO = 24 * 60;
+
+  function aTexto(minutos) {
+      const h = Math.floor(minutos / 60), m = minutos % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+
+  function aMinutos(texto) {
+      const m = (texto || '').match(/(\d{1,2}):(\d{2})/);
+      return m ? (+m[1]) * 60 + (+m[2]) : null;
+  }
+
+  /** "08:00 - 16:00" -> {inicio: 480, fin: 960}. Devuelve null si no se entiende. */
+  function parsearHorario(texto) {
+      const rango = (texto || '').match(/(\d{1,2}):(\d{2})\D+(\d{1,2}):(\d{2})/);
+      if (rango) {
+          const inicio = (+rango[1]) * 60 + (+rango[2]);
+          let fin = (+rango[3]) * 60 + (+rango[4]);
+          if (fin <= inicio) fin = DIA_COMPLETO;   // cruza la medianoche
+          return { inicio, fin: Math.min(fin, DIA_COMPLETO) };
       }
+      const suelto = aMinutos(texto);
+      if (suelto === null) return null;
+      return { inicio: suelto, fin: Math.min(suelto + 60, DIA_COMPLETO) };
+  }
+
+  /** Las franjas que ya ocupan las otras actividades del mismo día. */
+  function ocupacionDelDia(contenedorDia, idExcluir) {
+      const rangos = [];
+      if (!contenedorDia) return rangos;
+
+      contenedorDia.querySelectorAll('.activity-item').forEach(item => {
+          if (idExcluir && String(item.dataset.id) === String(idExcluir)) return;
+          const r = parsearHorario(item.dataset.horario);
+          if (r) rangos.push({ ...r, nombre: item.dataset.nombre || '' });
+      });
+      return rangos.sort((a, b) => a.inicio - b.inicio);
+  }
+
+  function asegurarOpcion(select, valor) {
+      if (!valor) return;
+      if (![...select.options].some(o => o.value === valor)) {
+          select.add(new Option(valor, valor));
+          const ordenadas = [...select.options].sort((a, b) => a.value.localeCompare(b.value));
+          select.innerHTML = '';
+          ordenadas.forEach(o => select.add(o));
+      }
+      select.value = valor;
+  }
+
+  function llenarSelectsHorario(ocupados, inicioActual, finActual) {
+      const selInicio = document.getElementById('act-hora-inicio');
+      const selFin = document.getElementById('act-hora-fin');
+      const ocupadoEn = minuto => ocupados.some(r => minuto >= r.inicio && minuto < r.fin);
+      const marca = ` · ${t('act_time_busy', 'busy')}`;
+
+      selInicio.innerHTML = '';
+      for (let m = 0; m < DIA_COMPLETO; m += PASO_MINUTOS) {
+          selInicio.add(new Option(aTexto(m) + (ocupadoEn(m) ? marca : ''), aTexto(m)));
+      }
+
+      selFin.innerHTML = '';
+      for (let m = PASO_MINUTOS; m <= DIA_COMPLETO; m += PASO_MINUTOS) {
+          // El fin marca el corte: interesa si el minuto anterior está ocupado.
+          selFin.add(new Option(aTexto(m) + (ocupadoEn(m - 1) ? marca : ''), aTexto(m)));
+      }
+
+      asegurarOpcion(selInicio, inicioActual);
+      asegurarOpcion(selFin, finActual);
+
+      // Qué franjas están tomadas, en texto, para no tener que abrir el select.
+      const pista = document.getElementById('act-horario-ocupado');
+      if (!ocupados.length) {
+          pista.textContent = t('act_time_free', 'Nothing else booked this day.');
+      } else {
+          const partes = ocupados.map(r => {
+              const nombre = r.nombre.length > 28 ? r.nombre.slice(0, 27) + '…' : r.nombre;
+              return `${aTexto(r.inicio)}–${aTexto(r.fin)} ${nombre}`;
+          });
+          pista.textContent = `${t('act_time_taken', 'Already booked')}: ${partes.join(' · ')}`;
+      }
+  }
+
+  // ─── Categorías ──────────────────────────────────────────────────────────────
+
+  function llenarSelectCategoria(valorActual) {
+      const select = document.getElementById('act-categoria');
+      const otraWrap = document.getElementById('act-categoria-otra-wrap');
+      const otraInput = document.getElementById('act-categoria-otra');
+
+      const opciones = [...new Set([...CATEGORIAS_SUGERIDAS, ...CATEGORIAS_DEL_VIAJE])]
+          .sort((a, b) => a.localeCompare(b));
+
+      select.innerHTML = '';
+      select.add(new Option('—', ''));
+      opciones.forEach(c => select.add(new Option(c, c)));
+      select.add(new Option(t('act_category_other_opt', 'Other…'), OTRA_CATEGORIA));
+
+      if (valorActual && !opciones.includes(valorActual)) {
+          select.value = OTRA_CATEGORIA;
+          otraInput.value = valorActual;
+          otraWrap.classList.remove('d-none');
+      } else {
+          select.value = valorActual || '';
+          otraInput.value = '';
+          otraWrap.classList.add('d-none');
+      }
+  }
+
+  function categoriaElegida() {
+      const select = document.getElementById('act-categoria');
+      if (select.value === OTRA_CATEGORIA) {
+          return document.getElementById('act-categoria-otra').value.trim();
+      }
+      return select.value;
+  }
+
+  // ─── Ubicación: sugerencias de lugares reales (Photon, como en el inicio) ────
+
+  let temporizadorUbicacion = null;
+  let sesgoUbicacion;   // coordenadas del destino, para priorizar lo cercano
+
+  async function puntoDeSesgo() {
+      if (sesgoUbicacion === undefined) {
+          sesgoUbicacion = await geocodificar(VIAJE.destinos[0]);
+      }
+      return sesgoUbicacion;
+  }
+
+  function cerrarSugerencias() {
+      const lista = document.getElementById('act-ubicacion-options');
+      lista.innerHTML = '';
+      lista.classList.remove('show');
+  }
+
+  function buscarUbicaciones(consulta) {
+      const lista = document.getElementById('act-ubicacion-options');
+      clearTimeout(temporizadorUbicacion);
+
+      if (!consulta || consulta.length < 3) { cerrarSugerencias(); return; }
+
+      temporizadorUbicacion = setTimeout(async () => {
+          // Sin filtro de ciudad: acá interesan museos, restaurantes y parques,
+          // no sólo localidades. El sesgo por coordenadas pone primero lo que
+          // está cerca del destino del viaje.
+          const punto = await puntoDeSesgo();
+          let url = `https://photon.komoot.io/api/?q=${encodeURIComponent(consulta)}&limit=6`;
+          if (punto) url += `&lat=${punto.lat}&lon=${punto.lon}`;
+
+          try {
+              const datos = await (await fetch(url)).json();
+              const lugares = datos.features || [];
+              lista.innerHTML = '';
+
+              if (!lugares.length) { lista.classList.remove('show'); return; }
+
+              lugares.forEach(lugar => {
+                  const p = lugar.properties || {};
+                  const nombre = [p.name, p.street, p.city || p.town || p.village || p.state, p.country]
+                      .filter(Boolean).join(', ').slice(0, 150);
+
+                  const li = document.createElement('li');
+                  li.innerHTML = `<i class="fa-solid fa-location-dot me-2"></i>${nombre}`;
+                  // mousedown y no click: se dispara antes del blur del input.
+                  li.addEventListener('mousedown', evento => {
+                      evento.preventDefault();
+                      document.getElementById('act-ubicacion').value = nombre;
+                      cerrarSugerencias();
+                  });
+                  lista.appendChild(li);
+              });
+              lista.classList.add('show');
+          } catch (err) {
+              cerrarSugerencias();
+          }
+      }, 350);
+  }
+
+  // ─── Modal ───────────────────────────────────────────────────────────────────
+
+  function abrirEdicionActividad(item) {
+      actividadEnEdicion = { id: item.dataset.id };
+      const rango = parsearHorario(item.dataset.horario) || { inicio: 9 * 60, fin: 11 * 60 };
+
+      document.getElementById('activity-modal-title').textContent = t('act_edit', 'Edit activity');
+      document.getElementById('act-nombre').value = item.dataset.nombre || '';
+      document.getElementById('act-precio').value = parseFloat(item.dataset.precio) || 0;
+      document.getElementById('act-ubicacion').value = item.dataset.ubicacion || '';
+      document.getElementById('act-descripcion').value = item.dataset.descripcion || '';
+
+      llenarSelectsHorario(
+          ocupacionDelDia(item.closest('.day-content'), item.dataset.id),
+          aTexto(rango.inicio), aTexto(rango.fin)
+      );
+      llenarSelectCategoria(item.dataset.categoriaNombre || '');
+
+      document.getElementById('activity-alert').innerHTML = '';
+      cerrarSugerencias();
+      modalDe('activityModal').show();
+  }
+
+  function abrirAltaActividad(idItinerario) {
+      actividadEnEdicion = { id_itinerario: idItinerario };
+      const dia = document.querySelector(`.day-content[data-itinerario="${idItinerario}"]`);
+      const ocupados = ocupacionDelDia(dia, null);
+
+      // Arranca en el primer hueco libre después de la última actividad.
+      const ultimoFin = ocupados.length ? Math.max(...ocupados.map(r => r.fin)) : 9 * 60;
+      const inicio = Math.min(Math.ceil(ultimoFin / PASO_MINUTOS) * PASO_MINUTOS, DIA_COMPLETO - 60);
+
+      document.getElementById('activity-modal-title').textContent = t('act_add', 'Add activity');
+      ['act-nombre', 'act-ubicacion', 'act-descripcion']
+          .forEach(id => { document.getElementById(id).value = ''; });
+      document.getElementById('act-precio').value = 0;
+
+      llenarSelectsHorario(ocupados, aTexto(inicio), aTexto(inicio + 60));
+      llenarSelectCategoria('');
+
+      document.getElementById('activity-alert').innerHTML = '';
+      cerrarSugerencias();
+      modalDe('activityModal').show();
+  }
+
+  async function guardarActividad() {
+      const nombre = document.getElementById('act-nombre').value.trim();
+      if (!nombre) {
+          mostrarError('activity-alert', t('act_title_required', 'The title is required.'));
+          return;
+      }
+
+      const inicio = document.getElementById('act-hora-inicio').value;
+      const fin = document.getElementById('act-hora-fin').value;
+      if (aMinutos(fin) <= aMinutos(inicio)) {
+          mostrarError('activity-alert', t('act_time_invalid', 'The end time has to be after the start time.'));
+          return;
+      }
+
+      const cuerpo = {
+          nombre: nombre,
+          horario_sugerido: `${inicio} - ${fin}`,
+          precio_estimado: parseFloat(document.getElementById('act-precio').value) || 0,
+          categoria: categoriaElegida(),
+          ubicacion: document.getElementById('act-ubicacion').value.trim(),
+          descripcion: document.getElementById('act-descripcion').value.trim()
+      };
+
+      const esAlta = !actividadEnEdicion.id;
+      if (esAlta) cuerpo.id_itinerario = parseInt(actividadEnEdicion.id_itinerario, 10);
+
+      const boton = document.getElementById('activity-save');
+      boton.disabled = true;
+
+      try {
+          const resp = await apiFetch(
+              esAlta ? '/activities' : `/activities/${actividadEnEdicion.id}`,
+              { method: esAlta ? 'POST' : 'PATCH', body: JSON.stringify(cuerpo) }
+          );
+          const datos = await resp.json().catch(() => ({}));
+
+          if (resp.ok) { window.location.reload(); return; }
+          mostrarError('activity-alert', datos.error || t('err_server'));
+      } catch (err) {
+          mostrarError('activity-alert', t('err_server'));
+      }
+
+      boton.disabled = false;
+  }
+
+  function abrirBajaActividad(item) {
+      actividadABorrar = item.dataset.id;
+      document.getElementById('delete-activity-name').textContent = item.dataset.nombre || '';
+      document.getElementById('delete-activity-alert').innerHTML = '';
+      modalDe('deleteActivityModal').show();
+  }
+
+  async function confirmarBajaActividad() {
+      if (!actividadABorrar) return;
+
+      const boton = document.getElementById('delete-activity-confirm');
+      boton.disabled = true;
+
+      try {
+          const resp = await apiFetch(`/activities/${actividadABorrar}`, { method: 'DELETE' });
+          const datos = await resp.json().catch(() => ({}));
+
+          if (resp.ok) { window.location.reload(); return; }
+          mostrarError('delete-activity-alert', datos.error || t('err_server'));
+      } catch (err) {
+          mostrarError('delete-activity-alert', t('err_server'));
+      }
+
+      boton.disabled = false;
+  }
+
+  function inicializarActividades() {
+      document.querySelectorAll('.act-edit-btn').forEach(boton => {
+          boton.addEventListener('click', () => abrirEdicionActividad(boton.closest('.activity-item')));
+      });
+      document.querySelectorAll('.act-delete-btn').forEach(boton => {
+          boton.addEventListener('click', () => abrirBajaActividad(boton.closest('.activity-item')));
+      });
+      document.querySelectorAll('.act-add-btn').forEach(boton => {
+          boton.addEventListener('click', () => abrirAltaActividad(boton.dataset.itinerario));
+      });
+
+      document.getElementById('activity-save').addEventListener('click', guardarActividad);
+      document.getElementById('delete-activity-confirm').addEventListener('click', confirmarBajaActividad);
+
+      // Mover el inicio arrastra el fin: no tiene sentido terminar antes de empezar.
+      document.getElementById('act-hora-inicio').addEventListener('change', () => {
+          const selFin = document.getElementById('act-hora-fin');
+          const inicio = aMinutos(document.getElementById('act-hora-inicio').value);
+          if (aMinutos(selFin.value) <= inicio) {
+              asegurarOpcion(selFin, aTexto(Math.min(inicio + 60, DIA_COMPLETO)));
+          }
+      });
+
+      document.getElementById('act-categoria').addEventListener('change', evento => {
+          const otraWrap = document.getElementById('act-categoria-otra-wrap');
+          const esOtra = evento.target.value === OTRA_CATEGORIA;
+          otraWrap.classList.toggle('d-none', !esOtra);
+          if (esOtra) document.getElementById('act-categoria-otra').focus();
+      });
+
+      const inputUbicacion = document.getElementById('act-ubicacion');
+      inputUbicacion.addEventListener('input', () => buscarUbicaciones(inputUbicacion.value.trim()));
+      inputUbicacion.addEventListener('blur', () => setTimeout(cerrarSugerencias, 150));
+  }
+
+  // ─── Franja horaria del día ──────────────────────────────────────────────────
+  // Una regla de horas con las actividades ubicadas donde caen. La IA arma días
+  // con actividades superpuestas (una excursión de 08:00 a 16:00 y un almuerzo
+  // en el medio), así que se reparten en carriles para que se vean todas.
+
+  function dibujarFranjaHoraria() {
+      document.querySelectorAll('.day-content').forEach(dia => {
+          const contenedor = dia.querySelector('.day-timeline');
+          if (!contenedor) return;
+
+          const conHorario = [];
+          const sinHorario = [];
+
+          dia.querySelectorAll('.activity-item').forEach(item => {
+              const rango = parsearHorario(item.dataset.horario);
+              if (rango) conHorario.push({ ...rango, item });
+              else sinHorario.push(item);
+          });
+
+          contenedor.innerHTML = '';
+          if (!conHorario.length && !sinHorario.length) return;
+
+          if (conHorario.length) {
+              // Ventana: de la hora en punto anterior a la primera actividad a la
+              // posterior a la última, con un mínimo de 4 horas para que se lea.
+              let desde = Math.min(...conHorario.map(a => a.inicio));
+              let hasta = Math.max(...conHorario.map(a => a.fin));
+              desde = Math.floor(desde / 60) * 60;
+              hasta = Math.ceil(hasta / 60) * 60;
+              if (hasta - desde < 240) hasta = Math.min(desde + 240, DIA_COMPLETO);
+              const total = hasta - desde;
+
+              // Carriles: cada actividad va al primero donde no pise a otra.
+              const finDeCarril = [];
+              conHorario.sort((a, b) => a.inicio - b.inicio || a.fin - b.fin);
+              conHorario.forEach(act => {
+                  let carril = finDeCarril.findIndex(fin => fin <= act.inicio);
+                  if (carril === -1) { finDeCarril.push(act.fin); carril = finDeCarril.length - 1; }
+                  else finDeCarril[carril] = act.fin;
+                  act.carril = carril;
+              });
+
+              const franja = document.createElement('div');
+              franja.className = 'timeline-strip';
+
+              // Regla de horas: cada hora si entran, cada dos si son muchas.
+              const salto = total > 8 * 60 ? 120 : 60;
+              const reglas = document.createElement('div');
+              reglas.className = 'timeline-hours';
+              for (let m = desde; m <= hasta; m += salto) {
+                  const marca = document.createElement('span');
+                  marca.className = 'timeline-hour';
+                  marca.style.left = `${((m - desde) / total) * 100}%`;
+                  marca.textContent = aTexto(m);
+                  reglas.appendChild(marca);
+              }
+
+              const carriles = document.createElement('div');
+              carriles.className = 'timeline-lanes';
+              carriles.style.height = `${finDeCarril.length * 30 + 6}px`;
+
+              for (let m = desde + salto; m < hasta; m += salto) {
+                  const linea = document.createElement('div');
+                  linea.className = 'timeline-gridline';
+                  linea.style.left = `${((m - desde) / total) * 100}%`;
+                  carriles.appendChild(linea);
+              }
+
+              conHorario.forEach(act => {
+                  const categoria = (act.item.dataset.categoriaNombre || '').toLowerCase();
+                  const color = (ESTILO_CATEGORIA[categoria] || ['', '#64748b'])[1];
+                  const ancho = ((act.fin - act.inicio) / total) * 100;
+
+                  const bloque = document.createElement('button');
+                  bloque.type = 'button';
+                  bloque.className = 'timeline-block';
+                  bloque.style.left = `${((act.inicio - desde) / total) * 100}%`;
+                  bloque.style.width = `${Math.max(ancho, 3)}%`;
+                  bloque.style.top = `${act.carril * 30}px`;
+                  bloque.style.backgroundColor = color;
+                  bloque.title = `${aTexto(act.inicio)}–${aTexto(act.fin)} · ${act.item.dataset.nombre}`;
+                  bloque.innerHTML = `<span>${act.item.dataset.nombre}</span>`;
+
+                  // Lleva a la tarjeta de la actividad y la resalta un momento.
+                  bloque.addEventListener('click', () => {
+                      act.item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      act.item.classList.add('activity-destacada');
+                      setTimeout(() => act.item.classList.remove('activity-destacada'), 1600);
+                  });
+
+                  carriles.appendChild(bloque);
+              });
+
+              franja.appendChild(reglas);
+              franja.appendChild(carriles);
+              contenedor.appendChild(franja);
+          }
+
+          if (sinHorario.length) {
+              const sueltas = document.createElement('div');
+              sueltas.className = 'timeline-unscheduled';
+              sueltas.innerHTML = `<span class="text-secondary fs-7 me-2">${t('act_no_time', 'Without a set time')}:</span>`;
+              sinHorario.forEach(item => {
+                  const chip = document.createElement('button');
+                  chip.type = 'button';
+                  chip.className = 'timeline-chip';
+                  chip.textContent = item.dataset.nombre;
+                  chip.addEventListener('click', () => item.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+                  sueltas.appendChild(chip);
+              });
+              contenedor.appendChild(sueltas);
+          }
+      });
+  }
+
+  // Al recargar después de un cambio, volver al día que se estaba mirando.
+  const CLAVE_DIA = 'itinerary-day-' + VIAJE.id;
+
+  function recordarDia(dia) {
+      try { sessionStorage.setItem(CLAVE_DIA, dia); } catch (e) { /* modo privado */ }
+  }
+
+  function restaurarDia() {
+      let dia = null;
+      try { dia = sessionStorage.getItem(CLAVE_DIA); } catch (e) { return; }
+      if (!dia || dia === '1') return;
+
+      const boton = document.querySelector(`.day-tab-btn[data-day="${dia}"]`);
+      if (boton) boton.click();
   }
 
   document.addEventListener('DOMContentLoaded', () => {
@@ -677,11 +1224,12 @@
       inicializarPestanas();
       inicializarScrollDias();
       inicializarCompartir();
-      inicializarEdicion();
       inicializarMapa();
       cargarClima();
       inicializarFiltrosDestino();
-      verificarEdicion();
+      inicializarActividades();
+      dibujarFranjaHoraria();
+      restaurarDia();
   });
 </script>
 {% endblock %}

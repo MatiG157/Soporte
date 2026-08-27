@@ -13,11 +13,14 @@ una regla de negocio y deja que el usuario elija una para guardarla.
 | **Negocio** | `BACKEND/src/services/` | Regla de cálculo de costos, ajuste por tipo de viaje, reoptimización por presupuesto, ciclo de vida de los borradores. |
 | **Datos** | `BACKEND/src/models/` — SQLAlchemy + MySQL | Entidades y relaciones. |
 | **Integración** | `FRONTEND/trip_generator.py` | Pide las variantes al flujo de n8n. `BACKEND/src/services/ai_recommendation_service.py` guarda lo que n8n devolvió. |
+| **Dashboard** | `FRONTEND/streamlit_budget.py` — Streamlit + Plotly | La parte interactiva de `/budget`: filtros, gráficos, comparación de variantes y simulador. Corre como proceso aparte y se embebe vía iframe. No pasa por Flask: llama al backend con la misma `X-API-KEY`. Ver [Dashboard de presupuesto](#dashboard-de-presupuesto-streamlit). |
 
 ```
 Navegador ──► FRONTEND (:8080) ──X-API-KEY──► BACKEND (:5000) ──► MySQL
-                   │
-                   └──► n8n  (generación de itinerarios)
+                   │                              ▲
+                   ├──► n8n  (generación de itinerarios)
+                   │                              │
+                   └──► Streamlit (:8501) ─────────┘   (dashboard de /budget, embebido en iframe)
 ```
 
 El backend nunca se expone al navegador: sólo el frontend lo llama, autenticado
@@ -95,14 +98,22 @@ Para desactivar la migración automática: `AUTO_MIGRATE=false` en `BACKEND/.env
 
 ### 5. Levantar
 
-En Windows, desde la raíz: `run.bat` (corre `setup.py` y levanta los dos servidores).
+En Windows, desde la raíz: `run.bat` (corre `setup.py` y levanta los tres procesos).
 
-O a mano, en dos terminales:
+O a mano, en tres terminales:
 
 ```bash
 cd BACKEND  && python app.py    # http://localhost:5000
 cd FRONTEND && python app.py    # http://localhost:8080
+cd FRONTEND && streamlit run streamlit_budget.py   # dashboard de /budget, en :8501
 ```
+
+El puerto, el tema claro y el bind a localhost salen de `FRONTEND/.streamlit/config.toml`,
+así que no hace falta pasarle banderas.
+
+El dashboard es opcional para navegar el resto del sitio: si no está levantado,
+`/budget` sigue mostrando el resumen y los totales (server-side), pero el
+iframe con los gráficos interactivos no carga.
 
 ---
 
@@ -238,6 +249,105 @@ El ajuste se decide **al guardar**, no al leer: `GET /costos/viajes/<id>` inform
 lo que quedó persistido. Pasarle `?tipo_viaje=X` recalcula a propósito, para
 simular cuánto costaría el mismo viaje en otro nivel.
 
+Consecuencia práctica, visible en `/budget`: cuando n8n manda desglose —el caso
+normal— el factor de ajuste es **×1.00 en las tres variantes**, porque el premium
+del nivel ya viene en el precio. Lo que separa a Economy de Luxury no es el
+multiplicador sino el total cotizado; por eso el dashboard compara contra el
+`costo_max` del usuario en vez de mostrar un factor que siempre da lo mismo.
+
+---
+
+## Editar el itinerario recomendado
+
+Lo que devuelve n8n es un punto de partida, no algo cerrado. Desde `/itinerary`,
+cada actividad tiene un lápiz y un tacho, y cada día un botón para agregar una
+nueva. El formulario edita título, horario, precio, ubicación, descripción y
+categoría (la categoría es la que le da el icono y el color a la tarjeta).
+
+**Lo editable son las actividades, no el viaje.** Las fechas y el destino
+definen el itinerario entero: cambiarlos a mano dejaba días sin actividades y
+actividades fuera de rango. El viaje se borra o se rehace, no se edita.
+
+Tres campos están asistidos para no escribir a mano lo que se puede elegir:
+
+- **Horario**: dos desplegables (inicio y fin) con la grilla del día cada 30
+  minutos. Las franjas que ya ocupan otras actividades de ese día aparecen
+  marcadas como *ocupado*, y debajo se listan con nombre y hora. Al agregar,
+  el formulario propone el primer hueco libre después de la última actividad.
+- **Categoría**: desplegable con las típicas de un viaje (Sightseeing, Cultural,
+  Museos, Gastronomía, Aventura, Relax, Naturaleza, Playa, Deportes, Compras,
+  Vida nocturna, Espectáculos, Transporte), más las que ya use el viaje, más
+  *Otra…* para escribir una nueva. Cada una tiene su icono y color en la tarjeta.
+- **Ubicación**: sugiere lugares reales mientras se escribe, con la misma API que
+  el buscador del inicio (Photon/Komoot). Acá no se filtra por ciudad —interesan
+  museos, restaurantes y parques— y se sesga la búsqueda a las coordenadas del
+  destino, así "Golden Gate" devuelve los de San Francisco y no los del mundo.
+
+Arriba de las actividades de cada día hay una **franja horaria**: una regla de
+horas con cada actividad ubicada donde cae, coloreada por categoría y clicleable
+para saltar a su tarjeta. Las que se superponen —la IA arma días con una
+excursión de 08:00 a 16:00 y un almuerzo en el medio— se reparten en carriles
+para que se vean todas. Las que no tienen horario legible quedan como chips
+debajo, en vez de desaparecer.
+
+**Cada cambio mueve el presupuesto.** El backend aplica la *diferencia* sobre
+`costo_actividades` en vez de recalcularlo como la suma de las actividades
+cargadas, y el motivo es concreto: el desglose que manda n8n y la suma de los
+precios actividad por actividad son dos salidas independientes del flujo y no
+coinciden. Recalcular haría saltar el costo del viaje entero la primera vez que
+el usuario toca cualquier actividad; con el delta, borrar una actividad de $380
+baja el viaje exactamente $380, que es lo que uno espera ver.
+
+El ajuste por tipo de viaje **no** se vuelve a aplicar: se conserva la relación
+que el viaje ya tenía entre `costo_total_base` y `costo_total_estimado`, así el
+premium de Luxury no se cuenta dos veces (ver la regla de costos más arriba).
+
+Las actividades se ordenan por `horario_sugerido` al mostrarlas, no por el orden
+en que se insertaron: una actividad que se agrega a mano cae en su lugar del día
+y no al final.
+
+---
+
+## Dashboard de presupuesto (Streamlit)
+
+`FRONTEND/streamlit_budget.py` es la parte interactiva de `/budget`. Corre como
+proceso aparte en `:8501` y la página lo embebe en un iframe, pasándole
+`id_viaje`, `id_usuario` y `lang` por query string. Habla directo con el backend
+con la misma `X-API-KEY` + `X-User-Id`, así que el backend sigue verificando la
+propiedad del viaje: el dashboard no confía en el parámetro.
+
+Filtros arriba (destino, rango de días, total / por persona) y cinco pestañas:
+
+| Pestaña | Qué muestra |
+|---|---|
+| **Resumen** | Desglose en dona + tabla con barras de peso. El que suma el total del viaje. |
+| **Día a día** | Barras apiladas por día y acumulado del tramo, con el detalle de actividades de un día. |
+| **Categorías** | Treemap y tabla de las actividades por categoría, con export a CSV. |
+| **Comparar opciones** | Las tres variantes del grupo contra la línea del presupuesto. Sólo mientras son borradores. |
+| **Simulador** | Tabla editable: se tocan los montos y los totales se recalculan en vivo, sin escribir en la base. |
+
+### Cómo se reconcilian los números
+
+El desglose de n8n trae un total de categoría para actividades que **no coincide**
+con la suma de los precios cotizados actividad por actividad: son dos salidas
+independientes del flujo. El dashboard toma el del desglose como bueno, porque es
+el que cierra con el costo del viaje, y lo reparte entre los días usando los
+precios cotizados como peso. Los costos fijos (alojamiento, transporte, comidas)
+se prorratean por día.
+
+Así cualquier tramo que se filtre suma lo que ese tramo cuesta de verdad, y el
+viaje entero suma exactamente el total del viaje.
+
+Sobre el **ajuste por tipo de viaje**: con desglose de n8n el factor siempre da
+×1.00 y por eso no se muestra en ninguna parte (ver la regla de costos más
+arriba). Lo que separa a Economy de Luxury es el total cotizado, y eso se compara
+en la pestaña **Comparar opciones**.
+
+El tema (claro, verde de marca), el puerto y el bind a `127.0.0.1` viven en
+`FRONTEND/.streamlit/config.toml`. El tema claro está forzado a propósito: la
+página que embebe el iframe es blanca, y seguir el modo oscuro del sistema
+dejaba texto claro sobre fondo blanco.
+
 ---
 
 ## Endpoints del backend
@@ -256,11 +366,11 @@ verifican que el recurso pertenezca a ese usuario.
 | `POST` | `/viajes/generate` | 👤 Guarda las N variantes como borradores |
 | `GET` | `/viajes/usuario/<id>` | 👤 Viajes del usuario |
 | `GET` | `/viajes/usuario/<id>/drafts` | 👤 Borradores activos |
-| `GET/PATCH/DELETE` | `/viajes/<id>` | 👤 Detalle, edición y baja |
+| `GET/PATCH/DELETE` | `/viajes/<id>` | 👤 Detalle, edición y baja. La web no usa el PATCH: desde `/itinerary` se editan las actividades, no el viaje |
 | `POST` | `/viajes/<id>/select` | 👤 Confirma un borrador y descarta el resto |
 | `GET/POST` | `/costos/...` | 👤 Desglose de costos |
 | `GET/POST/PUT/DELETE` | `/itinerarios/...` | 👤 Itinerarios |
-| `GET/POST/PUT/DELETE` | `/actividades/...` | 👤 Actividades |
+| `GET/POST/PUT/DELETE` | `/actividades/...` | 👤 Actividades. Al crear, editar o borrar, el backend recalcula el costo del viaje y lo devuelve en `costos` |
 | `GET` | `/tipos_alojamiento/` | Catálogo (escritura: requiere `X-ADMIN-KEY`) |
 | `GET` | `/api/recommendations/viaje/<id>` | 👤 Salida cruda de n8n, guardada por viaje |
 
@@ -301,6 +411,8 @@ FRONTEND/
   security.py             protección CSRF
   trip_generator.py       cliente de n8n + generador local de respaldo
   probar_n8n.py           prueba la conexión con el flujo y diagnostica fallos
+  streamlit_budget.py     dashboard de costos de /budget (Streamlit + Plotly)
+  .streamlit/config.toml  tema claro y puerto del dashboard
   templates/
   static/
     i18n/<lang>.json      traducciones (9 idiomas)

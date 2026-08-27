@@ -1,0 +1,23 @@
+# Tema del dashboard de presupuesto (streamlit_budget.py).
+#
+# Se fuerza el tema claro a propósito: el dashboard se embebe en /budget, que
+# es una página blanca de Bootstrap. Si Streamlit sigue la preferencia del
+# sistema y el usuario tiene el modo oscuro activado, queda texto claro sobre
+# fondo blanco y no se lee nada.
+
+[theme]
+base = "light"
+primaryColor = "#006d5b"          # el verde de marca (--brand-color)
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f4f6f8"
+textColor = "#1f2937"
+font = "sans serif"
+
+[server]
+headless = true
+port = 8501
+# Sólo local: el dashboard se consume desde el iframe de /budget.
+address = "127.0.0.1"
+
+[browser]
+gatherUsageStats = false

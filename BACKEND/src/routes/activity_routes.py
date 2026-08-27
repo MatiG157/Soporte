@@ -8,6 +8,7 @@ from src.models.init import db
 from src.models.activity import Actividad
 from src.models.itinerary import Itinerario
 from src.models.trip import Viaje
+from src.services.cost_service import get_cost_by_trip
 from src.services.activity_service import (
     actualizar_actividad,
     crear_actividad,
@@ -34,6 +35,29 @@ def _dueno_de_actividad(id_actividad):
     if actividad is None:
         return None
     return _dueno_del_itinerario(actividad.id_itinerario)
+
+
+def _id_viaje_de_itinerario(id_itinerario):
+    itinerario = db.session.get(Itinerario, id_itinerario)
+    return itinerario.id_viaje if itinerario else None
+
+
+def _id_viaje_de_actividad(id_actividad):
+    actividad = db.session.get(Actividad, id_actividad)
+    if actividad is None:
+        return None
+    return _id_viaje_de_itinerario(actividad.id_itinerario)
+
+
+def _costos_del_viaje(id_viaje):
+    """Costos del viaje después de tocar una actividad.
+
+    Se devuelven en la misma respuesta para que el cliente pueda refrescar el
+    presupuesto sin tener que volver a pedir el viaje entero.
+    """
+    if id_viaje is None:
+        return None
+    return get_cost_by_trip(id_viaje)
 
 
 def _serializar(a):
@@ -64,7 +88,11 @@ def alta_actividad():
 
     try:
         nueva_actividad = crear_actividad(datos)
-        return jsonify({"mensaje": "Actividad creada", "id": nueva_actividad.id_actividad}), 201
+        return jsonify({
+            "mensaje": "Actividad creada",
+            "id": nueva_actividad.id_actividad,
+            "costos": _costos_del_viaje(_id_viaje_de_itinerario(datos['id_itinerario'])),
+        }), 201
     except ValidationError as err:
         return jsonify({"errores_validacion": err.messages}), 400
     except ValueError as ve:
@@ -115,10 +143,12 @@ def modificar_actividad(id_actividad):
     datos.pop('id_itinerario', None)
 
     try:
+        id_viaje = _id_viaje_de_actividad(id_actividad)
         actividad_actualizada = actualizar_actividad(id_actividad, datos)
         return jsonify({
             "mensaje": "Actividad actualizada",
             "id": actividad_actualizada.id_actividad,
+            "costos": _costos_del_viaje(id_viaje),
         }), 200
     except ValidationError as err:
         return jsonify({"errores_validacion": err.messages}), 400
@@ -136,6 +166,10 @@ def baja_actividad(id_actividad):
     if not es_el_mismo_usuario(dueno):
         return prohibido()
 
+    id_viaje = _id_viaje_de_actividad(id_actividad)
     if eliminar_actividad(id_actividad):
-        return jsonify({"mensaje": "Actividad eliminada"}), 200
+        return jsonify({
+            "mensaje": "Actividad eliminada",
+            "costos": _costos_del_viaje(id_viaje),
+        }), 200
     return jsonify({"error": "Actividad no encontrada"}), 404
