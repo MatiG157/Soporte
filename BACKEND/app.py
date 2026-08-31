@@ -119,17 +119,58 @@ def preparar_base():
         aplicadas = aplicar_pendientes(silencioso=True)
     except Exception as exc:
         logger.error(
-            "No se pudieron aplicar las migraciones: %s. "
-            "Corré 'python migrate.py' a mano para ver el detalle.", exc
+            "FALLARON LAS MIGRACIONES: %s. La base quedó con el esquema viejo y "
+            "las consultas van a fallar. Corré 'python migrate.py' para ver el detalle.",
+            exc,
         )
         return
 
     if aplicadas is None:
         logger.warning("No hay conexión a la base: no se pudo verificar el esquema.")
-    elif aplicadas:
+        return
+    if aplicadas:
         logger.info("Migraciones aplicadas: %s", ", ".join(aplicadas))
     else:
         logger.info("El esquema de la base está al día.")
+
+    verificar_esquema()
+
+
+def verificar_esquema():
+    """Avisa si algún modelo tiene columnas que la base no tiene.
+
+    Sin esto, una migración que falta o que falló se manifiesta recién al primer
+    request, como un "Unknown column 'viajes.titulo'" que no dice qué hacer.
+    """
+    from sqlalchemy import inspect
+
+    try:
+        with app.app_context():
+            inspector = inspect(db.engine)
+            tablas_en_la_base = set(inspector.get_table_names())
+
+            faltantes = []
+            for tabla in db.metadata.sorted_tables:
+                if tabla.name not in tablas_en_la_base:
+                    faltantes.append(f"{tabla.name} (la tabla entera)")
+                    continue
+                columnas = {c["name"] for c in inspector.get_columns(tabla.name)}
+                for col in tabla.columns:
+                    if col.name not in columnas:
+                        faltantes.append(f"{tabla.name}.{col.name}")
+    except Exception as exc:
+        logger.warning("No se pudo verificar el esquema: %s", exc)
+        return
+
+    if not faltantes:
+        return
+
+    logger.error(
+        "LA BASE NO COINCIDE CON LOS MODELOS. Falta en la base: %s. "
+        "Las consultas van a fallar con 'Unknown column'. "
+        "Corré 'python migrate.py' y mirá qué migración falla.",
+        ", ".join(faltantes),
+    )
 
 
 if __name__ == "__main__":

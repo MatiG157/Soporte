@@ -16,7 +16,15 @@ os.environ.setdefault("N8N_WEBHOOK_URL", "")  # sin n8n: cae al generador local
 VIAJE_GUARDADO = {
     "id_viaje": 1,
     "id_usuario": 7,
-    "destinos": ["Kioto, Japón"],
+    "titulo": "Kioto, Japón",
+    # El backend devuelve los destinos como objetos desde que se pasó a la
+    # tabla `viaje_destinos`; el mock tiene que tener la misma forma.
+    "destinos": [{
+        "id_viaje_destino": 1,
+        "nombre": "Kioto, Japón",
+        "fecha_llegada": "2030-03-10",
+        "fecha_partida": "2030-03-12",
+    }],
     "fecha_inicio": "2030-03-10",
     "fecha_fin": "2030-03-12",
     "tipo_viaje": "Balanced",

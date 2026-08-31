@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from src.models.activity import Actividad
 from src.models.ai_recommendation import RecomendacionIA
@@ -27,6 +27,7 @@ LIMITES = {
     "ubicacion": 150,
     "tipo_viaje": 20,
     "imagen": 500,
+    "titulo": 255,
 }
 
 
@@ -52,6 +53,59 @@ def _a_float(valor, por_defecto=0.0):
         return por_defecto
 
 
+def construir_destinos(destinos, fecha_inicio, fecha_fin):
+    """Arma los ViajeDestino repartiendo los días del viaje entre los destinos.
+
+    El flujo manda `destinos` como lista de strings. Antes cada destino se
+    creaba con las fechas del viaje COMPLETO, así que todos los días caían
+    dentro del rango de todos: `_guardar_itinerario` busca por rango y corta en
+    la primera coincidencia, con lo cual absolutamente todas las actividades
+    quedaban colgadas del primer destino y el segundo aparecía vacío.
+
+    Si un destino trae sus propias fechas (dict con `fecha_llegada` y
+    `fecha_partida`), se respetan. Si no, se reparte en tramos consecutivos con
+    el mismo criterio que usa el flujo de n8n: los primeros tramos se quedan con
+    el día extra cuando la división no es exacta.
+    """
+    from src.models.trip_destination import ViajeDestino
+
+    inicio = _a_fecha(fecha_inicio)
+    fin = _a_fecha(fecha_fin)
+    total_dias = max((fin - inicio).days + 1, 1)
+
+    limpios = [d for d in (destinos or []) if d]
+    if not limpios:
+        return []
+
+    cantidad = len(limpios)
+    base, resto = divmod(total_dias, cantidad)
+
+    filas = []
+    cursor = 0
+    for indice, destino in enumerate(limpios):
+        # Un destino con fechas propias manda sobre el reparto automático.
+        if isinstance(destino, dict) and destino.get("fecha_llegada") and destino.get("fecha_partida"):
+            filas.append(ViajeDestino(
+                nombre=str(destino.get("nombre") or "Sin destino")[:150],
+                fecha_llegada=_a_fecha(destino["fecha_llegada"]),
+                fecha_partida=_a_fecha(destino["fecha_partida"]),
+            ))
+            continue
+
+        nombre = destino.get("nombre") if isinstance(destino, dict) else destino
+        dias_del_tramo = max(base + (1 if indice < resto else 0), 1)
+
+        filas.append(ViajeDestino(
+            nombre=str(nombre or "Sin destino")[:150],
+            fecha_llegada=inicio + timedelta(days=cursor),
+            # -1: `fecha_partida` es el último día EN ese destino, no el de salida.
+            fecha_partida=inicio + timedelta(days=min(cursor + dias_del_tramo - 1, total_dias - 1)),
+        ))
+        cursor += dias_del_tramo
+
+    return filas
+
+
 def crear_viaje(datos):
     datos_validados = viaje_schema.load(datos)
 
@@ -72,22 +126,8 @@ def crear_viaje(datos):
         estado=datos_validados.get('estado', 'draft'),
     )
 
-    from src.models.trip_destination import ViajeDestino
-    destinos = datos_validados['destinos']
-    # If they are strings, we map them evenly over the dates or just use the trip dates
-    for idx, d in enumerate(destinos):
-        if isinstance(d, dict):
-            vd = ViajeDestino(
-                nombre=d.get("nombre", "Sin Destino"),
-                fecha_llegada=_a_fecha(d.get("fecha_llegada", nuevo_viaje.fecha_inicio)),
-                fecha_partida=_a_fecha(d.get("fecha_partida", nuevo_viaje.fecha_fin))
-            )
-        else:
-            vd = ViajeDestino(
-                nombre=str(d),
-                fecha_llegada=nuevo_viaje.fecha_inicio,
-                fecha_partida=nuevo_viaje.fecha_fin
-            )
+    for vd in construir_destinos(datos_validados['destinos'],
+                                 nuevo_viaje.fecha_inicio, nuevo_viaje.fecha_fin):
         nuevo_viaje.viaje_destinos.append(vd)
 
     db.session.add(nuevo_viaje)
@@ -117,20 +157,11 @@ def actualizar_viaje(id_viaje, datos):
 
     if 'destinos' in datos_validados:
         viaje.viaje_destinos.clear()
-        from src.models.trip_destination import ViajeDestino
-        for d in datos_validados['destinos']:
-            if isinstance(d, dict):
-                vd = ViajeDestino(
-                    nombre=d.get("nombre", "Sin Destino"),
-                    fecha_llegada=_a_fecha(d.get("fecha_llegada", viaje.fecha_inicio)),
-                    fecha_partida=_a_fecha(d.get("fecha_partida", viaje.fecha_fin))
-                )
-            else:
-                vd = ViajeDestino(
-                    nombre=str(d),
-                    fecha_llegada=viaje.fecha_inicio,
-                    fecha_partida=viaje.fecha_fin
-                )
+        # Las fechas nuevas, si vienen, mandan sobre el reparto de los tramos.
+        for vd in construir_destinos(
+                datos_validados['destinos'],
+                datos_validados.get('fecha_inicio', viaje.fecha_inicio),
+                datos_validados.get('fecha_fin', viaje.fecha_fin)):
             viaje.viaje_destinos.append(vd)
             
     viaje.fecha_inicio = datos_validados.get('fecha_inicio', viaje.fecha_inicio)
@@ -174,21 +205,26 @@ def _guardar_itinerario(viaje, itinerario_data):
         nuevo_itinerario.viaje = viaje
         db.session.add(nuevo_itinerario)
 
-        # Attempt to determine which destination this day belongs to
-        # by checking the day's date against the trip's destinations
-        from datetime import timedelta
-        fecha_dia = _a_fecha(viaje.fecha_inicio) + timedelta(days=nuevo_itinerario.dia - 1) if viaje.fecha_inicio else None
-        
+        # A qué destino pertenece este día. Tres criterios, de más a menos preciso:
+        #   1. `destino_indice`, si el generador lo declara.
+        #   2. La fecha del día contra el rango de cada destino.
+        #   3. El primer destino, como último recurso.
         destino_del_dia = None
-        if fecha_dia:
-            for vd in viaje.viaje_destinos:
+        destinos = viaje.viaje_destinos
+
+        indice = dia_data.get("destino_indice")
+        if isinstance(indice, int) and 0 <= indice < len(destinos):
+            destino_del_dia = destinos[indice]
+
+        if destino_del_dia is None and viaje.fecha_inicio:
+            fecha_dia = _a_fecha(viaje.fecha_inicio) + timedelta(days=nuevo_itinerario.dia - 1)
+            for vd in destinos:
                 if vd.fecha_llegada <= fecha_dia <= vd.fecha_partida:
                     destino_del_dia = vd
                     break
-        
-        # fallback
-        if not destino_del_dia and viaje.viaje_destinos:
-            destino_del_dia = viaje.viaje_destinos[0]
+
+        if destino_del_dia is None and destinos:
+            destino_del_dia = destinos[0]
 
         for act_data in dia_data.get("actividades", []):
             nueva_actividad = Actividad(
@@ -248,21 +284,16 @@ def guardar_viajes_generados(id_usuario, opciones_generadas, id_user_preferences
             estado="draft",
         )
         
-        from src.models.trip_destination import ViajeDestino
-        for idx, d in enumerate(opcion.get("destinos", [])):
-            if isinstance(d, dict):
-                vd = ViajeDestino(
-                    nombre=d.get("nombre", "Sin Destino"),
-                    fecha_llegada=_a_fecha(d.get("fecha_llegada", viaje.fecha_inicio)),
-                    fecha_partida=_a_fecha(d.get("fecha_partida", viaje.fecha_fin))
-                )
-            else:
-                vd = ViajeDestino(
-                    nombre=str(d),
-                    fecha_llegada=viaje.fecha_inicio,
-                    fecha_partida=viaje.fecha_fin
-                )
+        for vd in construir_destinos(opcion.get("destinos", []),
+                                     viaje.fecha_inicio, viaje.fecha_fin):
             viaje.viaje_destinos.append(vd)
+
+        # `titulo` sólo se asignaba al editar un viaje: los generados nacían con
+        # NULL y el encabezado del presupuesto quedaba vacío.
+        viaje.titulo = _recortar(
+            opcion.get("titulo") or " → ".join(vd.nombre for vd in viaje.viaje_destinos),
+            LIMITES["titulo"],
+        )
         db.session.add(viaje)
         db.session.flush()  # necesito el id_viaje para costos y recomendación
 

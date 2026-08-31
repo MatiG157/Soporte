@@ -134,6 +134,81 @@ def test_no_se_recorta_la_variante_cara_del_grupo(client, auth, usuario):
     assert por_tipo["Luxury"] == 5820.0   # sin recortar a 3000
 
 
+def test_las_actividades_se_reparten_entre_los_destinos(client, auth, usuario):
+    """Regresión: todo el viaje quedaba colgado del primer destino.
+
+    Cada ViajeDestino se creaba con las fechas del viaje COMPLETO, así que al
+    buscar el destino de un día por rango, todos los días caían en el primero y
+    el segundo destino aparecía sin ningún día ni actividad.
+    """
+    opcion = opcion_de_viaje(tipo="Balanced", dias=5)
+    opcion["destinos"] = ["Osaka, Japan", "Kyoto, Japan"]
+    opcion["fecha_inicio"] = "2030-03-10"
+    opcion["fecha_fin"] = "2030-03-14"
+
+    respuesta = client.post("/viajes/generate", json={
+        "id_usuario": usuario, "opciones": [opcion],
+    }, headers=auth)
+    assert respuesta.status_code == 200, respuesta.get_json()
+
+    id_viaje = client.get(f"/viajes/usuario/{usuario}/drafts", headers=auth).get_json()[0]["id_viaje"]
+    viaje = client.get(f"/viajes/{id_viaje}", headers=auth).get_json()
+
+    # Los dos destinos existen y cubren tramos distintos, sin solaparse.
+    destinos = viaje["destinos"]
+    assert len(destinos) == 2
+    assert destinos[0]["fecha_partida"] < destinos[1]["fecha_llegada"]
+
+    # Y cada uno tiene actividades: ninguno queda vacío.
+    from src.models.activity import Actividad
+    from src.models.init import db
+
+    por_destino = {}
+    for d in destinos:
+        cuantas = Actividad.query.filter_by(
+            id_viaje_destino=d["id_viaje_destino"]).count()
+        por_destino[d["nombre"]] = cuantas
+
+    assert all(c > 0 for c in por_destino.values()), por_destino
+    assert sum(por_destino.values()) == 5   # una actividad por día
+
+
+def test_el_indice_de_destino_del_generador_tiene_prioridad(client, auth, usuario):
+    """Si el flujo declara `destino_indice`, manda sobre el reparto por fechas."""
+    opcion = opcion_de_viaje(tipo="Economy", dias=4)
+    opcion["destinos"] = ["Osaka, Japan", "Kyoto, Japan"]
+    opcion["fecha_inicio"] = "2030-03-10"
+    opcion["fecha_fin"] = "2030-03-13"
+    # Todos los días declarados en el SEGUNDO destino, contra lo que dirían las fechas.
+    for dia in opcion["itinerario"]:
+        dia["destino_indice"] = 1
+
+    client.post("/viajes/generate", json={
+        "id_usuario": usuario, "opciones": [opcion],
+    }, headers=auth)
+
+    id_viaje = client.get(f"/viajes/usuario/{usuario}/drafts", headers=auth).get_json()[0]["id_viaje"]
+    viaje = client.get(f"/viajes/{id_viaje}", headers=auth).get_json()
+
+    from src.models.activity import Actividad
+    segundo = viaje["destinos"][1]["id_viaje_destino"]
+    assert Actividad.query.filter_by(id_viaje_destino=segundo).count() == 4
+
+
+def test_el_viaje_generado_nace_con_titulo(client, auth, usuario):
+    """`titulo` sólo se asignaba al editar: el encabezado del presupuesto
+    quedaba vacío en todo viaje recién generado."""
+    opcion = opcion_de_viaje(tipo="Balanced", dias=4)
+    opcion["destinos"] = ["Osaka, Japan", "Kyoto, Japan"]
+
+    client.post("/viajes/generate", json={
+        "id_usuario": usuario, "opciones": [opcion],
+    }, headers=auth)
+
+    viaje = client.get(f"/viajes/usuario/{usuario}/drafts", headers=auth).get_json()[0]
+    assert viaje["titulo"] == "Osaka, Japan → Kyoto, Japan"
+
+
 def test_los_textos_largos_se_recortan_a_la_columna(client, auth, usuario):
     opcion = opcion_de_viaje(tipo="Economy", dias=1)
     opcion["itinerario"][0]["actividades"][0].update({

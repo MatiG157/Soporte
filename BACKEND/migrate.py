@@ -252,21 +252,35 @@ def m008_viajes_titulo(cursor):
     """Agrega la columna titulo a viajes y setea el titulo por defecto en inglés si no lo tiene."""
     _agregar_columna(cursor, "viajes", "titulo", "VARCHAR(255) NULL")
     
+    # Si la columna no se pudo agregar (tabla inexistente en una base nueva),
+    # no tiene sentido seguir: se saltea el relleno en vez de romper la migración.
+    if not _existe_columna(cursor, "viajes", "titulo"):
+        _log("    · 'viajes.titulo' no está disponible, se omite el relleno")
+        return
+
     cursor.execute("SELECT id_viaje, tipo_viaje FROM viajes WHERE titulo IS NULL")
     viajes_sin_titulo = cursor.fetchall()
-    
+
+    hay_destinos = _existe_tabla(cursor, "viaje_destinos")
+
     for id_viaje, tipo_viaje in viajes_sin_titulo:
-        cursor.execute("SELECT nombre FROM viaje_destinos WHERE id_viaje = %s ORDER BY fecha_llegada", (id_viaje,))
-        destinos = [row[0] for row in cursor.fetchall()]
-        if destinos:
-            destinos_str = " --> ".join(destinos)
-            titulo = f"{tipo_viaje.capitalize()} Trip To: {destinos_str}"
-        else:
-            titulo = f"{tipo_viaje.capitalize()} Trip"
-        
-        cursor.execute("UPDATE viajes SET titulo = %s WHERE id_viaje = %s", (titulo, id_viaje))
-        
-    _log("    ✔️ Títulos generados para los viajes existentes")
+        destinos = []
+        if hay_destinos:
+            cursor.execute(
+                "SELECT nombre FROM viaje_destinos WHERE id_viaje = %s ORDER BY fecha_llegada",
+                (id_viaje,),
+            )
+            destinos = [fila[0] for fila in cursor.fetchall() if fila[0]]
+
+        # `tipo_viaje` puede venir NULL en filas viejas: sin este guardo,
+        # `.capitalize()` lanzaba y hacía fallar la migración completa.
+        nivel = (tipo_viaje or "").strip().capitalize() or "Trip"
+        titulo = f"{nivel} Trip To: {' --> '.join(destinos)}" if destinos else f"{nivel} Trip"
+
+        cursor.execute("UPDATE viajes SET titulo = %s WHERE id_viaje = %s",
+                       (titulo[:255], id_viaje))
+
+    _log(f"    ✓ Títulos generados para {len(viajes_sin_titulo)} viajes existentes")
 
 MIGRACIONES = [
     ("001_destinos_como_json", m001_destinos_como_json),
