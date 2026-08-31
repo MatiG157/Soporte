@@ -1,5 +1,13 @@
 /* Página de presupuesto. */
 
+.trip-main-title {
+    font-size: 1.65rem;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+}
+
 /* Tarjetas de totales: el número es lo primero que se lee. */
 .main-content .card .fs-3 {
     line-height: 1.1;

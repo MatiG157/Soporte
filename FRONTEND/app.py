@@ -180,6 +180,19 @@ def _hora_de_inicio(actividad):
     return (0, int(match.group(1)) * 60 + int(match.group(2)))
 
 
+def _destino_corto(nombre):
+    """Extrae únicamente 'Ciudad, País' de nombres largos (ej: 'Madrid, Community of Madrid, Spain' -> 'Madrid, Spain')."""
+    if not nombre:
+        return ""
+    partes = [p.strip() for p in str(nombre).split(",") if p.strip()]
+    if len(partes) >= 2:
+        return f"{partes[0]}, {partes[-1]}"
+    return partes[0] if partes else ""
+
+
+app.jinja_env.filters["short_dest"] = _destino_corto
+
+
 @app.context_processor
 def variables_globales():
     """Datos disponibles en todas las plantillas."""
@@ -344,12 +357,6 @@ def mytrips():
 
     guardados.sort(key=lambda v: _fecha(v.get("fecha_inicio")) or date.min, reverse=True)
 
-    pasados = [v for v in guardados if (_fecha(v.get("fecha_fin")) or date.max) < hoy]
-    futuros = [v for v in guardados if (_fecha(v.get("fecha_inicio")) or date.min) > hoy]
-
-    ultimo = max(pasados, key=lambda v: _fecha(v["fecha_fin"])) if pasados else None
-    proximo = min(futuros, key=lambda v: _fecha(v["fecha_inicio"])) if futuros else None
-
     for v in guardados:
         inicio = _fecha(v.get("fecha_inicio"))
         fin = _fecha(v.get("fecha_fin"))
@@ -357,27 +364,25 @@ def mytrips():
 
         v["is_draft"] = v.get("estado") in ("draft", "borrador")
 
-        if fin and fin < hoy:
-            v["filter_class"], v["is_past"] = "past-trip", True
-        elif inicio and inicio > hoy:
-            v["filter_class"], v["is_past"] = "next-trip", False
-        else:
-            v["filter_class"], v["is_past"] = "current-trip", False
-
         if v["is_draft"]:
             v["status_label"] = "draft"
+            v["filter_class"], v["is_past"] = "next-trip", False
         elif en_curso:
             v["status_label"] = "current trip"
-        elif proximo and v["id_viaje"] == proximo["id_viaje"]:
-            v["status_label"] = "upcoming trip"
-        elif ultimo and v["id_viaje"] == ultimo["id_viaje"]:
+            v["filter_class"], v["is_past"] = "current-trip", False
+        elif fin and fin < hoy:
             v["status_label"] = "last trip"
+            v["filter_class"], v["is_past"] = "past-trip", True
+        elif inicio and inicio > hoy:
+            v["status_label"] = "upcoming trip"
+            v["filter_class"], v["is_past"] = "next-trip", False
         else:
-            v["status_label"] = ""
+            v["status_label"] = "upcoming trip"
+            v["filter_class"], v["is_past"] = "next-trip", False
 
         v["fecha_inicio_fmt"] = _formatear_fecha(v.get("fecha_inicio"))
         v["fecha_fin_fmt"] = _formatear_fecha(v.get("fecha_fin"))
-        dest_str = [d.get("nombre", str(d)) if isinstance(d, dict) else str(d) for d in (v.get("destinos") or [])]
+        dest_str = [_destino_corto(d.get("nombre", str(d)) if isinstance(d, dict) else str(d)) for d in (v.get("destinos") or [])]
         v["destinos_display"] = " → ".join(dest_str) or "Sin destino"
         v["imagen"] = v.get("imagen") or IMAGEN_POR_DEFECTO
 
@@ -558,17 +563,24 @@ def _cargar_viaje(id_viaje):
     destinos_raw = viaje.get("destinos") or []
     destinos_obj = []
     destinos_str = []
+    destinos_short = []
     for d in destinos_raw:
         if isinstance(d, dict):
+            nombre = d.get("nombre", "")
+            d_short = _destino_corto(nombre)
             destinos_obj.append(d)
-            destinos_str.append(d.get("nombre", ""))
+            destinos_str.append(nombre)
+            destinos_short.append(d_short)
         else:
+            d_short = _destino_corto(str(d))
             destinos_obj.append({"nombre": str(d)})
             destinos_str.append(str(d))
+            destinos_short.append(d_short)
 
     viaje["destinos_obj"] = destinos_obj
-    viaje["destinos_display"] = " → ".join(destinos_str) or "Sin destino"
-    viaje["destino_principal"] = destinos_str[0] if destinos_str else ""
+    viaje["destinos_display"] = " → ".join(destinos_short) or "Sin destino"
+    viaje["titulo_corto"] = " → ".join(destinos_short) or viaje.get("titulo") or "Sin destino"
+    viaje["destino_principal"] = destinos_short[0] if destinos_short else (destinos_str[0] if destinos_str else "")
     viaje["imagen"] = viaje.get("imagen") or IMAGEN_POR_DEFECTO
     viaje["dias_totales"] = (fin - inicio).days + 1 if inicio and fin else 0
 

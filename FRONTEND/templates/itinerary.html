@@ -27,23 +27,23 @@
 
   <div class="main-content itinerary-content">
     <!-- Encabezado -->
-    <div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-3">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
       <div>
         <div class="d-flex align-items-center gap-2 mb-2 flex-wrap dest-badges-container">
-          <span class="badge rounded p-1 px-2 border fw-semibold dest-badge active" data-dest="all" style="cursor: pointer; background-color: var(--brand-color, #006d5b); color: white">All</span>
+          <span class="badge rounded-pill px-3 py-1 border fw-semibold dest-badge active" data-dest="all" style="cursor: pointer; background-color: var(--brand-color, #006d5b); color: white">All</span>
           {% for destino in viaje.destinos %}
-          <span class="badge bg-light text-secondary rounded p-1 px-2 border fw-semibold dest-badge" data-dest="{% if destino is mapping %}{{ destino.nombre }}{% else %}{{ destino }}{% endif %}" style="cursor: pointer">{% if destino is mapping %}{{ destino.nombre }}{% else %}{{ destino }}{% endif %}</span>
+          {% set d_nom = destino.nombre if destino is mapping else destino %}
+          <span class="badge bg-light text-secondary rounded-pill px-3 py-1 border fw-semibold dest-badge" data-dest="{{ d_nom }}" style="cursor: pointer">{{ d_nom | short_dest }}</span>
           {% endfor %}
-          <span class="text-secondary fw-bold fs-6 ms-2" id="header-duration"> &bull; {{ viaje.fecha_inicio_fmt }} – {{ viaje.fecha_fin_fmt }} </span>
+          <span class="text-secondary fw-semibold fs-7 ms-1" id="header-duration">&bull; {{ viaje.fecha_inicio_fmt }} – {{ viaje.fecha_fin_fmt }}</span>
         </div>
-        <h1 class="display-5 fw-bold mb-0">{{ viaje.titulo }}</h1>
+        <h1 class="trip-main-title fw-bold mb-0">{{ viaje.titulo_corto or viaje.titulo }}</h1>
       </div>
 
       <div class="d-flex gap-2">
         <button id="share-btn" class="btn btn-outline-secondary rounded-circle icon-btn shadow-sm" data-i18n-title="iti_share" title="Share">
           <i class="fa-solid fa-share-nodes"></i>
         </button>
-
       </div>
     </div>
 
@@ -558,10 +558,18 @@
       const contenido = document.getElementById('day-content-' + dia);
       if (!contenido) return;
 
-      let actividades = [];
-      try { actividades = JSON.parse(contenido.dataset.actividades || '[]'); } catch (e) { /* ignorado */ }
-
-      document.getElementById('map-activity-count').textContent = actividades.length;
+      // Contar actividades visibles según el filtro de destino activo,
+      // no desde el JSON crudo del día (que ignora el filtro).
+      const activeBadge = document.querySelector('.dest-badge.active');
+      const dest = activeBadge ? activeBadge.dataset.dest : 'all';
+      const allActivities = document.querySelectorAll('.activity-item');
+      let totalActs = 0;
+      allActivities.forEach(act => {
+          if (dest === 'all' || act.dataset.dest === dest) {
+              totalActs++;
+          }
+      });
+      document.getElementById('map-activity-count').textContent = totalActs;
   }
 
   // ─── Clima ───────────────────────────────────────────────────────────────────

@@ -32,14 +32,13 @@
             {% else %}
 
             <!-- Encabezado -->
-            <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4">
+            <div class="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-3">
                 <div>
-                    <h1 class="fw-bold mb-1">{{ viaje.titulo }}</h1>
-                    <p class="text-secondary mb-0" data-i18n="budget_sub">
+                    <h1 class="trip-main-title fw-bold mb-1">{{ viaje.titulo_corto or viaje.titulo }}</h1>
+                    <p class="text-secondary mb-0 fs-6" data-i18n="budget_sub">
                         How the estimated cost of your trip breaks down.
                     </p>
                 </div>
-
             </div>
 
             {% if not costos %}

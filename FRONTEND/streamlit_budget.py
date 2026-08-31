@@ -220,8 +220,31 @@ def parse_fecha(valor):
         return None
 
 
+def fmt_fecha(d, es_lang=True):
+    if not d:
+        return ""
+    if isinstance(d, str):
+        d = parse_fecha(d)
+    if not d:
+        return ""
+    meses_es = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    meses_en = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    meses = meses_es if es_lang else meses_en
+    return f"{d.day:02d} {meses[d.month - 1]}"
+
+
 def dinero(valor):
     return f"${valor:,.0f}"
+
+
+def destino_corto(nombre):
+    """Extrae únicamente 'Ciudad, País' de nombres largos."""
+    if not nombre:
+        return ""
+    partes = [p.strip() for p in str(nombre).split(",") if p.strip()]
+    if len(partes) >= 2:
+        return f"{partes[0]}, {partes[-1]}"
+    return partes[0] if partes else ""
 
 
 def dinero_md(valor):
@@ -356,18 +379,40 @@ col_dest, col_dias, col_modo = st.columns([3, 3, 1.4], vertical_alignment="botto
 nombres_destinos = [d.get("nombre") for d in destinos if d.get("nombre")]
 with col_dest:
     filtro_destino = st.pills(
-        t["destinations"], [t["all"]] + nombres_destinos, default=t["all"], key="f_dest"
+        t["destinations"], [t["all"]] + nombres_destinos,
+        format_func=lambda x: t["all"] if x == t["all"] else destino_corto(x),
+        default=t["all"], key="f_dest"
     ) or t["all"]
 
+# Determinar los días y fechas del destino seleccionado (o de todo el viaje)
+if filtro_destino == t["all"]:
+    dias_destino_actual = dias_disponibles
+    f_ini = fecha_inicio
+    f_fin = parse_fecha(viaje.get("fecha_fin")) or (fecha_inicio + timedelta(days=dias_totales - 1) if fecha_inicio else None)
+else:
+    dias_destino_actual = [d for d in dias_disponibles if dia_destino.get(d) == filtro_destino] or dias_disponibles
+    dest_obj = next((d for d in destinos if d.get("nombre") == filtro_destino), None)
+    f_ini = parse_fecha(dest_obj.get("fecha_llegada")) if dest_obj else None
+    f_fin = parse_fecha(dest_obj.get("fecha_partida")) if dest_obj else None
+    if not f_ini and fecha_inicio:
+        f_ini = fecha_inicio + timedelta(days=min(dias_destino_actual) - 1)
+    if not f_fin and fecha_inicio:
+        f_fin = fecha_inicio + timedelta(days=max(dias_destino_actual) - 1)
+
+texto_fechas = f" • {fmt_fecha(f_ini, es)} – {fmt_fecha(f_fin, es)}" if f_ini and f_fin else ""
+label_slider = f"{t['day_range']}{texto_fechas}"
+min_dia_slider = min(dias_destino_actual)
+max_dia_slider = max(dias_destino_actual)
+
 with col_dias:
-    if len(dias_disponibles) > 1:
+    if min_dia_slider < max_dia_slider:
         rango = st.slider(
-            t["day_range"], min_value=min(dias_disponibles), max_value=max(dias_disponibles),
-            value=(min(dias_disponibles), max(dias_disponibles)), key="f_rango",
+            label_slider, min_value=min_dia_slider, max_value=max_dia_slider,
+            value=(min_dia_slider, max_dia_slider), key=f"f_rango_{filtro_destino}",
         )
     else:
-        rango = (dias_disponibles[0], dias_disponibles[0])
-        st.caption(f"{t['day_range']}: {t['day_short']} {rango[0]}")
+        rango = (min_dia_slider, max_dia_slider)
+        st.caption(f"{label_slider}: {t['day_short']} {rango[0]}")
 
 with col_modo:
     por_persona = st.toggle(
@@ -449,11 +494,14 @@ tab_resumen, tab_dia, tab_cat, tab_comp, tab_sim = st.tabs([
 ])
 
 
-# 1) Resumen: el desglose oficial, el que suma el total del viaje.
+# 1) Resumen: desglose según la selección de filtros activos.
 with tab_resumen:
+    n_dias = len(dias_sel)
     etiquetas = [t["lodging"], t["transport"], t["activities"], t["food"]]
-    valores = [FIJOS["alojamiento"] / divisor, FIJOS["transporte"] / divisor,
-               cat_actividades / divisor, FIJOS["comidas"] / divisor]
+    valores = [fijos_por_dia["alojamiento"] * n_dias,
+               fijos_por_dia["transporte"] * n_dias,
+               actividades_tramo,
+               fijos_por_dia["comidas"] * n_dias]
     colores = [COLOR["alojamiento"], COLOR["transporte"],
                COLOR["actividades"], COLOR["comidas"]]
 

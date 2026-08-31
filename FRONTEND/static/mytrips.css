@@ -83,28 +83,28 @@ body {
     font-weight: 700;
     font-size: 2.5rem;
     margin-bottom: 0.25rem;
-    margin-top: 4rem; /* Agrega esto */
+    margin-top: 2rem;
 }
 
 .trips-subtitle {
     color: #6b7280;
     font-size: 1.1rem;
-    margin-bottom: 2.5rem;
+    margin-bottom: 2rem;
 }
 
 .trip-card {
-    border-radius: 12px;
+    border-radius: 14px;
     overflow: hidden;
-    height: 220px;
+    height: 230px;
     position: relative;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    transition: transform 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
     text-decoration: none !important;
 }
 
 .trip-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 12px 24px -4px rgba(0, 0, 0, 0.22);
 }
 
 .trip-card-bg {
@@ -112,12 +112,23 @@ body {
     top: 0; left: 0; right: 0; bottom: 0;
     background-size: cover;
     background-position: center;
+    transition: transform 0.35s ease;
+}
+
+.trip-card:hover .trip-card-bg {
+    transform: scale(1.04);
 }
 
 .trip-card-overlay {
     position: absolute;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 60%);
+    background: linear-gradient(
+        to bottom,
+        rgba(15, 23, 42, 0.55) 0%,
+        rgba(15, 23, 42, 0.20) 25%,
+        rgba(15, 23, 42, 0.65) 60%,
+        rgba(15, 23, 42, 0.94) 100%
+    );
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
@@ -127,17 +138,27 @@ body {
 
 /* Past Trip Overlay */
 .past-trip .trip-card-overlay {
-    background: linear-gradient(to top, rgba(30, 80, 80, 0.85) 0%, rgba(50, 100, 100, 0.3) 100%);
+    background: linear-gradient(
+        to bottom,
+        rgba(30, 60, 60, 0.60) 0%,
+        rgba(30, 60, 60, 0.30) 25%,
+        rgba(25, 70, 70, 0.75) 60%,
+        rgba(15, 45, 45, 0.96) 100%
+    );
 }
 
 .badge-custom {
     position: absolute;
     top: 1rem;
     left: 1rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 0.4rem 0.75rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.35rem 0.75rem;
     border-radius: 20px;
+    letter-spacing: 0.03em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+    z-index: 2;
 }
 
 .badge-new {
@@ -154,19 +175,26 @@ body {
 
 .trip-date {
     font-size: 0.75rem;
-    background-color: rgba(255,255,255,0.25);
-    backdrop-filter: blur(4px);
-    padding: 0.2rem 0.6rem;
-    border-radius: 4px;
+    background-color: rgba(15, 23, 42, 0.70);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    color: #f1f5f9;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    padding: 0.25rem 0.65rem;
+    border-radius: 6px;
     display: inline-block;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
     font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 .trip-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 0.25rem;
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 0.35rem;
+    color: #ffffff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8), 0 0 12px rgba(0, 0, 0, 0.5);
+    line-height: 1.35;
 }
 
 .trip-travelers {
@@ -177,27 +205,29 @@ body {
 /* Add New Trip Card */
 .add-trip-card {
     border: 2px dashed #cbd5e1;
-    border-radius: 12px;
-    height: 220px;
+    border-radius: 14px;
+    height: 230px;
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     background-color: #f8fafc;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, border-color 0.2s;
     text-align: center;
+    padding: 1.5rem;
 }
 
 .add-trip-card:hover {
     background-color: #f1f5f9;
+    border-color: #94a3b8;
 }
 
 .add-icon-wrapper {
     background-color: #99f6e4;
     color: #0f766e;
-    width: 48px;
-    height: 48px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
     display: flex;
     justify-content: center;
@@ -216,9 +246,5 @@ body {
 .add-subtitle {
     font-size: 0.85rem;
     color: #6b7280;
-    max-width: 80%;
-}/* Estilos para el filtro alineado a la derecha */
-.trips-title {
-    font-size: 2.5rem;
-    font-weight: 700;
+    max-width: 85%;
 }

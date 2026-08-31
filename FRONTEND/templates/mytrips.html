@@ -43,25 +43,25 @@
                 <a href="{% if viaje.is_draft %}{{ url_for('compare') }}{% else %}{{ url_for('itinerary', id_viaje=viaje.id_viaje) }}{% endif %}" class="text-decoration-none">
                     <div class="trip-card-bg" style="background-image: url('{{ viaje.imagen }}');"></div>
                     <div class="trip-card-overlay">
-                        {% if viaje.status_label == 'current trip' %}
+                        {% if viaje.is_draft or viaje.status_label == 'draft' %}
                         <span class="badge-custom mb-2 d-inline-block text-white fw-bold"
-                              style="background-color: rgba(13, 202, 240, 0.7); backdrop-filter: blur(6px); padding: 2px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;">
+                              style="background-color: rgba(245, 158, 11, 0.9); backdrop-filter: blur(6px); padding: 3px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;">
+                            <i class="fa-solid fa-file-pen me-1"></i><span>Draft</span>
+                        </span>
+                        {% elif viaje.status_label == 'current trip' %}
+                        <span class="badge-custom mb-2 d-inline-block text-white fw-bold"
+                              style="background-color: rgba(13, 202, 240, 0.9); backdrop-filter: blur(6px); padding: 3px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;">
                             <i class="fa-solid fa-plane me-1"></i><span data-i18n="mytrips_current">Current Trip</span>
                         </span>
                         {% elif viaje.status_label == 'upcoming trip' %}
-                        <span class="badge-custom mb-2 d-inline-block text-white"
-                              style="background-color: rgba(25, 135, 84, 0.7); backdrop-filter: blur(6px); padding: 2px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;">
+                        <span class="badge-custom mb-2 d-inline-block text-white fw-bold"
+                              style="background-color: rgba(25, 135, 84, 0.9); backdrop-filter: blur(6px); padding: 3px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;">
                             <i class="fa-solid fa-plane-departure me-1"></i><span data-i18n="mytrips_upcoming">Upcoming Trip</span>
                         </span>
                         {% elif viaje.status_label == 'last trip' %}
-                        <span class="badge-custom mb-2 d-inline-block text-white"
-                              style="background-color: rgba(108, 117, 125, 0.7); backdrop-filter: blur(6px); padding: 2px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;">
-                            <i class="fa-solid fa-plane-arrival me-1"></i><span data-i18n="mytrips_past_f">Last Trip</span>
-                        </span>
-                        {% elif viaje.is_draft %}
                         <span class="badge-custom mb-2 d-inline-block text-white fw-bold"
-                              style="background-color: rgba(245, 158, 11, 0.8); backdrop-filter: blur(6px); padding: 2px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;">
-                            <i class="fa-solid fa-file-pen me-1"></i><span>Draft</span>
+                              style="background-color: rgba(108, 117, 125, 0.9); backdrop-filter: blur(6px); padding: 3px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;">
+                            <i class="fa-solid fa-plane-arrival me-1"></i><span data-i18n="mytrips_past_f">Last Trip</span>
                         </span>
                         {% endif %}
 
@@ -72,7 +72,8 @@
                             </span>
                             <div class="trip-title">
                                 {% for dest in viaje.destinos %}
-                                    {% if dest is mapping %}{{ dest.nombre }}{% else %}{{ dest }}{% endif %}{% if not loop.last %} <i class="fa-solid fa-chevron-right mx-1 fs-6 text-white-50"></i> {% endif %}
+                                    {% set d_nombre = dest.nombre if dest is mapping else dest %}
+                                    {{ d_nombre | short_dest }}{% if not loop.last %} <i class="fa-solid fa-chevron-right mx-1 fs-6 text-white-50"></i> {% endif %}
                                 {% endfor %}
                             </div>
                             <span class="trip-date d-block mt-1">

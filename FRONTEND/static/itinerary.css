@@ -6,6 +6,13 @@
 }
 
 /* Header & Typography */
+.trip-main-title {
+  font-size: 1.65rem;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
 .text-brand {
   color: var(--brand-color, #006d5b) !important;
 }
