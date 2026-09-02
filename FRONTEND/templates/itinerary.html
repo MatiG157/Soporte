@@ -159,11 +159,13 @@
                   </div>
                   <h4 class="fw-bold mb-2 text-dark">{{ act.nombre }}</h4>
                   <p class="text-secondary fs-7 mb-3">{{ act.descripcion }}</p>
-                  <div class="d-flex gap-2 flex-wrap">
+                  <div class="d-flex gap-2 flex-wrap align-items-center">
                     {% if act.categoria %}
                     <span class="badge rounded p-1 px-2 fw-semibold tag-badge tag-sightseeing"> <i class="fa-solid fa-tag me-1"></i> {{ act.categoria }} </span>
                     {% endif %} {% if act.ubicacion %}
-                    <span class="badge rounded p-1 px-2 fw-semibold tag-badge tag-activity"> <i class="fa-solid fa-map-pin me-1"></i> {{ act.ubicacion }} </span>
+                    <button type="button" class="badge rounded p-1 px-2 fw-semibold tag-badge tag-activity tag-ubicacion-btn" data-id="{{ act.id_actividad }}" data-ubicacion="{{ act.ubicacion }}" data-i18n-title="iti_map_center" title="Centrar en el mapa">
+                      <i class="fa-solid fa-map-pin me-1"></i> {{ act.ubicacion }}
+                    </button>
                     {% endif %}
                   </div>
                 </div>
@@ -183,60 +185,82 @@
 
         </div>
         {% endfor %}
+
+        <!-- Estado cuando no hay ningún día seleccionado -->
+        <div id="no-day-selected-placeholder" class="card border rounded-4 shadow-sm text-center py-5 px-4 mb-4 text-secondary d-none">
+          <div class="mb-3">
+            <i class="fa-regular fa-calendar-xmark text-muted" style="font-size: 3rem;"></i>
+          </div>
+          <h5 class="fw-bold text-dark" data-i18n="iti_no_day_selected_title">Ningún día seleccionado</h5>
+          <p class="text-secondary fs-7 mb-0" data-i18n="iti_no_day_selected_desc">Selecciona un día en la barra superior para ver su itinerario y actividades.</p>
+        </div>
       </div>
 
       <!-- Mapa y logística -->
       <div class="col-lg-4">
-        <div class="card rounded-4 shadow-sm mb-4 border-0 overflow-hidden">
-          <div id="trip-map"></div>
-          <div class="p-3 border-top bg-white">
-            <h6 class="fw-bold mb-0 text-brand">{{ viaje.destino_principal }}</h6>
-            <small class="text-secondary">
-              <span id="map-activity-count">0</span>
-              <span data-i18n="iti_activities">activities</span>
-            </small>
-          </div>
-        </div>
-
-        <div class="card border rounded-4 shadow-sm p-4">
-          <h5 class="fw-bold mb-4" data-i18n="iti_logistics">Daily Logistics</h5>
-
-          <div class="d-flex mb-4">
-            <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px">
-              <i class="fa-solid fa-route text-secondary"></i>
+        <div class="itinerary-map-sidebar">
+          <div id="map-fullscreen-backdrop" class="map-fullscreen-backdrop d-none"></div>
+          <div class="card rounded-4 shadow-sm mb-4 border-0 overflow-hidden map-card-container position-relative" id="map-card-wrapper">
+            <div class="position-relative w-100 flex-grow-1" id="trip-map-container">
+              <div id="trip-map"></div>
+              <button type="button" id="btn-close-map-x" class="btn-map-close-floating d-none" title="Cerrar vista amplia" aria-label="Cerrar vista amplia">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+              <button type="button" id="btn-expand-map" class="btn-map-expand" data-i18n-title="iti_map_expand" title="Agrandar mapa" aria-label="Agrandar mapa">
+                <i class="fa-solid fa-expand" id="expand-map-icon"></i>
+              </button>
             </div>
-            <div>
-              <h6 class="fw-bold mb-1 fs-7" data-i18n="iti_logistics_transport">Transport</h6>
-              <p class="text-secondary fs-7 mb-0">{{ viaje.destinos_display }}</p>
-            </div>
-          </div>
-
-          <div class="d-flex mb-4">
-            <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px">
-              <i class="fa-solid fa-calendar-days text-secondary"></i>
-            </div>
-            <div>
-              <h6 class="fw-bold mb-1 fs-7" data-i18n="compare_days">days</h6>
-              <p class="text-secondary fs-7 mb-0">{{ viaje.fecha_inicio_fmt }} – {{ viaje.fecha_fin_fmt }} ({{ viaje.dias_totales }})</p>
+            <div class="p-3 border-top bg-white d-flex justify-content-between align-items-center map-card-footer">
+              <div>
+                <h6 class="fw-bold mb-0 text-brand" id="map-header-title">{{ viaje.destino_principal }}</h6>
+                <small class="text-secondary">
+                  <span id="map-activity-count">0</span>
+                  <span data-i18n="iti_activities">activities</span>
+                </small>
+              </div>
             </div>
           </div>
 
-          <div class="d-flex">
-            <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px">
-              <i class="fa-solid fa-wallet text-secondary"></i>
+          <div class="card border rounded-4 shadow-sm p-4">
+            <h5 class="fw-bold mb-4" data-i18n="iti_logistics">Daily Logistics</h5>
+
+            <div class="d-flex mb-4">
+              <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px">
+                <i class="fa-solid fa-route text-secondary"></i>
+              </div>
+              <div>
+                <h6 class="fw-bold mb-1 fs-7" data-i18n="iti_logistics_transport">Transport</h6>
+                <p class="text-secondary fs-7 mb-0">{{ viaje.destinos_display }}</p>
+              </div>
             </div>
-            <div>
-              <h6 class="fw-bold mb-1 fs-7" data-i18n="budget_breakdown">Cost breakdown</h6>
-              <p class="text-secondary fs-7 mb-0">
-                {% if viaje.costos %}
-                <a href="{{ url_for('budget', id_viaje=viaje.id_viaje) }}" class="text-brand text-decoration-none fw-bold">
-                  ${{ '{:,.0f}'.format(viaje.costos.get('costo_total_base') or 0) }}
-                  <i class="fa-solid fa-arrow-right ms-1"></i>
-                </a>
-                {% else %}
-                <span data-i18n="budget_no_costs">No cost breakdown loaded.</span>
-                {% endif %}
-              </p>
+
+            <div class="d-flex mb-4">
+              <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px">
+                <i class="fa-solid fa-calendar-days text-secondary"></i>
+              </div>
+              <div>
+                <h6 class="fw-bold mb-1 fs-7" data-i18n="compare_days">days</h6>
+                <p class="text-secondary fs-7 mb-0">{{ viaje.fecha_inicio_fmt }} – {{ viaje.fecha_fin_fmt }} ({{ viaje.dias_totales }})</p>
+              </div>
+            </div>
+
+            <div class="d-flex">
+              <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px">
+                <i class="fa-solid fa-wallet text-secondary"></i>
+              </div>
+              <div>
+                <h6 class="fw-bold mb-1 fs-7" data-i18n="budget_breakdown">Cost breakdown</h6>
+                <p class="text-secondary fs-7 mb-0">
+                  {% if viaje.costos %}
+                  <a href="{{ url_for('budget', id_viaje=viaje.id_viaje) }}" class="text-brand text-decoration-none fw-bold">
+                    ${{ '{:,.0f}'.format(viaje.costos.get('costo_total_base') or 0) }}
+                    <i class="fa-solid fa-arrow-right ms-1"></i>
+                  </a>
+                  {% else %}
+                  <span data-i18n="budget_no_costs">No cost breakdown loaded.</span>
+                  {% endif %}
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -408,9 +432,29 @@
   function inicializarPestanas() {
       const pestanas = document.querySelectorAll('.day-tab-btn');
       const contenidos = document.querySelectorAll('.day-content');
+      const timelineLine = document.querySelector('.timeline-line');
+      const placeholder = document.getElementById('no-day-selected-placeholder');
 
       pestanas.forEach(pestana => {
           pestana.addEventListener('click', function () {
+              const eraActiva = this.classList.contains('btn-brand');
+
+              if (eraActiva) {
+                  // Deseleccionar el día actual
+                  this.classList.remove('btn-brand', 'text-white', 'shadow-sm', 'border-0');
+                  this.classList.add('btn-outline-secondary', 'bg-light', 'text-secondary', 'border-1');
+
+                  contenidos.forEach(c => { c.style.display = 'none'; });
+                  if (timelineLine) timelineLine.style.display = 'none';
+                  if (placeholder) placeholder.classList.remove('d-none');
+
+                  recordarDia(null);
+                  dibujarMarcadores(null);
+                  actualizarPresupuestoDia(null);
+                  return;
+              }
+
+              // Seleccionar nuevo día
               pestanas.forEach(p => {
                   p.classList.remove('btn-brand', 'text-white', 'shadow-sm', 'border-0');
                   p.classList.add('btn-outline-secondary', 'bg-light', 'text-secondary', 'border-1');
@@ -418,9 +462,13 @@
               this.classList.remove('btn-outline-secondary', 'bg-light', 'text-secondary', 'border-1');
               this.classList.add('btn-brand', 'text-white', 'shadow-sm', 'border-0');
 
+              if (placeholder) placeholder.classList.add('d-none');
+              if (timelineLine) timelineLine.style.display = '';
+
               contenidos.forEach(c => { c.style.display = 'none'; });
               const dia = this.dataset.day;
-              document.getElementById('day-content-' + dia).style.display = 'block';
+              const contentDia = document.getElementById('day-content-' + dia);
+              if (contentDia) contentDia.style.display = 'block';
 
               recordarDia(dia);
               dibujarMarcadores(dia);
@@ -508,122 +556,549 @@
   // ─── Mapa ────────────────────────────────────────────────────────────────────
 
   let mapa = null;
-  let capaMarcadores = null;
+  let capaDestinos = null;
+  let capaActividades = null;
   const cacheGeo = {};
+  const marcadoresDestinos = {};
+  const marcadoresActividades = {};
+  let actividadSeleccionadaId = null;
+  let puntosDelDiaActual = [];
+  let mapaEstaAgrandado = false;
 
-  async function geocodificar(consulta) {
-      if (!consulta) return null;
-      if (cacheGeo[consulta] !== undefined) return cacheGeo[consulta];
+  async function geocodificar(consulta, puntoSesgo = null) {
+      if (!consulta || !consulta.trim()) return null;
+      const key = consulta.trim().toLowerCase();
+      if (cacheGeo[key] !== undefined) return cacheGeo[key];
 
+      // 1. Intentar con Photon (OpenStreetMap: atracciones, museos, restaurantes, calles, etc.)
       try {
-          const url = 'https://geocoding-api.open-meteo.com/v1/search'
-                    + `?name=${encodeURIComponent(consulta.split(',')[0].trim())}&count=1&language=es`;
+          const sesgo = puntoSesgo || sesgoUbicacion || (VIAJE.destinos[0] ? cacheGeo[VIAJE.destinos[0].toLowerCase()] : null);
+          let url = `https://photon.komoot.io/api/?q=${encodeURIComponent(consulta.trim())}&limit=1`;
+          if (sesgo) {
+              url += `&lat=${sesgo.lat}&lon=${sesgo.lon}`;
+          }
           const resp = await fetch(url);
-          const datos = await resp.json();
-          const primero = (datos.results || [])[0];
-          cacheGeo[consulta] = primero ? { lat: primero.latitude, lon: primero.longitude, nombre: primero.name } : null;
+          if (resp.ok) {
+              const datos = await resp.json();
+              if (datos.features && datos.features.length > 0) {
+                  const feat = datos.features[0];
+                  const coords = feat.geometry.coordinates; // [lon, lat]
+                  const res = {
+                      lat: coords[1],
+                      lon: coords[0],
+                      nombre: feat.properties.name || consulta
+                  };
+                  cacheGeo[key] = res;
+                  return res;
+              }
+          }
       } catch (err) {
-          cacheGeo[consulta] = null;
+          // Si falla Photon, continúa al fallback
       }
-      return cacheGeo[consulta];
+
+      // 2. Fallback: Open-Meteo (ciudades/localidades)
+      try {
+          const parte = consulta.split(',')[0].trim();
+          const url = 'https://geocoding-api.open-meteo.com/v1/search'
+                    + `?name=${encodeURIComponent(parte)}&count=1&language=es`;
+          const resp = await fetch(url);
+          if (resp.ok) {
+              const datos = await resp.json();
+              const primero = (datos.results || [])[0];
+              if (primero) {
+                  const res = { lat: primero.latitude, lon: primero.longitude, nombre: primero.name };
+                  cacheGeo[key] = res;
+                  return res;
+              }
+          }
+      } catch (err) {
+          // Ignorar error de red
+      }
+
+      cacheGeo[key] = null;
+      return null;
+  }
+
+  function crearIconoDestino(esActivo = false) {
+      return L.divIcon({
+          className: 'custom-map-marker-container',
+          html: `
+              <div class="custom-map-pin destination-pin ${esActivo ? 'pin-active' : ''}" style="--pin-color: #0284c7;">
+                  <i class="fa-solid fa-city"></i>
+              </div>
+          `,
+          iconSize: [36, 36],
+          iconAnchor: [18, 36],
+          popupAnchor: [0, -36]
+      });
+  }
+
+  function crearIconoMarcador(categoria, esActivo = false) {
+      const catLower = (categoria || '').toLowerCase().trim();
+      const [icono, color] = ESTILO_CATEGORIA[catLower] || ['fa-location-dot', '#006d5b'];
+
+      return L.divIcon({
+          className: 'custom-map-marker-container',
+          html: `
+              <div class="custom-map-pin ${esActivo ? 'pin-active' : ''}" style="--pin-color: ${color};">
+                  <i class="fa-solid ${icono}"></i>
+              </div>
+          `,
+          iconSize: [36, 36],
+          iconAnchor: [18, 36],
+          popupAnchor: [0, -36]
+      });
   }
 
   async function inicializarMapa() {
       const punto = await geocodificar(VIAJE.destinos[0]);
       const centro = punto ? [punto.lat, punto.lon] : [0, 0];
 
-      mapa = L.map('trip-map', { scrollWheelZoom: false }).setView(centro, punto ? 11 : 2);
+      mapa = L.map('trip-map', { scrollWheelZoom: false }).setView(centro, punto ? 12 : 2);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; OpenStreetMap',
           maxZoom: 18
       }).addTo(mapa);
 
-      capaMarcadores = L.layerGroup().addTo(mapa);
+      capaDestinos = L.layerGroup().addTo(mapa);
+      capaActividades = L.layerGroup().addTo(mapa);
 
-      // Un marcador por destino del viaje.
-      const puntos = [];
+      // Crear marcadores permanentes para cada destino del viaje
+      const puntosDestinos = [];
       for (const destino of VIAJE.destinos) {
           const p = await geocodificar(destino);
           if (!p) continue;
-          puntos.push([p.lat, p.lon]);
-          L.marker([p.lat, p.lon]).addTo(capaMarcadores).bindPopup(`<strong>${destino}</strong>`);
+          puntosDestinos.push([p.lat, p.lon]);
+          const marker = L.marker([p.lat, p.lon], { icon: crearIconoDestino(false) });
+          const popupDest = `
+              <div class="map-popup-card">
+                  <span class="popup-category" style="background-color: #0284c7;">
+                      <i class="fa-solid fa-city me-1"></i>${t('iti_destination_title', 'Destino')}
+                  </span>
+                  <div class="popup-title">${destino}</div>
+              </div>
+          `;
+          marker.bindPopup(popupDest, { offset: [0, -10] });
+          marker.on('click', () => {
+              const badge = document.querySelector(`.dest-badge[data-dest="${destino}"]`);
+              if (badge) badge.click();
+          });
+          marker.addTo(capaDestinos);
+          marcadoresDestinos[destino] = { marker, lat: p.lat, lon: p.lon, nombre: destino };
       }
 
-      if (puntos.length > 1) mapa.fitBounds(puntos, { padding: [30, 30] });
+      if (puntosDestinos.length > 1) {
+          mapa.fitBounds(puntosDestinos, { padding: [30, 30] });
+      }
 
-      dibujarMarcadores(1);
+      await dibujarMarcadores(1);
   }
 
-  function dibujarMarcadores(dia) {
-      const contenido = document.getElementById('day-content-' + dia);
-      if (!contenido) return;
+  async function dibujarMarcadores(dia) {
+      if (!mapa || !capaActividades) return;
 
-      // Contar actividades visibles según el filtro de destino activo,
-      // no desde el JSON crudo del día (que ignora el filtro).
+      // Limpiar marcadores de actividades
+      capaActividades.clearLayers();
+      Object.keys(marcadoresActividades).forEach(k => delete marcadoresActividades[k]);
+      puntosDelDiaActual = [];
+      deseleccionarActividad(false);
+
       const activeBadge = document.querySelector('.dest-badge.active');
-      const dest = activeBadge ? activeBadge.dataset.dest : 'all';
-      const allActivities = document.querySelectorAll('.activity-item');
+      const destFiltro = activeBadge ? activeBadge.dataset.dest : 'all';
+
+      // Si no hay día seleccionado
+      if (!dia) {
+          const mapCount = document.getElementById('map-activity-count');
+          if (mapCount) mapCount.textContent = '0';
+          actualizarVisibilidadDestinos(null, destFiltro);
+          return;
+      }
+
+      const contenido = document.getElementById('day-content-' + dia);
+      if (!contenido) {
+          const mapCount = document.getElementById('map-activity-count');
+          if (mapCount) mapCount.textContent = '0';
+          actualizarVisibilidadDestinos(null, destFiltro);
+          return;
+      }
+
+      // Actividades de este día
+      const actividadesItems = Array.from(contenido.querySelectorAll('.activity-item'));
+
+      // Actualizar contador del header del mapa
       let totalActs = 0;
-      allActivities.forEach(act => {
-          if (dest === 'all' || act.dataset.dest === dest) {
+      document.querySelectorAll('.activity-item').forEach(act => {
+          if (destFiltro === 'all' || act.dataset.dest === destFiltro) {
               totalActs++;
           }
       });
-      document.getElementById('map-activity-count').textContent = totalActs;
+      const mapCount = document.getElementById('map-activity-count');
+      if (mapCount) mapCount.textContent = totalActs;
+
+      // Filtrar actividades con ubicación y que cumplan el filtro de destino
+      const paraMapear = actividadesItems.filter(act => {
+          const coincideDest = (destFiltro === 'all' || act.dataset.dest === destFiltro);
+          return coincideDest && (act.dataset.ubicacion || '').trim().length > 0;
+      });
+
+      // Geocodificar en paralelo
+      const tareas = paraMapear.map(async act => {
+          const ubicacion = act.dataset.ubicacion.trim();
+          const actDest = act.dataset.dest || VIAJE.destinos[0];
+          const sesgo = actDest ? await geocodificar(actDest) : null;
+          const coords = await geocodificar(ubicacion, sesgo);
+          return { act, coords };
+      });
+
+      const resultados = await Promise.all(tareas);
+
+      resultados.forEach(({ act, coords }) => {
+          if (!coords) return;
+          const actId = String(act.dataset.id);
+          const nombre = act.dataset.nombre || '';
+          const categoria = act.dataset.categoriaNombre || '';
+          const horario = act.dataset.horario || '';
+          const ubicacion = act.dataset.ubicacion || '';
+          const precio = parseFloat(act.dataset.precio || 0);
+          const [icono, color] = ESTILO_CATEGORIA[(categoria || '').toLowerCase()] || ['fa-location-dot', '#006d5b'];
+
+          const marker = L.marker([coords.lat, coords.lon], {
+              icon: crearIconoMarcador(categoria, false)
+          });
+
+          const popupHtml = `
+              <div class="map-popup-card">
+                  ${categoria ? `<span class="popup-category" style="background-color: ${color};"><i class="fa-solid ${icono} me-1"></i>${categoria}</span>` : ''}
+                  <div class="popup-title">${nombre}</div>
+                  ${horario ? `<div class="popup-info"><i class="fa-regular fa-clock text-secondary"></i><span>${horario}</span></div>` : ''}
+                  ${ubicacion ? `<div class="popup-info"><i class="fa-solid fa-map-pin text-secondary"></i><span class="text-truncate">${ubicacion}</span></div>` : ''}
+                  ${precio > 0 ? `<div class="mt-1 fw-bold text-success" style="font-size: 0.85rem;">$${precio.toLocaleString()}</div>` : ''}
+              </div>
+          `;
+
+          marker.bindPopup(popupHtml, { offset: [0, -10] });
+
+          marker.on('click', () => {
+              const btn = act.querySelector('.tag-ubicacion-btn');
+              if (btn) {
+                  alternarCentradoActividad(actId, ubicacion, btn, false);
+              }
+          });
+
+          marker.addTo(capaActividades);
+
+          marcadoresActividades[actId] = {
+              marker,
+              lat: coords.lat,
+              lon: coords.lon,
+              categoria,
+              element: act
+          };
+
+          puntosDelDiaActual.push([coords.lat, coords.lon]);
+      });
+
+      actualizarVisibilidadDestinos(dia, destFiltro);
+  }
+
+  function actualizarVisibilidadDestinos(dia, destFiltro) {
+      if (!mapa || !capaDestinos) return;
+
+      capaDestinos.clearLayers();
+
+      // Caso 1: Ningún día seleccionado
+      if (!dia) {
+          if (destFiltro === 'all') {
+              // Si no hay día seleccionado y el filtro es all: mostrar TODOS los destinos en el mapa
+              const puntos = [];
+              Object.values(marcadoresDestinos).forEach(d => {
+                  if (d.marker) {
+                      d.marker.setIcon(crearIconoDestino(false));
+                      d.marker.addTo(capaDestinos);
+                      puntos.push([d.lat, d.lon]);
+                  }
+              });
+              if (puntos.length > 1) {
+                  mapa.fitBounds(puntos, { padding: [40, 40] });
+              } else if (puntos.length === 1) {
+                  mapa.setView(puntos[0], 12);
+              }
+          } else {
+              // Destino específico sin día seleccionado: mostrar el pin del destino y centrar
+              const d = marcadoresDestinos[destFiltro];
+              if (d && d.marker) {
+                  d.marker.setIcon(crearIconoDestino(true));
+                  d.marker.addTo(capaDestinos);
+                  mapa.flyTo([d.lat, d.lon], 13, { animate: true, duration: 0.8 });
+              } else {
+                  geocodificar(destFiltro).then(p => {
+                      if (p) mapa.flyTo([p.lat, p.lon], 13, { animate: true, duration: 0.8 });
+                  });
+              }
+          }
+          return;
+      }
+
+      // Caso 2: Hay un día seleccionado
+      // "cuando hay un destino seleccionado y un dia seleccionado, quiero que priorizes que en el mapa se vean todas las actividades y que el pin del destino no se vea para que no se confunda con una actividad."
+      if (puntosDelDiaActual.length > 0) {
+          // El pin del destino NO se muestra (capaDestinos queda vacía)
+          // Priorizamos que se vean TODAS las actividades
+          if (puntosDelDiaActual.length > 1) {
+              mapa.fitBounds(puntosDelDiaActual, { padding: [45, 45], maxZoom: 16 });
+          } else if (puntosDelDiaActual.length === 1) {
+              mapa.setView(puntosDelDiaActual[0], 15);
+          }
+      } else {
+          // Si no hay actividades para este día y destino, mostramos el destino como referencia
+          if (destFiltro !== 'all') {
+              const d = marcadoresDestinos[destFiltro];
+              if (d && d.marker) {
+                  d.marker.setIcon(crearIconoDestino(true));
+                  d.marker.addTo(capaDestinos);
+                  mapa.setView([d.lat, d.lon], 13);
+              }
+          } else {
+              const puntos = [];
+              Object.values(marcadoresDestinos).forEach(d => {
+                  if (d.marker) {
+                      d.marker.setIcon(crearIconoDestino(false));
+                      d.marker.addTo(capaDestinos);
+                      puntos.push([d.lat, d.lon]);
+                  }
+              });
+              if (puntos.length > 1) mapa.fitBounds(puntos, { padding: [40, 40] });
+              else if (puntos.length === 1) mapa.setView(puntos[0], 12);
+          }
+      }
+  }
+
+  function centrarEnDestino(nombreDestino, abrirPopup = true) {
+      if (!mapa) return;
+      const info = marcadoresDestinos[nombreDestino];
+      if (info && info.lat && info.lon) {
+          mapa.flyTo([info.lat, info.lon], 13, { animate: true, duration: 0.8 });
+          Object.values(marcadoresDestinos).forEach(d => {
+              if (d.marker) d.marker.setIcon(crearIconoDestino(false));
+          });
+          if (info.marker) {
+              info.marker.setIcon(crearIconoDestino(true));
+              if (abrirPopup) info.marker.openPopup();
+          }
+      } else {
+          geocodificar(nombreDestino).then(p => {
+              if (p) mapa.flyTo([p.lat, p.lon], 13, { animate: true, duration: 0.8 });
+          });
+      }
+  }
+
+  function restaurarVistaDia(dia) {
+      if (!mapa) return;
+      const activeBadge = document.querySelector('.dest-badge.active');
+      const destFiltro = activeBadge ? activeBadge.dataset.dest : 'all';
+      actualizarVisibilidadDestinos(dia, destFiltro);
+  }
+
+  function alternarCentradoActividad(idActividad, ubicacionTexto, elementoBadge, volarAlPunto = true) {
+      if (!mapa) return;
+      const strId = String(idActividad);
+
+      // Si ya está seleccionada, la deseleccionamos (quita el centrado)
+      if (actividadSeleccionadaId === strId) {
+          deseleccionarActividad(true);
+          return;
+      }
+
+      // Quitar selección previa de cualquier botón
+      document.querySelectorAll('.tag-ubicacion-btn.active').forEach(b => {
+          b.classList.remove('active');
+          b.title = t('iti_map_center', 'Centrar en el mapa');
+      });
+
+      // Restaurar íconos de marcadores previos
+      Object.values(marcadoresActividades).forEach(m => {
+          if (m.marker) m.marker.setIcon(crearIconoMarcador(m.categoria, false));
+      });
+
+      actividadSeleccionadaId = strId;
+      elementoBadge.classList.add('active');
+      elementoBadge.title = t('iti_map_uncenter', 'Quitar centrado del mapa');
+
+      const info = marcadoresActividades[strId];
+      if (info && info.lat && info.lon) {
+          info.marker.setIcon(crearIconoMarcador(info.categoria, true));
+          if (volarAlPunto) {
+              mapa.flyTo([info.lat, info.lon], 15, { animate: true, duration: 0.7 });
+          }
+          info.marker.openPopup();
+          enfocarMapaEnPantalla();
+      } else {
+          // Si no estaba mapeado aún, geocodificarlo y volar a él
+          geocodificar(ubicacionTexto).then(punto => {
+              if (punto && actividadSeleccionadaId === strId) {
+                  if (volarAlPunto) {
+                      mapa.flyTo([punto.lat, punto.lon], 15, { animate: true, duration: 0.7 });
+                  }
+                  enfocarMapaEnPantalla();
+              }
+          });
+      }
+  }
+
+  function deseleccionarActividad(restaurarVista = true) {
+      actividadSeleccionadaId = null;
+      document.querySelectorAll('.tag-ubicacion-btn.active').forEach(b => {
+          b.classList.remove('active');
+          b.title = t('iti_map_center', 'Centrar en el mapa');
+      });
+
+      Object.values(marcadoresActividades).forEach(m => {
+          if (m.marker) m.marker.setIcon(crearIconoMarcador(m.categoria, false));
+      });
+
+      if (mapa) {
+          mapa.closePopup();
+          if (restaurarVista) {
+              const activeDayBtn = document.querySelector('.day-tab-btn.btn-brand');
+              const dia = activeDayBtn ? activeDayBtn.dataset.day : 1;
+              restaurarVistaDia(dia);
+          }
+      }
+  }
+
+  function enfocarMapaEnPantalla() {
+      if (window.innerWidth < 992) {
+          const mapEl = document.getElementById('trip-map');
+          if (mapEl) {
+              mapEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+      }
+  }
+
+  function alternarAgrandarMapa() {
+      const wrapper = document.getElementById('map-card-wrapper');
+      const sidebar = wrapper ? wrapper.closest('.itinerary-map-sidebar') : null;
+      const backdrop = document.getElementById('map-fullscreen-backdrop');
+      const icon = document.getElementById('expand-map-icon');
+      const btnCloseX = document.getElementById('btn-close-map-x');
+      const btnExpand = document.getElementById('btn-expand-map');
+      if (!wrapper || !mapa) return;
+
+      mapaEstaAgrandado = !mapaEstaAgrandado;
+
+      if (mapaEstaAgrandado) {
+          if (sidebar) sidebar.classList.add('has-expanded-map');
+          wrapper.classList.add('map-is-expanded');
+          if (backdrop) backdrop.classList.remove('d-none');
+          if (icon) {
+              icon.classList.remove('fa-expand');
+              icon.classList.add('fa-compress');
+          }
+          if (btnCloseX) btnCloseX.classList.remove('d-none');
+          if (btnExpand) btnExpand.title = t('iti_map_reduce', 'Reducir mapa');
+          document.body.style.overflow = 'hidden';
+      } else {
+          if (sidebar) sidebar.classList.remove('has-expanded-map');
+          wrapper.classList.remove('map-is-expanded');
+          if (backdrop) backdrop.classList.add('d-none');
+          if (icon) {
+              icon.classList.remove('fa-compress');
+              icon.classList.add('fa-expand');
+          }
+          if (btnCloseX) btnCloseX.classList.add('d-none');
+          if (btnExpand) btnExpand.title = t('iti_map_expand', 'Agrandar mapa');
+          document.body.style.overflow = '';
+      }
+
+      setTimeout(() => {
+          mapa.invalidateSize();
+          const activeDayBtn = document.querySelector('.day-tab-btn.btn-brand');
+          const dia = (activeDayBtn && activeDayBtn.style.display !== 'none') ? activeDayBtn.dataset.day : null;
+          restaurarVistaDia(dia);
+      }, 200);
   }
 
   // ─── Clima ───────────────────────────────────────────────────────────────────
 
-  async function cargarClima() {
+  async function cargarClima(nombreDestino = null) {
       const valor = document.getElementById('weather-value');
       const detalle = document.getElementById('weather-detail');
+      if (!valor || !detalle) return;
 
-      const punto = await geocodificar(VIAJE.destinos[0]);
-      if (!punto) {
+      valor.innerHTML = '<span class="spinner-border spinner-border-sm text-secondary" role="status"></span>';
+
+      const destinoConsulta = nombreDestino || VIAJE.destinos[0];
+      if (!destinoConsulta) {
           valor.textContent = '—';
           detalle.textContent = t('iti_weather_na', 'Weather unavailable');
+          detalle.removeAttribute('data-i18n');
           return;
       }
 
-      const hoy = new Date();
-      const inicio = new Date(VIAJE.fecha_inicio);
-      const diasHasta = Math.round((inicio - hoy) / 86400000);
-
-      // Open-Meteo pronostica hasta 16 días. Más allá usamos el mismo período del año pasado.
-      const usarPronostico = diasHasta >= -1 && diasHasta <= 14;
-      const desplazar = fecha => {
-          const d = new Date(fecha);
-          d.setFullYear(d.getFullYear() - 1);
-          return d.toISOString().split('T')[0];
-      };
-
-      const url = usarPronostico
-          ? `https://api.open-meteo.com/v1/forecast?latitude=${punto.lat}&longitude=${punto.lon}`
-            + `&daily=temperature_2m_max,temperature_2m_min&timezone=auto`
-            + `&start_date=${VIAJE.fecha_inicio}&end_date=${VIAJE.fecha_fin}`
-          : `https://archive-api.open-meteo.com/v1/archive?latitude=${punto.lat}&longitude=${punto.lon}`
-            + `&daily=temperature_2m_max,temperature_2m_min&timezone=auto`
-            + `&start_date=${desplazar(VIAJE.fecha_inicio)}&end_date=${desplazar(VIAJE.fecha_fin)}`;
-
-      try {
-          const datos = await (await fetch(url)).json();
-          const maximas = (datos.daily && datos.daily.temperature_2m_max || []).filter(v => v !== null);
-          const minimas = (datos.daily && datos.daily.temperature_2m_min || []).filter(v => v !== null);
-
-          if (!maximas.length) throw new Error('sin datos');
-
-          const promedio = lista => lista.reduce((a, b) => a + b, 0) / lista.length;
-          const max = Math.round(promedio(maximas));
-          const min = Math.round(promedio(minimas));
-
-          valor.innerHTML = `${max}°C <span class="fs-6 fw-normal text-secondary">/ ${Math.round(max * 9 / 5 + 32)}°F</span>`;
-          detalle.textContent = `${min}°C – ${max}°C · ${punto.nombre}`;
-          detalle.removeAttribute('data-i18n');
-      } catch (err) {
-          valor.textContent = '—';
-          detalle.textContent = t('iti_weather_na', 'Weather unavailable');
-          detalle.removeAttribute('data-i18n');
+      // Obtener coordenadas del destino
+      let punto = cacheGeo[destinoConsulta.toLowerCase()];
+      if (!punto) {
+          punto = await geocodificar(destinoConsulta);
       }
+
+      const ciudadNombre = punto?.nombre || destinoConsulta.split(',')[0].trim();
+
+      // Estrategia 1: Open-Meteo (pronóstico estándar de 7 días, sin fechas fijas para evitar error 400 por rango)
+      if (punto && punto.lat && punto.lon) {
+          try {
+              const url = `https://api.open-meteo.com/v1/forecast?latitude=${punto.lat}&longitude=${punto.lon}&daily=temperature_2m_max,temperature_2m_min&current=temperature_2m&timezone=auto`;
+              const resp = await fetch(url);
+              if (resp.ok) {
+                  const datos = await resp.json();
+                  const maximas = (datos.daily && datos.daily.temperature_2m_max || []).filter(v => v !== null);
+                  const minimas = (datos.daily && datos.daily.temperature_2m_min || []).filter(v => v !== null);
+
+                  if (maximas.length > 0) {
+                      const promedio = lista => lista.reduce((a, b) => a + b, 0) / lista.length;
+                      const max = Math.round(promedio(maximas));
+                      const min = Math.round(promedio(minimas));
+                      const actual = (datos.current && datos.current.temperature_2m !== undefined) ? Math.round(datos.current.temperature_2m) : max;
+
+                      valor.innerHTML = `${actual}°C <span class="fs-6 fw-normal text-secondary">/ ${Math.round(actual * 9 / 5 + 32)}°F</span>`;
+                      detalle.textContent = `${min}°C – ${max}°C · ${ciudadNombre}`;
+                      detalle.removeAttribute('data-i18n');
+                      return;
+                  }
+              }
+          } catch (err) {
+              console.warn('Open-Meteo falló, usando fallback wttr.in:', err);
+          }
+      }
+
+      // Estrategia 2 (Fallback): wttr.in
+      try {
+          const urlWttr = `https://wttr.in/${encodeURIComponent(ciudadNombre)}?format=j1`;
+          const resp = await fetch(urlWttr);
+          if (resp.ok) {
+              const datos = await resp.json();
+              const tempActual = datos.current_condition?.[0]?.temp_C;
+              const max = datos.weather?.[0]?.maxtempC;
+              const min = datos.weather?.[0]?.mintempC;
+
+              if (tempActual !== undefined) {
+                  const tNum = parseInt(tempActual);
+                  valor.innerHTML = `${tNum}°C <span class="fs-6 fw-normal text-secondary">/ ${Math.round(tNum * 9 / 5 + 32)}°F</span>`;
+                  if (max && min) {
+                      detalle.textContent = `${min}°C – ${max}°C · ${ciudadNombre}`;
+                  } else {
+                      detalle.textContent = ciudadNombre;
+                  }
+                  detalle.removeAttribute('data-i18n');
+                  return;
+              }
+          }
+      } catch (err) {
+          console.warn('Fallback wttr.in falló:', err);
+      }
+
+      valor.textContent = '—';
+      detalle.textContent = ciudadNombre || t('iti_weather_na', 'Weather unavailable');
+      detalle.removeAttribute('data-i18n');
   }
 
   // ─── Compartir y editar ──────────────────────────────────────────────────────
@@ -647,8 +1122,19 @@
   }
 
   function actualizarPresupuestoDia(dia) {
+      const budVal = document.getElementById('daily-budget-value');
+      const actCount = document.getElementById('daily-activities-count');
+      if (!dia) {
+          if (budVal) budVal.textContent = '$0';
+          if (actCount) actCount.textContent = '0';
+          return;
+      }
       const contenedor = document.getElementById('day-content-' + dia);
-      if(!contenedor) return;
+      if(!contenedor) {
+          if (budVal) budVal.textContent = '$0';
+          if (actCount) actCount.textContent = '0';
+          return;
+      }
       
       let total = 0;
       let cont = 0;
@@ -660,8 +1146,8 @@
           }
       });
       
-      document.getElementById('daily-budget-value').textContent = '$' + total.toLocaleString();
-      document.getElementById('daily-activities-count').textContent = cont;
+      if (budVal) budVal.textContent = '$' + total.toLocaleString();
+      if (actCount) actCount.textContent = cont;
   }
 
   function inicializarFiltrosDestino() {
@@ -682,7 +1168,6 @@
               badge.style.backgroundColor = 'var(--brand-color, #006d5b)';
 
               const dest = badge.dataset.dest;
-              let currentDestPoint = null;
 
               const headerDuration = document.getElementById('header-duration');
               if(dest === 'all') {
@@ -696,32 +1181,13 @@
                   }
               }
 
-              if (dest !== 'all' && cacheGeo[dest]) {
-                  currentDestPoint = cacheGeo[dest];
-                  if (mapa) {
-                      mapa.setView([currentDestPoint.lat, currentDestPoint.lon], 13);
-                  }
-                  actualizarClimaParcial(currentDestPoint);
-              } else if (dest === 'all') {
-                  if (mapa && capaMarcadores) {
-                      const markers = capaMarcadores.getLayers();
-                      if (markers.length > 1) {
-                          const group = new L.featureGroup(markers);
-                          mapa.fitBounds(group.getBounds(), { padding: [30, 30] });
-                      } else if (markers.length === 1) {
-                          mapa.setView(markers[0].getLatLng(), 11);
-                      }
-                  }
-                  cargarClima();
-              }
+              // Actualizar clima para el destino seleccionado
+              cargarClima(dest === 'all' ? null : dest);
 
-              let totalDest = 0;
               let totalActs = 0;
               activities.forEach(act => {
                   if (dest === 'all' || act.dataset.dest === dest) {
                       act.style.display = 'block';
-                      const price = parseFloat(act.dataset.precio || 0);
-                      totalDest += price;
                       totalActs++;
                   } else {
                       act.style.display = 'none';
@@ -729,11 +1195,9 @@
               });
 
               const mapCount = document.getElementById('map-activity-count');
-              const mapHeader = document.querySelector('#trip-map + div h6');
-              if (dest === 'all') {
-                  if(mapHeader) mapHeader.textContent = "Todos Los Destinos";
-              } else {
-                  if(mapHeader) mapHeader.textContent = dest;
+              const mapHeader = document.getElementById('map-header-title');
+              if (mapHeader) {
+                  mapHeader.textContent = (dest === 'all') ? (VIAJE.destinos[0] || "Todos Los Destinos") : dest;
               }
               if (mapCount) {
                   mapCount.textContent = totalActs;
@@ -748,32 +1212,23 @@
               });
 
               const activeDayBtn = document.querySelector('.day-tab-btn.btn-brand');
-              if(activeDayBtn) {
+              if(activeDayBtn && activeDayBtn.style.display !== 'none') {
                   actualizarPresupuestoDia(activeDayBtn.dataset.day);
+                  dibujarMarcadores(activeDayBtn.dataset.day);
+              } else {
+                  if(activeDayBtn && activeDayBtn.style.display === 'none') {
+                      activeDayBtn.classList.remove('btn-brand', 'text-white', 'shadow-sm', 'border-0');
+                      activeDayBtn.classList.add('btn-outline-secondary', 'bg-light', 'text-secondary', 'border-1');
+                      const placeholder = document.getElementById('no-day-selected-placeholder');
+                      const timelineLine = document.querySelector('.timeline-line');
+                      if (placeholder) placeholder.classList.remove('d-none');
+                      if (timelineLine) timelineLine.style.display = 'none';
+                      actualizarPresupuestoDia(null);
+                  }
+                  dibujarMarcadores(null);
               }
           });
       });
-  }
-
-  async function actualizarClimaParcial(punto) {
-      if (!punto) return;
-      const valor = document.getElementById('weather-value');
-      const detalle = document.getElementById('weather-detail');
-      valor.innerHTML = '<span class="spinner-border spinner-border-sm text-secondary" role="status"></span>';
-
-      // Simulate or actually fetch weather for this point
-      // For simplicity, we just update the name
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${punto.lat}&longitude=${punto.lon}&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
-      try {
-          const datos = await (await fetch(url)).json();
-          const max = Math.round(datos.daily.temperature_2m_max[0]);
-          const min = Math.round(datos.daily.temperature_2m_min[0]);
-          valor.innerHTML = `${max}°C <span class="fs-6 fw-normal text-secondary">/ ${Math.round(max * 9 / 5 + 32)}°F</span>`;
-          detalle.textContent = `${min}°C – ${max}°C · ${punto.nombre}`;
-      } catch(e) {
-          valor.textContent = '—';
-          detalle.textContent = punto.nombre;
-      }
   }
 
   // ─── Editar el itinerario que recomendó la IA ────────────────────────────────
@@ -965,6 +1420,14 @@
                   li.addEventListener('mousedown', evento => {
                       evento.preventDefault();
                       document.getElementById('act-ubicacion').value = nombre;
+                      if (lugar.geometry && lugar.geometry.coordinates) {
+                          const coords = lugar.geometry.coordinates;
+                          cacheGeo[nombre.toLowerCase()] = {
+                              lat: coords[1],
+                              lon: coords[0],
+                              nombre: p.name || nombre
+                          };
+                      }
                       cerrarSugerencias();
                   });
                   lista.appendChild(li);
@@ -1125,6 +1588,17 @@
       const inputUbicacion = document.getElementById('act-ubicacion');
       inputUbicacion.addEventListener('input', () => buscarUbicaciones(inputUbicacion.value.trim()));
       inputUbicacion.addEventListener('blur', () => setTimeout(cerrarSugerencias, 150));
+
+      // Clic en la etiqueta de ubicación para centrar o deseleccionar en el mapa
+      document.addEventListener('click', evento => {
+          const btn = evento.target.closest('.tag-ubicacion-btn');
+          if (!btn) return;
+          evento.preventDefault();
+          evento.stopPropagation();
+          const actId = btn.dataset.id;
+          const ubicacion = btn.dataset.ubicacion || '';
+          alternarCentradoActividad(actId, ubicacion, btn, true);
+      });
   }
 
   // ─── Franja horaria del día ──────────────────────────────────────────────────
@@ -1331,6 +1805,16 @@
       if(activeDayBtn) {
           actualizarPresupuestoDia(activeDayBtn.dataset.day);
       }
+
+      // Eventos para agrandar/reducir el mapa
+      document.getElementById('btn-expand-map')?.addEventListener('click', alternarAgrandarMapa);
+      document.getElementById('btn-close-map-x')?.addEventListener('click', alternarAgrandarMapa);
+      document.getElementById('map-fullscreen-backdrop')?.addEventListener('click', alternarAgrandarMapa);
+      document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && mapaEstaAgrandado) {
+              alternarAgrandarMapa();
+          }
+      });
   });
 </script>
 {% endblock %}

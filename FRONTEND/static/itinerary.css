@@ -404,3 +404,289 @@
   background-color: #f8f9fa;
   color: var(--brand-color, #006d5b);
 }
+
+/* ─── Botón interactivo de ubicación en tarjetas ─────────────────────────── */
+.tag-ubicacion-btn {
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+  border: 1px solid transparent !important;
+  text-align: left;
+}
+
+.tag-ubicacion-btn:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+  transform: translateY(-1px);
+}
+
+.tag-ubicacion-btn.active {
+  background-color: var(--brand-color, #006d5b) !important;
+  color: #ffffff !important;
+  border-color: var(--brand-color, #006d5b) !important;
+  box-shadow: 0 3px 8px rgba(0, 109, 91, 0.35);
+  transform: translateY(-1px);
+}
+
+.tag-ubicacion-btn.active i {
+  color: #ffffff !important;
+  animation: pulsePin 1.5s infinite;
+}
+
+@keyframes pulsePin {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+/* ─── Marcadores interactivos en el mapa (Leaflet) ─────────────────────── */
+.custom-map-marker-container {
+  background: transparent !important;
+  border: none !important;
+}
+
+.custom-map-pin {
+  width: 32px;
+  height: 32px;
+  border-radius: 50% 50% 50% 0;
+  background-color: var(--pin-color, #006d5b);
+  position: absolute;
+  transform: rotate(-45deg);
+  left: 2px;
+  top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+  border: 2px solid #ffffff;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s;
+  cursor: pointer;
+}
+
+.custom-map-pin i {
+  transform: rotate(45deg);
+  color: #ffffff;
+  font-size: 13px;
+}
+
+.custom-map-pin:hover {
+  transform: rotate(-45deg) scale(1.18);
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.4);
+}
+
+.custom-map-pin.pin-active {
+  transform: rotate(-45deg) scale(1.32);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+  border-color: #fef08a !important;
+  z-index: 1000 !important;
+}
+
+/* Tarjeta informativa en el popup del mapa */
+.leaflet-popup-content-wrapper {
+  border-radius: 0.85rem !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+}
+
+.leaflet-popup-content {
+  margin: 10px 14px !important;
+  line-height: 1.4 !important;
+}
+
+.map-popup-card {
+  min-width: 180px;
+  max-width: 240px;
+  padding: 2px;
+  font-family: inherit;
+}
+
+.map-popup-card .popup-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 0.35rem;
+  line-height: 1.25;
+}
+
+.map-popup-card .popup-info {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.map-popup-card .popup-category {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  color: #fff;
+  margin-bottom: 0.4rem;
+}
+
+/* Sidebar del mapa adhesiva en desktop */
+@media (min-width: 992px) {
+  .itinerary-map-sidebar {
+    position: sticky;
+    top: 5.5rem;
+    z-index: 10;
+  }
+}
+
+.itinerary-map-sidebar.has-expanded-map {
+  position: relative !important;
+  z-index: 10500 !important;
+}
+
+/* ─── Pin de destinos del viaje ─────────────────────────────────────────── */
+.custom-map-pin.destination-pin {
+  border-color: #ffffff;
+  background-color: var(--pin-color, #0284c7);
+}
+
+.custom-map-pin.destination-pin.pin-active {
+  transform: rotate(-45deg) scale(1.35);
+  border-color: #fef08a !important;
+  box-shadow: 0 6px 18px rgba(2, 132, 199, 0.55);
+  z-index: 1001 !important;
+}
+
+/* ─── Botones de control del mapa ────────────────────────────────────────── */
+.btn-map-expand {
+  position: absolute;
+  bottom: 14px;
+  right: 12px;
+  z-index: 500;
+  width: 36px;
+  height: 36px;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #334155;
+  font-size: 0.95rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-map-expand:hover {
+  background-color: #f8fafc;
+  color: var(--brand-color, #006d5b);
+  border-color: var(--brand-color, #006d5b);
+  transform: scale(1.08);
+}
+
+.btn-map-expand:active {
+  transform: scale(0.95);
+}
+
+.btn-map-close-floating {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 500;
+  width: 36px;
+  height: 36px;
+  background-color: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #334155;
+  font-size: 1rem;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-map-close-floating:hover {
+  background-color: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+  transform: scale(1.08);
+}
+
+.btn-map-close-floating:active {
+  transform: scale(0.95);
+}
+
+/* ─── Vista amplia / pantalla completa del mapa ──────────────────────────── */
+.map-fullscreen-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 10400;
+  animation: fadeInBackdrop 0.2s ease;
+  cursor: pointer;
+}
+
+@keyframes fadeInBackdrop {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.map-card-container.map-is-expanded {
+  position: fixed !important;
+  top: 24px !important;
+  bottom: 24px !important;
+  left: 24px !important;
+  right: 24px !important;
+  width: calc(100vw - 48px) !important;
+  height: calc(100vh - 48px) !important;
+  max-width: 1400px !important;
+  margin: 0 auto !important;
+  z-index: 10501 !important;
+  border-radius: 1.25rem !important;
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.5) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background-color: #ffffff !important;
+  animation: expandMapAnim 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: auto !important;
+}
+
+@keyframes expandMapAnim {
+  from {
+    opacity: 0.5;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.map-card-container.map-is-expanded #trip-map-container {
+  height: calc(100% - 64px) !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
+
+.map-card-container.map-is-expanded #trip-map {
+  height: 100% !important;
+  min-height: 0 !important;
+  border-radius: 1.25rem 1.25rem 0 0 !important;
+  pointer-events: auto !important;
+}
+
+.map-card-container.map-is-expanded .map-card-footer {
+  flex: 0 0 auto !important;
+  border-radius: 0 0 1.25rem 1.25rem !important;
+}
+
+.map-card-container.map-is-expanded .btn-map-expand {
+  bottom: 20px;
+  right: 18px;
+}
+
+
