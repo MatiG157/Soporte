@@ -96,13 +96,17 @@
                 <div class="d-flex align-items-center bg-light rounded p-2 h-100">
                     <i class="fa-solid fa-money-bill-wave fs-5 text-center" style="width: 30px;"></i>
                     <div class="flex-grow-1 ms-2">
-                        <label class="form-label-small mb-1 d-block text-uppercase fw-bold"
+                        <label for="budget" class="form-label-small mb-1 d-block text-uppercase fw-bold"
                                style="font-size: 0.75rem;" data-i18n="index_budget">Budget</label>
 
-                        <input type="number" id="budget" min="0" step="100"
-                               class="form-control input-clean p-0 border-0 bg-transparent shadow-none w-100"
-                               placeholder="How much do you want to spend?"
-                               data-i18n-placeholder="index_ph_budget">
+                        <div class="d-flex align-items-center">
+                            <input type="number" id="budget" min="0" step="100"
+                                   class="form-control input-clean p-0 border-0 bg-transparent shadow-none flex-grow-1"
+                                   placeholder="How much do you want to spend?"
+                                   data-i18n-placeholder="index_ph_budget">
+                            <span class="badge bg-white text-secondary border shadow-none ms-2 px-2 py-1 fw-bold user-select-none flex-shrink-0"
+                                  style="font-size: 0.75rem;">USD</span>
+                        </div>
                     </div>
                 </div>
             </div>

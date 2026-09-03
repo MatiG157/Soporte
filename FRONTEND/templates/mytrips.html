@@ -124,6 +124,34 @@
         </div>
     </div>
 </main>
+
+<!-- Modal Confirmación de Eliminación de Viaje -->
+<div class="modal fade" id="deleteTripModal" tabindex="-1" aria-labelledby="deleteTripModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+        <div class="modal-content rounded-4 border-0 shadow-lg p-3">
+            <div class="modal-header border-0 pb-0">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                         style="width: 46px; height: 46px; background-color: #fee2e2; color: #dc2626;">
+                        <i class="fa-solid fa-trash-can fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" id="deleteTripModalLabel" data-i18n="mytrips_delete">Delete trip</h5>
+                        <small id="deleteTripTargetName" class="text-secondary fw-medium d-block"></small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-secondary py-3">
+                <p class="mb-0 fs-6" data-i18n="mytrips_confirm_delete">Delete this trip permanently?</p>
+            </div>
+            <div class="modal-footer border-0 pt-0 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-semibold" data-bs-dismiss="modal" data-i18n="common_cancel">Cancel</button>
+                <button type="button" class="btn btn-danger rounded-pill px-4 fw-bold text-white shadow-sm" id="confirmDeleteTripBtn" data-i18n="common_delete">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -165,26 +193,79 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ─── Eliminar viaje ──────────────────────────────────────────────────────
 
-    document.querySelectorAll('.delete-trip-btn').forEach(boton => {
-        boton.addEventListener('click', async () => {
-            if (!confirm(t('mytrips_confirm_delete', 'Delete this trip permanently?'))) return;
+    const deleteModalEl = document.getElementById('deleteTripModal');
+    let deleteModal = null;
+    let viajeIdAEliminar = null;
 
-            const id = boton.dataset.id;
+    if (deleteModalEl) {
+        if (deleteModalEl.parentElement !== document.body) {
+            document.body.appendChild(deleteModalEl);
+        }
+        deleteModal = bootstrap.Modal.getOrCreateInstance(deleteModalEl);
+
+        deleteModalEl.addEventListener('hidden.bs.modal', () => {
+            viajeIdAEliminar = null;
+            const confirmBtn = document.getElementById('confirmDeleteTripBtn');
+            if (confirmBtn) confirmBtn.disabled = false;
+        });
+    }
+
+    document.querySelectorAll('.delete-trip-btn').forEach(boton => {
+        boton.addEventListener('click', (e) => {
+            e.preventDefault();
+            viajeIdAEliminar = boton.dataset.id;
+
+            const tarjeta = boton.closest('.trip-item');
+            const titulo = tarjeta ? tarjeta.querySelector('.trip-title')?.textContent?.trim().replace(/\s+/g, ' ') : '';
+            const targetNameEl = document.getElementById('deleteTripTargetName');
+            if (targetNameEl) {
+                targetNameEl.textContent = titulo || '';
+            }
+
+            if (typeof window.aplicarTraducciones === 'function' && window.traducciones && window.traducciones[window.IDIOMA_ACTUAL]) {
+                window.aplicarTraducciones(window.traducciones[window.IDIOMA_ACTUAL]);
+            }
+
+            if (deleteModal) {
+                deleteModal.show();
+            }
+        });
+    });
+
+    const confirmDeleteBtn = document.getElementById('confirmDeleteTripBtn');
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', async () => {
+            if (!viajeIdAEliminar) return;
+
+            const id = viajeIdAEliminar;
+            confirmDeleteBtn.disabled = true;
+
             try {
                 const resp = await apiFetch(`/trips/${id}`, { method: 'DELETE' });
                 const datos = await resp.json();
 
                 if (resp.ok) {
+                    if (deleteModal) deleteModal.hide();
                     const tarjeta = document.querySelector(`.trip-item[data-id="${id}"]`);
-                    if (tarjeta) tarjeta.remove();
+                    if (tarjeta) {
+                        tarjeta.style.transition = 'opacity 0.25s ease, transform 0.25s ease';
+                        tarjeta.style.opacity = '0';
+                        tarjeta.style.transform = 'scale(0.95)';
+                        setTimeout(() => tarjeta.remove(), 250);
+                    }
                 } else {
+                    if (deleteModal) deleteModal.hide();
                     mostrarError(datos.error || t('err_server'));
                 }
             } catch (err) {
+                if (deleteModal) deleteModal.hide();
                 mostrarError(t('err_server'));
+            } finally {
+                confirmDeleteBtn.disabled = false;
+                viajeIdAEliminar = null;
             }
         });
-    });
+    }
 
     function mostrarError(mensaje) {
         document.getElementById('trips-alert').innerHTML =
