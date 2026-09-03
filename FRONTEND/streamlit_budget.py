@@ -53,7 +53,6 @@ TEXTOS = {
         "no_budget": "no budget set", "over_budget": "over budget", "left": "left",
         "tab_overview": "Overview", "tab_daily": "Day by day",
         "tab_categories": "Categories", "tab_compare": "Compare options",
-        "tab_simulator": "What-if",
         "lodging": "Accommodation", "transport": "Transport",
         "activities": "Activities", "food": "Food",
         "category": "Category", "amount": "Amount", "share": "Share",
@@ -71,9 +70,6 @@ TEXTOS = {
         "compare_intro": "The three variants generated for this trip.",
         "compare_none": "The other options were discarded when this trip was confirmed, "
                         "so there is nothing left to compare.",
-        "sim_intro": "Edit any amount and the totals recalculate live.",
-        "sim_reset": "Reset to original", "sim_total": "Simulated total",
-        "sim_vs": "vs. original", "simulated": "Simulated",
         "insight_title": "Automatic insight",
         "no_trip": "No trip selected.",
         "no_costs": "This trip has no cost breakdown loaded.",
@@ -82,7 +78,7 @@ TEXTOS = {
         "avg_day": "avg/day", "people": "people",
     },
     "es": {
-        "destinations": "Destinos", "all": "Todos", "day_range": "Rango de días",
+        "destinations": "Destinos", "all": "Todos", "day_range": "Rango de  días",
         "per_person": "Por persona", "of": "de",
         "kpi_total": "Total del viaje", "kpi_per_day": "Promedio por día",
         "kpi_budget": "Presupuesto usado", "kpi_selection": "Tramo seleccionado",
@@ -90,7 +86,6 @@ TEXTOS = {
         "left": "disponible",
         "tab_overview": "Resumen", "tab_daily": "Día a día",
         "tab_categories": "Categorías", "tab_compare": "Comparar opciones",
-        "tab_simulator": "Simulador",
         "lodging": "Alojamiento", "transport": "Transporte",
         "activities": "Actividades", "food": "Comidas",
         "category": "Categoría", "amount": "Monto", "share": "Peso",
@@ -109,9 +104,6 @@ TEXTOS = {
         "compare_intro": "Las tres variantes generadas para este viaje.",
         "compare_none": "Las otras opciones se descartaron al confirmar este viaje, "
                         "así que no queda nada para comparar.",
-        "sim_intro": "Editá cualquier monto y los totales se recalculan solos.",
-        "sim_reset": "Volver a los valores originales", "sim_total": "Total simulado",
-        "sim_vs": "vs. original", "simulated": "Simulado",
         "insight_title": "Análisis automático",
         "no_trip": "No se seleccionó ningún viaje.",
         "no_costs": "Este viaje no tiene costos cargados.",
@@ -488,9 +480,9 @@ st.write("")
 
 # ─── Pestañas ────────────────────────────────────────────────────────────────
 
-tab_resumen, tab_dia, tab_cat, tab_comp, tab_sim = st.tabs([
+tab_resumen, tab_dia, tab_cat, tab_comp = st.tabs([
     t["tab_overview"], t["tab_daily"], t["tab_categories"],
-    t["tab_compare"], t["tab_simulator"],
+    t["tab_compare"],
 ])
 
 
@@ -729,63 +721,6 @@ with tab_comp:
             )
         st.plotly_chart(estilo(fig, alto=340), width="stretch",
                         config={"displayModeBar": False})
-
-
-# 5) Simulador: mover los costos y ver el impacto, sin tocar la base.
-with tab_sim:
-    st.caption(t["sim_intro"])
-
-    originales = pd.DataFrame({
-        t["category"]: [t["lodging"], t["transport"], t["activities"], t["food"]],
-        t["amount"]: [FIJOS["alojamiento"] / divisor, FIJOS["transporte"] / divisor,
-                      cat_actividades / divisor, FIJOS["comidas"] / divisor],
-    })
-
-    if st.button(t["sim_reset"], icon=":material/restart_alt:"):
-        st.session_state.pop("editor_sim", None)
-
-    editado = st.data_editor(
-        originales, hide_index=True, width="stretch", key="editor_sim",
-        disabled=[t["category"]],
-        column_config={
-            t["amount"]: st.column_config.NumberColumn(format="$%,.0f", min_value=0, step=50),
-        },
-    )
-
-    total_sim = float(editado[t["amount"]].sum())
-    total_orig = float(originales[t["amount"]].sum())
-
-    s1, s2, s3 = st.columns(3)
-    diferencia = total_sim - total_orig
-    s1.metric(
-        t["sim_total"], dinero(total_sim),
-        # Sin cambios no hay delta: un "$0" en rojo se lee como si algo pasara.
-        delta=(f"{dinero(diferencia)} {t['sim_vs']}" if round(diferencia) else None),
-        delta_color="inverse",
-    )
-    s2.metric(t["kpi_per_day"], dinero(total_sim / dias_totales))
-    if presupuesto_max:
-        presu = presupuesto_max / divisor
-        dif = presu - total_sim
-        s3.metric(
-            t["kpi_budget"], f"{total_sim / presu * 100:,.0f}%",
-            delta=(f"{dinero(abs(dif))} {t['over_budget']}" if dif < 0
-                   else f"{dinero(dif)} {t['left']}"),
-            delta_color="inverse" if dif < 0 else "normal",
-        )
-        st.progress(min(total_sim / presu, 1.0))
-
-    fig = go.Figure()
-    fig.add_bar(name="Original", x=originales[t["category"]], y=originales[t["amount"]],
-                marker_color=GRIS_SUAVE,
-                hovertemplate="Original: $%{y:,.0f}<extra></extra>")
-    fig.add_bar(name=t["simulated"], x=editado[t["category"]], y=editado[t["amount"]],
-                marker_color=VERDE,
-                hovertemplate=t["simulated"] + ": $%{y:,.0f}<extra></extra>")
-    fig.update_layout(barmode="group", bargap=0.3)
-    fig.update_yaxes(tickprefix="$")
-    st.plotly_chart(estilo(fig, alto=300), width="stretch", config={"displayModeBar": False})
-
 
 # ─── Análisis automático ─────────────────────────────────────────────────────
 # Determinístico, sobre los datos ya cargados. El proyecto usa n8n para generar

@@ -52,6 +52,8 @@
   "compare_ai": "AI GENERATED OPTIONS",
   "compare_bal": "BALANCED",
   "compare_confirm": "Choosing this plan discards the other two options. Continue?",
+  "compare_confirm_btn": "Choose this plan",
+  "compare_confirm_title": "Confirm selection",
   "compare_days": "days",
   "compare_eco": "ECONOMY",
   "compare_feat1": "Public transit passes included",

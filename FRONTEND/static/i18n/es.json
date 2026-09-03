@@ -52,6 +52,8 @@
   "compare_ai": "OPCIONES DE IA",
   "compare_bal": "EQUILIBRADO",
   "compare_confirm": "Elegir este plan descarta las otras dos opciones. ¿Seguimos?",
+  "compare_confirm_btn": "Elegir este plan",
+  "compare_confirm_title": "Confirmar selección",
   "compare_days": "días",
   "compare_eco": "ECONÓMICO",
   "compare_feat1": "Pases de transporte público incluidos",

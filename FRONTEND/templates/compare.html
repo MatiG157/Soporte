@@ -109,18 +109,26 @@
     </div>
 <!-- Modal Confirmación de Selección -->
 <div class="modal fade" id="confirmSelectModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+        <div class="modal-content rounded-4 border-0 shadow-lg p-3">
             <div class="modal-header border-0 pb-0">
-                <h5 class="modal-title fw-bold" data-i18n="compare_confirm_title">Confirm selection</h5>
+                <div class="d-flex align-items-center gap-3">
+                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                         style="width: 46px; height: 46px; background-color: #ccfbf1; color: var(--brand-color, #006d5b);">
+                        <i class="fa-solid fa-circle-check fs-4"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold text-dark mb-0" data-i18n="compare_confirm_title">Confirm selection</h5>
+                    </div>
+                </div>
                 <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body text-secondary">
-                <p class="mb-0" data-i18n="compare_confirm">Choosing this plan discards the other two options. Continue?</p>
+            <div class="modal-body text-secondary py-3">
+                <p class="mb-0 fs-6" data-i18n="compare_confirm">Choosing this plan discards the other two options. Continue?</p>
             </div>
-            <div class="modal-footer border-0 pt-0">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-i18n="common_cancel">Cancel</button>
-                <button type="button" class="btn text-white" style="background-color: var(--brand-color, #006d5b);" id="confirmSelectBtn" data-i18n="common_save">Confirm</button>
+            <div class="modal-footer border-0 pt-0 d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-semibold" data-bs-dismiss="modal" data-i18n="common_cancel">Cancel</button>
+                <button type="button" class="btn rounded-pill px-4 fw-bold text-white shadow-sm" style="background-color: var(--brand-color, #006d5b);" id="confirmSelectBtn" data-i18n="compare_confirm_btn">Confirm</button>
             </div>
         </div>
     </div>

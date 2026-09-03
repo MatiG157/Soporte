@@ -24,24 +24,73 @@
   </div>
 
   {% if nav.es_draft %}
+  <!-- Modal Confirmación de Selección para el Sidebar -->
+  <div class="modal fade" id="sidebarConfirmSelectModal" tabindex="-1" aria-labelledby="sidebarConfirmSelectModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 440px;">
+      <div class="modal-content rounded-4 border-0 shadow-lg p-3">
+        <div class="modal-header border-0 pb-0">
+          <div class="d-flex align-items-center gap-3">
+            <div class="d-inline-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                 style="width: 46px; height: 46px; background-color: #ccfbf1; color: var(--brand-color, #006d5b);">
+              <i class="fa-solid fa-circle-check fs-4"></i>
+            </div>
+            <div>
+              <h5 class="modal-title fw-bold text-dark mb-0" id="sidebarConfirmSelectModalLabel" data-i18n="compare_confirm_title">Confirm selection</h5>
+              {% if viaje.tipo_viaje %}
+              <small class="text-secondary fw-medium">{{ viaje.tipo_viaje }}</small>
+              {% endif %}
+            </div>
+          </div>
+          <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-secondary py-3">
+          <p class="mb-0 fs-6" data-i18n="compare_confirm">Choosing this plan discards the other two options. Continue?</p>
+        </div>
+        <div class="modal-footer border-0 pt-0 d-flex justify-content-end gap-2">
+          <button type="button" class="btn btn-outline-secondary rounded-pill px-4 fw-semibold" data-bs-dismiss="modal" data-i18n="common_cancel">Cancel</button>
+          <button type="button" class="btn rounded-pill px-4 fw-bold text-white shadow-sm" style="background-color: var(--brand-color, #006d5b);" id="sidebarConfirmBtn" data-i18n="compare_confirm_btn">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     function sidebarSelectTrip() {
-      if (!confirm(t("compare_confirm", "Choosing this plan discards the other two options. Continue?"))) return;
+      const modalEl = document.getElementById("sidebarConfirmSelectModal");
+      if (!modalEl) return;
 
-      const trigger = document.getElementById("sidebarSelectBtn");
-      const viajeId = trigger ? trigger.dataset.viajeId : "";
-      if (!viajeId) return;
+      if (modalEl.parentElement !== document.body) {
+        document.body.appendChild(modalEl);
+      }
 
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = "/select_trip/" + encodeURIComponent(viajeId);
-      const csrf = document.createElement("input");
-      csrf.type = "hidden";
-      csrf.name = "csrf_token";
-      csrf.value = window.CSRF_TOKEN;
-      form.appendChild(csrf);
-      document.body.appendChild(form);
-      form.submit();
+      if (typeof window.aplicarTraducciones === 'function' && window.traducciones && window.traducciones[window.IDIOMA_ACTUAL]) {
+        window.aplicarTraducciones(window.traducciones[window.IDIOMA_ACTUAL]);
+      }
+
+      const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+      const confirmBtn = document.getElementById("sidebarConfirmBtn");
+      if (confirmBtn) {
+        confirmBtn.onclick = function() {
+          modal.hide();
+          const trigger = document.getElementById("sidebarSelectBtn");
+          const viajeId = trigger ? trigger.dataset.viajeId : "";
+          if (!viajeId) return;
+
+          const form = document.createElement("form");
+          form.method = "POST";
+          form.action = "/select_trip/" + encodeURIComponent(viajeId);
+          const csrf = document.createElement("input");
+          csrf.type = "hidden";
+          csrf.name = "csrf_token";
+          csrf.value = window.CSRF_TOKEN;
+          form.appendChild(csrf);
+          document.body.appendChild(form);
+          form.submit();
+        };
+      }
+
+      modal.show();
     }
   </script>
   {% endif %}

@@ -13,7 +13,7 @@ una regla de negocio y deja que el usuario elija una para guardarla.
 | **Negocio** | `BACKEND/src/services/` | Regla de cálculo de costos, ajuste por tipo de viaje, reoptimización por presupuesto, ciclo de vida de los borradores. |
 | **Datos** | `BACKEND/src/models/` — SQLAlchemy + MySQL | Entidades y relaciones. |
 | **Integración** | `FRONTEND/trip_generator.py` | Pide las variantes al flujo de n8n. `BACKEND/src/services/ai_recommendation_service.py` guarda lo que n8n devolvió. |
-| **Dashboard** | `FRONTEND/streamlit_budget.py` — Streamlit + Plotly | La parte interactiva de `/budget`: filtros, gráficos, comparación de variantes y simulador. Corre como proceso aparte y se embebe vía iframe. No pasa por Flask: llama al backend con la misma `X-API-KEY`. Ver [Dashboard de presupuesto](#dashboard-de-presupuesto-streamlit). |
+| **Dashboard** | `FRONTEND/streamlit_budget.py` — Streamlit + Plotly | La parte interactiva de `/budget`: filtros, gráficos y comparación de variantes. Corre como proceso aparte y se embebe vía iframe. No pasa por Flask: llama al backend con la misma `X-API-KEY`. Ver [Dashboard de presupuesto](#dashboard-de-presupuesto-streamlit). |
 
 ```
 Navegador ──► FRONTEND (:8080) ──X-API-KEY──► BACKEND (:5000) ──► MySQL
@@ -316,7 +316,7 @@ proceso aparte en `:8501` y la página lo embebe en un iframe, pasándole
 con la misma `X-API-KEY` + `X-User-Id`, así que el backend sigue verificando la
 propiedad del viaje: el dashboard no confía en el parámetro.
 
-Filtros arriba (destino, rango de días, total / por persona) y cinco pestañas:
+Filtros arriba (destino, rango de días, total / por persona) y cuatro pestañas:
 
 | Pestaña | Qué muestra |
 |---|---|
@@ -324,7 +324,6 @@ Filtros arriba (destino, rango de días, total / por persona) y cinco pestañas:
 | **Día a día** | Barras apiladas por día y acumulado del tramo, con el detalle de actividades de un día. |
 | **Categorías** | Treemap y tabla de las actividades por categoría, con export a CSV. |
 | **Comparar opciones** | Las tres variantes del grupo contra la línea del presupuesto. Sólo mientras son borradores. |
-| **Simulador** | Tabla editable: se tocan los montos y los totales se recalculan en vivo, sin escribir en la base. |
 
 ### Cómo se reconcilian los números
 
