@@ -95,6 +95,74 @@
                 </p>
             </div>
 
+            {% if presupuesto.estado != 'ok' and presupuesto.aviso %}
+            {% set aviso = presupuesto.aviso %}
+            {% set corto = presupuesto.estado == 'presupuesto_insuficiente' %}
+            <div class="mx-auto mb-4 p-4 rounded-4 shadow-sm"
+                 style="max-width: 760px; border: 1px solid {{ '#fecaca' if corto else '#fde68a' }};
+                        background-color: {{ '#fef2f2' if corto else '#fffbeb' }};">
+                <div class="d-flex align-items-start gap-3">
+                    <i class="fa-solid {{ 'fa-circle-exclamation' if corto else 'fa-scissors' }} fs-4 mt-1"
+                       style="color: {{ '#b91c1c' if corto else '#b45309' }};"></i>
+                    <div class="flex-grow-1">
+                        <h2 class="h6 fw-bold mb-2" style="color: {{ '#991b1b' if corto else '#92400e' }};"
+                            data-i18n="{{ 'budget_short_title' if corto else 'budget_tight_title' }}">
+                            {{ 'Your budget falls short' if corto else 'We trimmed the trip to fit your budget' }}
+                        </h2>
+
+                        {% if aviso.get('mensaje') %}
+                        <p class="mb-2 text-secondary" style="font-size: 0.95rem;">{{ aviso.get('mensaje') }}</p>
+                        {% endif %}
+
+                        <div class="d-flex flex-wrap gap-3 mb-2" style="font-size: 0.85rem;">
+                            {% if aviso.get('presupuesto_solicitado') %}
+                            <span class="text-secondary">
+                                <span data-i18n="budget_requested">Your budget</span>:
+                                <strong>${{ '{:,.0f}'.format(aviso.get('presupuesto_solicitado')) }}</strong>
+                            </span>
+                            {% endif %}
+                            {% if aviso.get('costo_minimo_estimado') %}
+                            <span class="text-secondary">
+                                <span data-i18n="budget_minimum">Estimated minimum</span>:
+                                <strong>${{ '{:,.0f}'.format(aviso.get('costo_minimo_estimado')) }}</strong>
+                            </span>
+                            {% endif %}
+                            {% if aviso.get('dias_que_entran') is not none %}
+                            <span class="text-secondary">
+                                <span data-i18n="budget_days_fit">Days it covers</span>:
+                                <strong>{{ aviso.get('dias_que_entran') }}</strong>
+                            </span>
+                            {% endif %}
+                            {% if aviso.get('alcanza_para_el_vuelo') is not none %}
+                            <span class="text-secondary">
+                                <i class="fa-solid {{ 'fa-check text-success' if aviso.get('alcanza_para_el_vuelo') else 'fa-xmark text-danger' }} me-1"></i>
+                                <span data-i18n="budget_covers_flight">Covers the flight</span>
+                            </span>
+                            {% endif %}
+                        </div>
+
+                        {% if aviso.get('sugerencias') %}
+                        <div class="fw-semibold mb-1" style="font-size: 0.85rem; color: {{ '#991b1b' if corto else '#92400e' }};"
+                             data-i18n="budget_suggestions">What you can do</div>
+                        <ul class="mb-0 ps-3 text-secondary" style="font-size: 0.9rem;">
+                            {% for sugerencia in aviso.get('sugerencias') %}
+                            <li>{{ sugerencia }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {% if corto %}
+            {# Las 3 opciones vienen igual aunque no alcance: mostrarlas es más
+               útil que una pantalla vacía, siempre que quede claro qué son. #}
+            <p class="text-center text-secondary mb-0" style="font-size: 0.95rem;" data-i18n="budget_cheapest">
+                Even so, this is the cheapest we can put together. You can pick one anyway.
+            </p>
+            {% endif %}
+            {% endif %}
+
             <div class="d-flex flex-wrap justify-content-center align-items-stretch mt-5 gap-3">
                 {{ tarjeta(viajes_por_tipo.get('Economy'),  'ECONOMY',  'fa-person-walking-luggage', 'compare_eco', 'compare_plan_eco') }}
                 {{ tarjeta(viajes_por_tipo.get('Balanced'), 'BALANCED', 'fa-scale-balanced',         'compare_bal', 'compare_plan_bal', true) }}

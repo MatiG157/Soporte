@@ -690,3 +690,28 @@
 }
 
 
+
+/* Gasto del día: el mismo número que muestra el dashboard de presupuesto. */
+.day-cost-card {
+    background: #fbfdfc;
+}
+
+.day-cost-item {
+    background: #fff;
+    border: 1px solid #eef2f1;
+}
+
+/* Lo estimado se distingue de lo cotizado: no es lo mismo un precio que salió
+   del itinerario que el promedio diario del viaje. */
+.day-cost-item.es-estimado {
+    background: #fafafa;
+    border-style: dashed;
+}
+
+.day-cost-item .etiqueta-estimado {
+    margin-top: 2px;
+    font-size: .6rem;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: #9aa5a2;
+}

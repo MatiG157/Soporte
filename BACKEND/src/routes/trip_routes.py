@@ -1,3 +1,4 @@
+import json
 import logging
 
 from flask import Blueprint, jsonify, request
@@ -7,6 +8,7 @@ from sqlalchemy.orm import joinedload
 from src.auth import es_el_mismo_usuario, prohibido, requiere_usuario, usuario_actual_id
 from src.models.init import db
 from src.models.itinerary import Itinerario
+from src.models.ai_recommendation import RecomendacionIA
 from src.models.trip import Viaje
 from src.services.cost_service import get_cost_by_trip
 from src.services.trip_service import (
@@ -22,6 +24,32 @@ from src.services.trip_service import (
 logger = logging.getLogger(__name__)
 
 trip_bp = Blueprint('trip_bp', __name__)
+
+
+
+def _fuente_de_datos(id_viaje):
+    """De dónde salió cada precio, según lo que informó el generador.
+
+    Va dentro de la salida cruda que se guarda en `recomendaciones_ia`, así que
+    se lee de ahí en vez de duplicarla en una columna propia. Es informativo: si
+    no está, o si el JSON quedó viejo, la vista simplemente no muestra el origen.
+    """
+    recomendacion = (
+        RecomendacionIA.query
+        .filter_by(id_viaje=id_viaje)
+        .order_by(RecomendacionIA.id_recomendacion.desc())
+        .first()
+    )
+    if not recomendacion:
+        return None
+
+    try:
+        crudo = json.loads(recomendacion.texto_generado)
+    except (ValueError, TypeError):
+        return None
+
+    fuente = crudo.get("fuente_datos") if isinstance(crudo, dict) else None
+    return fuente if isinstance(fuente, dict) else None
 
 
 def _serializar_resumen(v):
@@ -105,6 +133,7 @@ def get_viaje(id_viaje):
         # Sin tipo explícito: informa el costo tal como quedó guardado,
         # sin volver a aplicarle el multiplicador.
         "costos": get_cost_by_trip(v.id_viaje),
+        "fuente_datos": _fuente_de_datos(v.id_viaje),
         "itinerarios": [
             {
                 "id_itinerario": iti.id_itinerario,
@@ -119,6 +148,9 @@ def get_viaje(id_viaje):
                         "categoria": act.categoria,
                         "horario_sugerido": act.horario_sugerido,
                         "ubicacion": act.ubicacion,
+                        "link": act.link,
+                        "nota": act.nota,
+                        "precio_sospechoso": bool(act.precio_sospechoso),
                     } for act in iti.actividades
                 ],
             } for iti in sorted(v.itinerarios, key=lambda i: i.dia)

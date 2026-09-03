@@ -101,6 +101,30 @@ def quiere_json():
     return aceptado["application/json"] > aceptado["text/html"]
 
 
+EXTENSIONES_DE_IMAGEN = ("png", "jpg", "jpeg", "webp", "gif")
+
+
+def _guardar_foto_subida(archivo):
+    """Guarda una imagen subida en static/uploads y devuelve su URL.
+
+    Devuelve None si no hay archivo o si la extensión no es de imagen: así el
+    llamador conserva la foto que ya tenía en vez de borrarla.
+    """
+    if not archivo or not archivo.filename:
+        return None
+
+    extension = archivo.filename.rsplit(".", 1)[-1].lower()
+    if extension not in EXTENSIONES_DE_IMAGEN:
+        return None
+
+    destino = os.path.join(app.root_path, "static", "uploads")
+    os.makedirs(destino, exist_ok=True)
+
+    nombre = f"{secrets.token_hex(8)}.{extension}"
+    archivo.save(os.path.join(destino, nombre))
+    return url_for("static", filename=f"uploads/{nombre}")
+
+
 def _guardar_sesion(datos_usuario, recordar=True):
     session.permanent = bool(recordar)
     session["user_id"] = datos_usuario.get("id_usuario")
@@ -135,8 +159,16 @@ def _sidebar(viaje=None, drafts=None):
         if guardados:
             id_viaje = guardados[0].get("id_viaje")
 
+    # El link de Compare sólo tiene sentido en el contexto de los borradores.
+    # Antes bastaba con que existiera un grupo de borradores para que apareciera
+    # en TODOS los viajes, incluido uno guardado hace meses, y desde ahí llevaba
+    # a comparar unos borradores que no tienen nada que ver con ese viaje.
+    viendo_un_borrador = bool(viaje and viaje.get("estado") == "draft")
+    sin_viaje_en_foco = viaje is None
+    mostrar_compare = bool(drafts) and (viendo_un_borrador or sin_viaje_en_foco)
+
     return {
-        "compare": url_for("compare") if drafts else None,
+        "compare": url_for("compare") if mostrar_compare else None,
         "itinerary": (url_for("itinerary", id_viaje=id_viaje) if id_viaje
                       else url_for("mytrips")),
         "budget": (url_for("budget", id_viaje=id_viaje) if id_viaje
@@ -221,17 +253,7 @@ def register():
 
     datos = request.get_json() if request.is_json else request.form
 
-    foto_url = (datos.get("foto") or "").strip() or None
-    foto_file = request.files.get("foto") if not request.is_json else None
-
-    if foto_file and foto_file.filename:
-        upload_dir = os.path.join(app.root_path, "static", "uploads")
-        os.makedirs(upload_dir, exist_ok=True)
-        ext = foto_file.filename.rsplit('.', 1)[-1].lower()
-        if ext in ['png', 'jpg', 'jpeg']:
-            filename = f"{secrets.token_hex(8)}.{ext}"
-            foto_file.save(os.path.join(upload_dir, filename))
-            foto_url = url_for("static", filename=f"uploads/{filename}")
+    foto_url = _guardar_foto_subida(request.files.get("foto"))         or (datos.get("foto") or "").strip() or None
 
     payload = {
         "nombre": (datos.get("nombre") or "").strip(),
@@ -443,7 +465,7 @@ def create_trip():
 
     # 2) Generar las 3 variantes con el flujo de n8n.
     try:
-        opciones, proveedor = trip_generator.generar_opciones(preferencias)
+        opciones, proveedor, presupuesto = trip_generator.generar_opciones(preferencias)
     except Exception as exc:
         logger.exception("Falló la generación de viajes")
         return jsonify({"error": f"No se pudieron generar los viajes: {exc}"}), 500
@@ -458,8 +480,13 @@ def create_trip():
     except BackendError as exc:
         return jsonify({"error": f"No se pudieron guardar los viajes: {exc.mensaje}"}), 502
 
+    # El aviso es de esta generación, no del viaje: vive en la sesión hasta que
+    # el usuario elija una opción o genere otro grupo.
+    session["presupuesto"] = presupuesto
+
     logger.info("Viajes generados para el usuario %s con '%s'", session["user_id"], proveedor)
-    return jsonify({"redirect": url_for("compare"), "proveedor": proveedor})
+    return jsonify({"redirect": url_for("compare"), "proveedor": proveedor,
+                    "presupuesto": presupuesto["estado"]})
 
 
 @app.route("/compare")
@@ -493,8 +520,11 @@ def compare():
         viaje["highlights"] = _highlights_de(detalle)
         viaje["costos"] = detalle.get("costos") or {}
 
+    presupuesto = session.get("presupuesto") or {"estado": "ok", "aviso": None}
+
     return render_template("compare.html", viajes_por_tipo=viajes_por_tipo,
-                           nav=_sidebar(drafts=drafts))
+                           nav=_sidebar(drafts=drafts),
+                           presupuesto=presupuesto)
 
 
 def _highlights_de(detalle, cantidad=3):
@@ -533,6 +563,8 @@ def select_trip(id_viaje):
         logger.warning("No se pudo confirmar el viaje %s: %s", id_viaje, exc.mensaje)
         return redirect(url_for("compare"))
 
+    # El aviso era de este grupo de borradores, que acaba de resolverse.
+    session.pop("presupuesto", None)
     return redirect(url_for("itinerary", id_viaje=id_viaje))
 
 
@@ -612,7 +644,7 @@ def _cargar_viaje(id_viaje):
         # agregada a mano caería al final del día aunque sea de la mañana.
         itin["actividades"] = sorted(itin.get("actividades") or [], key=_hora_de_inicio)
 
-        itin["total_dia"] = round(
+        itin["actividades_cotizadas"] = round(
             sum(a.get("precio_estimado") or 0 for a in itin["actividades"]), 2
         )
 
@@ -643,7 +675,135 @@ def _cargar_viaje(id_viaje):
 
     viaje["itinerarios"] = itinerarios
 
+    _calcular_costos_por_dia(viaje, _personas_del_viaje(viaje))
     return viaje
+
+
+def _personas_del_viaje(viaje):
+    """Cuántos viajan, según las preferencias que originaron el viaje.
+
+    Hace falta para pasar el desglose (que es del grupo) a la misma unidad que
+    los precios de las actividades (que son por persona).
+    """
+    id_preferencia = viaje.get("id_user_preferences")
+    if not id_preferencia:
+        return 1
+    prefs = api_client.get_o_defecto(f"/preferencias/{id_preferencia}", defecto={}) or {}
+    return prefs.get("cantidad_personas") or 1
+
+
+# Categorías con las que el flujo etiqueta las actividades. Se agrupan por
+# rubro porque el vuelo y el check-in llegan como actividades del itinerario,
+# no sólo dentro del desglose de costos.
+RUBRO_POR_CATEGORIA = {
+    "transporte": "transporte", "transport": "transporte", "vuelo": "transporte",
+    "traslado": "transporte",
+    "alojamiento": "alojamiento", "hospedaje": "alojamiento", "hotel": "alojamiento",
+    "accommodation": "alojamiento", "lodging": "alojamiento",
+    "gastronomía": "comidas", "gastronomia": "comidas", "comida": "comidas",
+    "comidas": "comidas", "food": "comidas", "restaurante": "comidas",
+}
+
+
+# El flujo informa de dónde sacó cada precio. Las claves varían según el rubro
+# (`vuelos` para transporte, `hoteles` para alojamiento), así que cada rubro
+# acepta varios nombres y se queda con el primero que venga.
+CLAVES_DE_FUENTE = {
+    "transporte": ("transporte", "vuelos", "vuelo", "flights"),
+    "alojamiento": ("alojamiento", "hoteles", "hotel", "hotels"),
+    "comidas": ("comidas", "comida", "food"),
+    "actividades": ("actividades", "actividad", "activities"),
+}
+
+
+def _fuentes_por_rubro(viaje):
+    """Traduce `fuente_datos.fuentes` a un origen por rubro del presupuesto."""
+    fuente_datos = viaje.get("fuente_datos")
+    if not isinstance(fuente_datos, dict):
+        return {}
+
+    fuentes = fuente_datos.get("fuentes")
+    if not isinstance(fuentes, dict):
+        return {}
+
+    resultado = {}
+    for rubro, claves in CLAVES_DE_FUENTE.items():
+        for clave in claves:
+            valor = fuentes.get(clave)
+            if isinstance(valor, str) and valor.strip():
+                resultado[rubro] = valor.strip()
+                break
+    return resultado
+
+
+def _rubro_de(actividad):
+    """A qué rubro del presupuesto corresponde una actividad."""
+    categoria = (actividad.get("categoria") or "").strip().lower()
+    return RUBRO_POR_CATEGORIA.get(categoria, "actividades")
+
+
+def _calcular_costos_por_dia(viaje, cantidad_personas=1):
+    """Arma el gasto de cada día a partir de sus propias actividades.
+
+    Antes esto escalaba los precios con un factor `costo_actividades / total
+    cotizado`. Estaba mal: el flujo manda el vuelo y el alojamiento COMO
+    actividades del itinerario y además dentro de `desglose_costos`, así que el
+    divisor incluía plata que no era de actividades y achicaba todo (un día de
+    $561 aparecía como $100).
+
+    Ahora cada rubro se arma con las actividades reales de ese día, que es lo
+    que el usuario puede sumar mirando las tarjetas. Lo que el itinerario no
+    cubre —comer todos los días, moverse por la ciudad— se completa con el
+    per-diem del desglose y se marca como estimado.
+    """
+    itinerarios = viaje.get("itinerarios") or []
+    if not itinerarios:
+        return
+
+    costos = viaje.get("costos") or {}
+    dias = len(itinerarios)
+    personas = max(int(cantidad_personas or 1), 1)
+
+    # El desglose viene en total del grupo; las actividades, por persona.
+    def por_persona_por_dia(clave):
+        return (costos.get(clave) or 0) / dias / personas
+
+    per_diem = {
+        "comidas": por_persona_por_dia("costo_comidas"),
+        "transporte": por_persona_por_dia("costo_transporte"),
+        "alojamiento": por_persona_por_dia("costo_alojamiento"),
+    }
+
+    for itin in itinerarios:
+        rubros = {"actividades": 0.0, "comidas": 0.0, "transporte": 0.0, "alojamiento": 0.0}
+        cubiertos = set()
+        for actividad in itin.get("actividades") or []:
+            rubro = _rubro_de(actividad)
+            rubros[rubro] += actividad.get("precio_estimado") or 0
+            # Se anota la presencia, no el monto: un vuelo de vuelta que ya
+            # viene incluido en el de ida cuesta $0, y eso es un dato, no una
+            # ausencia. Mirando el monto se le sumaba el promedio diario encima.
+            cubiertos.add(rubro)
+
+        cotizado = round(sum(rubros.values()), 2)
+
+        # Sólo se estima el rubro que ese día no tiene ninguna actividad: si el
+        # itinerario ya cotizó la cena, sumarle el per-diem la contaría dos veces.
+        estimados = {
+            rubro: round(monto, 2)
+            for rubro, monto in per_diem.items()
+            if rubro not in cubiertos and monto > 0
+        }
+
+        itin["costos_dia"] = {
+            rubro: round(rubros[rubro] + estimados.get(rubro, 0), 2)
+            for rubro in rubros
+        }
+        itin["costos_dia_estimados"] = sorted(estimados)
+        itin["actividades_cotizadas"] = cotizado
+        itin["total_dia"] = round(cotizado + sum(estimados.values()), 2)
+
+    viaje["hay_costos_por_dia"] = True
 
 
 @app.route("/itinerary/<int:id_viaje>")
@@ -668,7 +828,8 @@ def itinerary(id_viaje):
     })
 
     return render_template("itinerary.html", viaje=viaje, nav=_sidebar(viaje),
-                           categorias_actividad=categorias)
+                           categorias_actividad=categorias,
+                           fuentes=_fuentes_por_rubro(viaje))
 
 
 # Alias histórico: /viaje/<id> apunta al mismo itinerario.
@@ -828,12 +989,19 @@ def settings():
 @app.route("/settings/profile", methods=["POST"])
 @login_requerido
 def actualizar_perfil():
-    datos = request.get_json() or {}
+    # El formulario puede llegar como JSON (cambio de contraseña) o como
+    # multipart cuando el usuario sube una foto desde su computadora.
+    datos = request.get_json(silent=True) if request.is_json else request.form
+
     payload = {
-        campo: datos[campo]
+        campo: datos.get(campo)
         for campo in ("nombre", "apellido", "email", "nacionalidad", "foto")
         if datos.get(campo) not in (None, "")
     }
+
+    subida = _guardar_foto_subida(request.files.get("foto"))
+    if subida:
+        payload["foto"] = subida
 
     if datos.get("contrasena"):
         payload["contrasena"] = datos["contrasena"]

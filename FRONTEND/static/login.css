@@ -233,3 +233,50 @@ body, html {
     text-decoration: none;
     margin: 0 10px;
 }
+
+/* ── Calificación de la comunidad ──────────────────────────────────────────
+   Mismo bloque que en el registro: las dos pantallas de acceso muestran la
+   misma prueba social. Los estilos se repiten acá porque cada pantalla carga
+   sólo su propia hoja. */
+
+.rating-box {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-top: 2rem;
+}
+
+.avatars {
+    display: flex;
+}
+
+.avatars img {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    border: 2px solid #333;
+    margin-left: -10px;
+    object-fit: cover;
+}
+
+.avatars img:first-child { margin-left: 0; }
+
+.rating-info {
+    font-size: 0.8rem;
+}
+
+.rating-title {
+    font-weight: bold;
+    letter-spacing: 1px;
+    margin-bottom: 3px;
+}
+
+.stars {
+    color: #48ebd3;
+    font-weight: bold;
+}
+
+.stars i {
+    margin-right: 2px;
+    color: #48ebd3;
+}

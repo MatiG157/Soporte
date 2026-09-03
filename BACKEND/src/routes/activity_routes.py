@@ -70,6 +70,9 @@ def _serializar(a):
         "categoria": a.categoria,
         "horario_sugerido": a.horario_sugerido,
         "ubicacion": a.ubicacion,
+        "link": a.link,
+        "nota": a.nota,
+        "precio_sospechoso": bool(a.precio_sospechoso),
     }
 
 

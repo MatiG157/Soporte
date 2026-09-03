@@ -148,6 +148,10 @@
                   <div class="d-flex justify-content-between align-items-start mb-2">
                     <div class="d-flex align-items-center text-secondary fw-bold mb-1 fs-7"><i class="fa-regular fa-clock me-2"></i> {{ act.horario_sugerido }}</div>
                     <div class="d-flex align-items-center gap-1">
+                      {% if act.precio_sospechoso %}
+                      <i class="fa-solid fa-triangle-exclamation text-warning" data-i18n-title="act_price_odd"
+                         title="This price looks off — double-check it"></i>
+                      {% endif %}
                       <span class="badge bg-light text-secondary fs-6"> ${{ '{:,.0f}'.format(act.precio_estimado or 0) }} </span>
                       <button type="button" class="btn btn-sm act-action-btn act-edit-btn" data-i18n-title="act_edit" title="Edit activity" aria-label="Edit activity">
                         <i class="fa-solid fa-pen"></i>
@@ -167,7 +171,21 @@
                       <i class="fa-solid fa-map-pin me-1"></i> {{ act.ubicacion }}
                     </button>
                     {% endif %}
+                    {% if act.link %}
+                    {# El flujo cotiza el vuelo contra Aviasales: el link es la
+                       oferta concreta de la que salió el precio. #}
+                    <a class="badge rounded p-1 px-2 fw-semibold tag-badge tag-activity text-decoration-none"
+                       href="{{ act.link }}" target="_blank" rel="noopener noreferrer">
+                      <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>
+                      <span data-i18n="act_see_offer">See offer</span>
+                    </a>
+                    {% endif %}
                   </div>
+                  {% if act.nota %}
+                  <p class="text-secondary fst-italic mt-2 mb-0" style="font-size: 0.8rem;">
+                    <i class="fa-solid fa-circle-info me-1"></i>{{ act.nota }}
+                  </p>
+                  {% endif %}
                 </div>
               </div>
             </div>
@@ -181,6 +199,66 @@
               <i class="fa-solid fa-plus me-2"></i><span data-i18n="act_add">Add activity</span>
             </button>
           </div>
+
+          {% if itin.costos_dia %}
+          <!-- Gasto del día. Cada rubro sale de las actividades reales de este
+               día, así que se puede verificar sumando las tarjetas de arriba.
+               Lo que el itinerario no cubre (comer, moverse) se completa con el
+               promedio diario del presupuesto y se marca como estimado. -->
+          <div class="card border rounded-4 shadow-sm mt-3 ms-4 day-cost-card">
+            <div class="card-body p-3">
+              <div class="d-flex justify-content-between align-items-baseline mb-1">
+                <span class="fw-bold text-secondary text-uppercase" style="font-size: .72rem; letter-spacing: .5px;"
+                      data-i18n="iti_day_spend">Spending this day</span>
+                <span class="fw-bold fs-5">${{ '{:,.0f}'.format(itin.total_dia) }}</span>
+              </div>
+
+              {% if itin.costos_dia_estimados %}
+              <p class="text-secondary text-end mb-3" style="font-size: .72rem;">
+                ${{ '{:,.0f}'.format(itin.actividades_cotizadas) }}
+                <span data-i18n="iti_day_quoted">in the itinerary</span>
+                + ${{ '{:,.0f}'.format(itin.total_dia - itin.actividades_cotizadas) }}
+                <span data-i18n="iti_day_estimated">estimated</span>
+              </p>
+              {% else %}
+              <div class="mb-3"></div>
+              {% endif %}
+
+              <div class="row g-2 text-center">
+                {% set partes = [
+                  ('actividades', 'iti_cost_activities', 'Activities',    'fa-ticket'),
+                  ('comidas',     'iti_cost_food',       'Food',          'fa-utensils'),
+                  ('transporte',  'iti_cost_transport',  'Transport',     'fa-bus'),
+                  ('alojamiento', 'iti_cost_lodging',    'Accommodation', 'fa-bed')
+                ] %}
+                {% for rubro, clave, etiqueta, icono in partes %}
+                {% set estimado = rubro in itin.costos_dia_estimados %}
+                <div class="col-6 col-md-3">
+                  <div class="day-cost-item rounded-3 py-2 px-1 h-100 {% if estimado %}es-estimado{% endif %}">
+                    <i class="fa-solid {{ icono }} text-brand mb-1"></i>
+                    <div class="fw-bold" style="font-size: .95rem;">
+                      ${{ '{:,.0f}'.format(itin.costos_dia[rubro]) }}
+                    </div>
+                    <div class="text-secondary" style="font-size: .7rem;" data-i18n="{{ clave }}">{{ etiqueta }}</div>
+                    {% if estimado %}
+                    <div class="etiqueta-estimado" data-i18n="iti_estimated_short">est.</div>
+                    {% elif fuentes and fuentes.get(rubro) %}
+                    {# De dónde salió el precio: sirve para defender el número. #}
+                    <div class="text-secondary text-truncate" style="font-size: .62rem;"
+                         title="{{ fuentes.get(rubro) }}">{{ fuentes.get(rubro) }}</div>
+                    {% endif %}
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+
+              <p class="text-secondary mb-0 mt-2" style="font-size: .72rem;" data-i18n="iti_day_spend_note">
+                Prices are per person. Items marked "est." aren't in the itinerary:
+                they're the trip's daily average.
+              </p>
+            </div>
+          </div>
+          {% endif %}
 
 
         </div>

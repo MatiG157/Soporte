@@ -125,6 +125,148 @@ def test_index_muestra_la_pantalla_de_espera(client):
     assert 'data-i18n="load_subtitle"' in html
 
 
+def _viaje_de_las_capturas():
+    """El caso real: el flujo manda el vuelo y el hotel como actividades."""
+    return {
+        "costos": {"costo_alojamiento": 440.0, "costo_transporte": 168.0,
+                   "costo_actividades": 122.0, "costo_comidas": 144.0,
+                   "costo_total_base": 874.0},
+        "itinerarios": [
+            {"dia": 1, "actividades": [
+                {"categoria": "Transporte", "precio_estimado": 121.0},
+                {"categoria": "Alojamiento", "precio_estimado": 440.0}]},
+            {"dia": 2, "actividades": [
+                {"categoria": "Naturaleza", "precio_estimado": 5.0},
+                {"categoria": "Compras", "precio_estimado": 10.0},
+                {"categoria": "Gastronomía", "precio_estimado": 8.0}]},
+        ] + [{"dia": d, "actividades": []} for d in range(3, 9)],
+    }
+
+
+def test_el_gasto_del_dia_sale_de_sus_propias_actividades(app):
+    """Regresión: un día de $561 aparecía como $100 en actividades.
+
+    Se escalaban los precios con `costo_actividades / total cotizado`, pero el
+    flujo manda el vuelo y el alojamiento COMO actividades y además dentro del
+    desglose: el divisor incluía plata que no era de actividades y achicaba todo.
+    """
+    import app as modulo
+
+    viaje = _viaje_de_las_capturas()
+    modulo._calcular_costos_por_dia(viaje, cantidad_personas=1)
+
+    dia1 = viaje["itinerarios"][0]
+    # El vuelo y el check-in van a su rubro, no a "actividades".
+    assert dia1["costos_dia"]["transporte"] == 121.0
+    assert dia1["costos_dia"]["alojamiento"] == 440.0
+    assert dia1["costos_dia"]["actividades"] == 0.0
+    # Y lo cotizado es exactamente lo que suman las tarjetas de arriba.
+    assert dia1["actividades_cotizadas"] == 561.0
+
+
+def test_solo_se_estima_el_rubro_que_el_dia_no_cubre(app):
+    """Sumarle el per-diem a un día que ya cotizó la cena la contaría dos veces."""
+    import app as modulo
+
+    viaje = _viaje_de_las_capturas()
+    modulo._calcular_costos_por_dia(viaje, cantidad_personas=1)
+
+    dia1, dia2 = viaje["itinerarios"][0], viaje["itinerarios"][1]
+
+    # Día 1: tiene vuelo y hotel propios, sólo se le estima la comida.
+    assert dia1["costos_dia_estimados"] == ["comidas"]
+    assert dia1["costos_dia"]["comidas"] == 18.0        # 144 / 8 días
+
+    # Día 2: la cena está cotizada en $8, así que no se estima.
+    assert "comidas" not in dia2["costos_dia_estimados"]
+    assert dia2["costos_dia"]["comidas"] == 8.0
+    assert sorted(dia2["costos_dia_estimados"]) == ["alojamiento", "transporte"]
+
+
+def test_un_vuelo_de_cero_no_se_reemplaza_por_el_promedio(app):
+    """El vuelo de vuelta cuesta $0 porque ya viene en el de ida.
+
+    La condición miraba el MONTO del rubro, así que un día con un vuelo de $0
+    contaba como "sin transporte" y se le sumaba el promedio diario encima.
+    """
+    import app as modulo
+
+    viaje = {
+        "costos": {"costo_transporte": 1900.0, "costo_comidas": 0,
+                   "costo_alojamiento": 0, "costo_actividades": 0},
+        "itinerarios": [
+            {"dia": 1, "actividades": [{"categoria": "Transporte", "precio_estimado": 900.0}]},
+            {"dia": 2, "actividades": [{"categoria": "Cultural", "precio_estimado": 30.0}]},
+            {"dia": 3, "actividades": [{"categoria": "Transporte", "precio_estimado": 0.0}]},
+        ],
+    }
+    modulo._calcular_costos_por_dia(viaje, cantidad_personas=1)
+
+    dia1, dia2, dia3 = viaje["itinerarios"]
+    assert dia1["costos_dia"]["transporte"] == 900.0
+    assert dia3["costos_dia"]["transporte"] == 0.0            # el vuelo incluido
+    assert "transporte" not in dia3["costos_dia_estimados"]
+    # El día sin ningún vuelo sí recibe el promedio.
+    assert "transporte" in dia2["costos_dia_estimados"]
+
+
+def test_un_vuelo_por_tramo_cae_en_su_dia(app):
+    """Con un vuelo por etapa, cada día muestra el precio de ESE vuelo."""
+    import app as modulo
+
+    viaje = {
+        "costos": {"costo_transporte": 1300.0, "costo_comidas": 0,
+                   "costo_alojamiento": 0, "costo_actividades": 0},
+        "itinerarios": [
+            {"dia": 1, "actividades": [{"categoria": "Transporte", "precio_estimado": 900.0}]},
+            {"dia": 2, "actividades": [{"categoria": "Transporte", "precio_estimado": 180.0}]},
+            {"dia": 3, "actividades": [{"categoria": "Transporte", "precio_estimado": 220.0}]},
+        ],
+    }
+    modulo._calcular_costos_por_dia(viaje, cantidad_personas=1)
+
+    assert [i["costos_dia"]["transporte"] for i in viaje["itinerarios"]] == [900.0, 180.0, 220.0]
+    assert all(not i["costos_dia_estimados"] for i in viaje["itinerarios"])
+
+
+def test_el_desglose_se_convierte_a_por_persona(app):
+    """Las actividades vienen por persona y el desglose es del grupo."""
+    import app as modulo
+
+    viaje = _viaje_de_las_capturas()
+    modulo._calcular_costos_por_dia(viaje, cantidad_personas=2)
+
+    # 144 de comidas / 8 días / 2 personas
+    assert viaje["itinerarios"][0]["costos_dia"]["comidas"] == 9.0
+
+
+def test_sin_costos_solo_se_muestran_las_actividades(app):
+    import app as modulo
+
+    viaje = {"costos": {}, "itinerarios": [
+        {"dia": 1, "actividades": [{"categoria": "Cultural", "precio_estimado": 10.0}]}]}
+    modulo._calcular_costos_por_dia(viaje)
+
+    itin = viaje["itinerarios"][0]
+    assert itin["costos_dia"]["actividades"] == 10.0
+    assert itin["total_dia"] == 10.0
+    assert itin["costos_dia_estimados"] == []
+
+
+def test_compare_no_aparece_en_un_viaje_guardado(logueado, backend):
+    """Regresión: bastaba con que existiera un borrador para que el link de
+    Compare saliera en TODOS los viajes, incluso en uno guardado sin relación."""
+    backend.drafts = [{
+        "id_viaje": 99, "destinos": [], "fecha_inicio": "2030-03-10",
+        "fecha_fin": "2030-03-12", "costo_total_estimado": 1000.0, "estado": "draft",
+        "group_id": "g", "imagen": None, "created_at": None, "tipo_viaje": "Economy",
+    }]
+
+    # VIAJE_GUARDADO tiene estado "guardado": no pertenece al grupo de borradores.
+    html = logueado.get("/itinerary/1").get_data(as_text=True)
+    assert 'href="/compare"' not in html
+
+
 def test_pagina_404(client):
     respuesta = client.get("/ruta-que-no-existe")
     assert respuesta.status_code == 404
@@ -280,3 +422,127 @@ def test_mytrips_no_ofrece_editar_el_viaje(logueado):
     assert "mytrips_edit" not in html
     assert "?edit=1" not in html
     assert "mytrips_delete" in html      # el resto del menú sigue
+
+
+# ─── Aviso de presupuesto en /compare ────────────────────────────────────────
+
+def _tres_borradores():
+    return [
+        {"id_viaje": i, "destinos": ["Kioto, Japón"], "fecha_inicio": "2030-03-10",
+         "fecha_fin": "2030-03-12", "costo_total_estimado": 900.0, "estado": "draft",
+         "group_id": "g", "imagen": None, "created_at": None, "tipo_viaje": tipo}
+        for i, tipo in enumerate(["Economy", "Balanced", "Luxury"], start=1)
+    ]
+
+
+def test_compare_avisa_que_el_presupuesto_no_alcanza(logueado, backend):
+    backend.drafts = _tres_borradores()
+    with logueado.session_transaction() as sesion:
+        sesion["presupuesto"] = {
+            "estado": "presupuesto_insuficiente",
+            "aviso": {"presupuesto_solicitado": 100, "costo_minimo_estimado": 9256,
+                      "dias_que_entran": 0, "alcanza_para_el_vuelo": False,
+                      "mensaje": "Con $100 no alcanza ni para el vuelo.",
+                      "sugerencias": ["Subí el presupuesto", "Acortá el viaje"]},
+        }
+
+    html = logueado.get("/compare").get_data(as_text=True)
+
+    assert "budget_short_title" in html
+    assert "Con $100 no alcanza ni para el vuelo." in html
+    assert "Acortá el viaje" in html
+    # `0` y `False` son datos válidos: no se pueden esconder por ser falsy.
+    assert "budget_days_fit" in html
+    assert "budget_covers_flight" in html
+    # Las 3 opciones vienen igual, así que se siguen ofreciendo.
+    assert "budget_cheapest" in html
+    assert "compare_plan_eco" in html
+
+
+def test_compare_avisa_que_el_viaje_se_ajusto(logueado, backend):
+    backend.drafts = _tres_borradores()
+    with logueado.session_transaction() as sesion:
+        sesion["presupuesto"] = {"estado": "ajustado",
+                                 "aviso": {"mensaje": "Recortamos a 3 días."}}
+
+    html = logueado.get("/compare").get_data(as_text=True)
+
+    assert "budget_tight_title" in html
+    assert "Recortamos a 3 días." in html
+    assert "budget_cheapest" not in html   # el viaje entra: no hay que disculparse
+    # El aviso sólo trae `mensaje`; el resto de las claves no puede aparecer vacío.
+    assert "budget_days_fit" not in html
+    assert "budget_minimum" not in html
+
+
+def test_compare_sin_aviso_no_dibuja_el_cartel(logueado, backend):
+    backend.drafts = _tres_borradores()
+
+    html = logueado.get("/compare").get_data(as_text=True)
+
+    assert "budget_short_title" not in html
+    assert "budget_tight_title" not in html
+
+
+# ─── Procedencia de los precios ──────────────────────────────────────────────
+
+def test_fuentes_por_rubro_acepta_los_nombres_del_flujo(app):
+    """El flujo nombra `vuelos`/`hoteles`, no `transporte`/`alojamiento`."""
+    import app as modulo
+
+    fuentes = modulo._fuentes_por_rubro({"fuente_datos": {"fuentes": {
+        "vuelos": "Aviasales", "hoteles": "Hotellook", "comidas": "estimado"}}})
+
+    assert fuentes == {"transporte": "Aviasales", "alojamiento": "Hotellook",
+                       "comidas": "estimado"}
+
+
+def test_fuentes_por_rubro_tolera_que_no_venga_nada(app):
+    import app as modulo
+
+    assert modulo._fuentes_por_rubro({}) == {}
+    assert modulo._fuentes_por_rubro({"fuente_datos": "Aviasales"}) == {}
+    assert modulo._fuentes_por_rubro({"fuente_datos": {"fuentes": []}}) == {}
+
+
+def test_itinerario_muestra_el_origen_del_precio(logueado, backend):
+    """El origen se muestra sólo en los rubros cotizados, no en los estimados."""
+    backend.extra_viaje = {"fuente_datos": {"fuentes": {
+        "actividades": "Google Places",   # el viaje tiene actividades reales
+        "vuelos": "Aviasales",            # sin vuelos ese día: queda estimado
+    }}}
+
+    html = logueado.get("/itinerary/1").get_data(as_text=True)
+
+    assert "Google Places" in html
+    assert "Aviasales" not in html
+
+
+def test_itinerario_muestra_link_nota_y_precio_dudoso(logueado, backend):
+    base = backend.responder("GET", "/viajes/1")
+    detalle = {**base}
+    detalle["itinerarios"] = [{
+        **base["itinerarios"][0],
+        "actividades": [{
+            **base["itinerarios"][0]["actividades"][0],
+            "categoria": "Vuelo",
+            "link": "https://aviasales.com/oferta-42",
+            "nota": "Tarifa con una escala en Doha.",
+            "precio_sospechoso": True,
+        }],
+    }]
+    backend.extra_viaje = detalle
+
+    html = logueado.get("/itinerary/1").get_data(as_text=True)
+
+    assert "https://aviasales.com/oferta-42" in html
+    assert "Tarifa con una escala en Doha." in html
+    assert "act_price_odd" in html
+    assert "act_see_offer" in html
+
+
+def test_itinerario_sin_procedencia_no_dibuja_nada(logueado, backend):
+    html = logueado.get("/itinerary/1").get_data(as_text=True)
+
+    assert "act_see_offer" not in html
+    assert "act_price_odd" not in html

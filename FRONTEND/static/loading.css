@@ -197,3 +197,23 @@
     .loading-orbit    { width: 104px; height: 104px; margin-bottom: 1.75rem; }
     .loading-orbit__globe { inset: 18px; font-size: 2.2rem; }
 }
+
+/* Salida de emergencia: la espera es larga y hay que poder volver al
+   formulario sin recargar y perder lo cargado. */
+.loading-cancel {
+    margin-top: 1.75rem;
+    padding: .5rem 1.4rem;
+    font-size: .88rem;
+    color: rgba(255, 255, 255, .78);
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, .3);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background .2s ease, color .2s ease, border-color .2s ease;
+}
+
+.loading-cancel:hover {
+    background: rgba(255, 255, 255, .12);
+    border-color: rgba(255, 255, 255, .55);
+    color: #fff;
+}

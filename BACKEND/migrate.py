@@ -282,6 +282,19 @@ def m008_viajes_titulo(cursor):
 
     _log(f"    ✓ Títulos generados para {len(viajes_sin_titulo)} viajes existentes")
 
+def m009_procedencia_de_actividades(cursor):
+    """Guarda de dónde salió el precio de cada actividad.
+
+    El flujo de n8n cotiza vuelos y hoteles contra APIs reales y devuelve, por
+    actividad, el link de la oferta, una nota y un flag cuando el precio le
+    parece raro. Sin estas columnas eso se perdía al guardar y el itinerario no
+    podía distinguir un precio cotizado de uno inventado.
+    """
+    _agregar_columna(cursor, "actividades", "link", "VARCHAR(500) NULL")
+    _agregar_columna(cursor, "actividades", "nota", "VARCHAR(300) NULL")
+    _agregar_columna(cursor, "actividades", "precio_sospechoso", "BOOLEAN NOT NULL DEFAULT FALSE")
+
+
 MIGRACIONES = [
     ("001_destinos_como_json", m001_destinos_como_json),
     ("002_campos_de_usuario", m002_campos_de_usuario),
@@ -291,6 +304,7 @@ MIGRACIONES = [
     ("006_normalizar_grupos", m006_normalizar_grupos),
     ("007_destinos_relacionales", m007_destinos_relacionales),
     ("008_viajes_titulo", m008_viajes_titulo),
+    ("009_procedencia_de_actividades", m009_procedencia_de_actividades),
 ]
 
 

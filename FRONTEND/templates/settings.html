@@ -94,8 +94,21 @@
                         </div>
 
                         <div class="mb-4">
-                            <label for="p-foto" class="form-label small fw-bold text-uppercase" data-i18n="settings_photo_url">Profile photo URL</label>
-                            <input type="url" id="p-foto" class="form-control" value="{{ perfil.get('foto') or '' }}">
+                            <label class="form-label small fw-bold text-uppercase" data-i18n="settings_photo">Profile photo</label>
+
+                            <div class="d-flex align-items-center gap-3">
+                                <img id="p-foto-preview" class="rounded-circle border"
+                                     style="width: 64px; height: 64px; object-fit: cover;
+                                            {% if not perfil.get('foto') %}display: none;{% endif %}"
+                                     src="{{ perfil.get('foto') or '' }}" alt="">
+                                <div class="flex-grow-1">
+                                    <input type="file" id="p-foto-file" class="form-control"
+                                           accept="image/png, image/jpeg, image/webp">
+                                    <small class="text-muted" data-i18n="settings_photo_hint">
+                                        PNG, JPG or WEBP from your computer.
+                                    </small>
+                                </div>
+                            </div>
                         </div>
 
                         <button type="submit" class="btn text-white fw-bold px-4"
@@ -216,18 +229,22 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('profile-form').addEventListener('submit', async e => {
         e.preventDefault();
 
-        const cuerpo = {
-            nombre: document.getElementById('p-nombre').value.trim(),
-            apellido: document.getElementById('p-apellido').value.trim(),
-            email: document.getElementById('p-email').value.trim(),
-            nacionalidad: document.getElementById('p-nacionalidad').value.trim(),
-            foto: document.getElementById('p-foto').value.trim()
-        };
+        // Multipart porque la foto puede ser un archivo del disco.
+        const cuerpo = new FormData();
+        cuerpo.append('nombre', document.getElementById('p-nombre').value.trim());
+        cuerpo.append('apellido', document.getElementById('p-apellido').value.trim());
+        cuerpo.append('email', document.getElementById('p-email').value.trim());
+        cuerpo.append('nacionalidad', document.getElementById('p-nacionalidad').value.trim());
+
+        const archivo = document.getElementById('p-foto-file').files[0];
+        if (archivo) cuerpo.append('foto', archivo);
 
         try {
-            const resp = await apiFetch('/settings/profile', {
+            // Sin apiFetch: fuerza Content-Type JSON y rompería el multipart.
+            const resp = await fetch('/settings/profile', {
                 method: 'POST',
-                body: JSON.stringify(cuerpo)
+                headers: { 'X-CSRF-Token': window.CSRF_TOKEN },
+                body: cuerpo
             });
             const datos = await resp.json();
 
@@ -240,6 +257,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             avisar(t('err_server'), 'danger');
         }
+    });
+
+    // Vista previa inmediata: se ve qué se va a guardar antes de guardarlo.
+    document.getElementById('p-foto-file').addEventListener('change', evento => {
+        const archivo = evento.target.files[0];
+        if (!archivo) return;
+        const vista = document.getElementById('p-foto-preview');
+        vista.src = URL.createObjectURL(archivo);
+        vista.style.display = '';
     });
 
     // ─── Contraseña ──────────────────────────────────────────────────────────

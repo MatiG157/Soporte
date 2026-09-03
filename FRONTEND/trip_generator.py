@@ -37,7 +37,8 @@ REPARTO = {
 # Presupuesto por persona y por día cuando el usuario no indica ninguno.
 COSTO_DIARIO_POR_PERSONA = 120.0
 
-LIMITES = {"nombre": 120, "categoria": 80, "horario_sugerido": 30, "ubicacion": 150}
+LIMITES = {"nombre": 120, "categoria": 80, "horario_sugerido": 30, "ubicacion": 150,
+           "link": 500, "nota": 300}
 
 IMAGEN_POR_DEFECTO = (
     "https://images.unsplash.com/photo-1488646953014-85cb44e25828"
@@ -295,22 +296,43 @@ def _limpiar_json(texto):
     return re.sub(r"```\s*$", "", limpio).strip()
 
 
+# Estados que devuelve el flujo comparando el presupuesto pedido contra la
+# opción más barata.
+ESTADOS_PRESUPUESTO = ("ok", "ajustado", "presupuesto_insuficiente")
+
+
+def leer_sobre(respuesta):
+    """Separa las opciones del estado del presupuesto.
+
+    El flujo pasó de devolver un array pelado a un objeto
+    `{estado, opciones, aviso_presupuesto}`. Se aceptan las dos formas: la
+    vieja simplemente no trae aviso.
+    """
+    if isinstance(respuesta, str):
+        import json
+        respuesta = json.loads(_limpiar_json(respuesta))
+
+    if not isinstance(respuesta, dict):
+        return respuesta, {"estado": "ok", "aviso": None}
+
+    for clave in ("opciones", "data", "viajes", "result"):
+        if isinstance(respuesta.get(clave), list):
+            estado = respuesta.get("estado")
+            return respuesta[clave], {
+                "estado": estado if estado in ESTADOS_PRESUPUESTO else "ok",
+                "aviso": respuesta.get("aviso_presupuesto"),
+            }
+
+    return respuesta, {"estado": "ok", "aviso": None}
+
+
 def validar_opciones(opciones, preferencias):
     """Verifica el contrato y normaliza lo que venga de la IA.
 
     Lanza ValueError si la respuesta no sirve, para que el caller pase al
     siguiente proveedor.
     """
-    if isinstance(opciones, str):
-        import json
-        opciones = json.loads(_limpiar_json(opciones))
-
-    if isinstance(opciones, dict):
-        # Algunos flujos devuelven {"data": [...]} o {"opciones": [...]}.
-        for clave in ("opciones", "data", "viajes", "result"):
-            if isinstance(opciones.get(clave), list):
-                opciones = opciones[clave]
-                break
+    opciones, _ = leer_sobre(opciones)
 
     if not isinstance(opciones, list) or len(opciones) != 3:
         raise ValueError("Se esperaban exactamente 3 opciones de viaje")
@@ -345,16 +367,32 @@ def validar_opciones(opciones, preferencias):
                     "horario_sugerido": _recortar(
                         a.get("horario_sugerido") or "", LIMITES["horario_sugerido"]),
                     "ubicacion": _recortar(a.get("ubicacion") or "", LIMITES["ubicacion"]),
+                    # Procedencia del precio: el link de la oferta cotizada, la
+                    # nota del flujo y su aviso de precio dudoso. Se descartaban
+                    # acá, así que el itinerario no podía mostrar de dónde salía
+                    # cada número.
+                    "link": _recortar(a.get("link") or "", LIMITES["link"]),
+                    "nota": _recortar(a.get("nota") or "", LIMITES["nota"]),
+                    "precio_sospechoso": bool(a.get("precio_sospechoso")),
                 } for a in actividades
             ]
 
-            dias_normalizados.append({
+            dia_normalizado = {
                 "dia": indice,
                 "resumen": str(dia.get("resumen") or f"Día {indice}"),
                 # El modelo no siempre devuelve las actividades en orden horario,
                 # y el timeline del itinerario las muestra tal cual vienen.
                 "actividades": sorted(normalizadas_del_dia, key=_hora_de_inicio),
-            })
+            }
+
+            # `destino_indice` dice a qué ciudad pertenece el día. Sin esto el
+            # backend tenía que adivinar y colgaba todo del primer destino, así
+            # que el segundo aparecía sin ningún día.
+            for clave, valor in dia.items():
+                if clave not in dia_normalizado:
+                    dia_normalizado[clave] = valor
+
+            dias_normalizados.append(dia_normalizado)
 
         # El destino y las fechas los manda el usuario, no la IA.
         normalizada = {
@@ -385,7 +423,7 @@ def validar_opciones(opciones, preferencias):
 def _generar_con_n8n(preferencias):
     url = os.getenv("N8N_WEBHOOK_URL", "").strip()
     if not url:
-        return None
+        return None   # sin webhook no hay nada que pedir: decide el caller
 
     # Sin User-Agent propio, requests manda "python-requests/x.y" y la opcion
     # "Ignore Bots" del nodo Webhook lo rechaza con 403.
@@ -420,7 +458,9 @@ def _generar_con_n8n(preferencias):
         timeout=float(os.getenv("N8N_TIMEOUT", "120")),
     )
     respuesta.raise_for_status()
-    return validar_opciones(respuesta.json(), preferencias)
+
+    crudo, sobre = leer_sobre(respuesta.json())
+    return validar_opciones(crudo, preferencias), sobre
 
 
 def generar_opciones(preferencias):
@@ -430,15 +470,18 @@ def generar_opciones(preferencias):
     cae al generador local para que el usuario igual reciba sus tres opciones.
     """
     try:
-        opciones = _generar_con_n8n(preferencias)
-        if opciones:
-            logger.info("Viajes generados con n8n")
-            return _completar_imagenes(opciones, preferencias), "n8n"
+        resultado = _generar_con_n8n(preferencias)
+        if resultado:
+            opciones, sobre = resultado
+            logger.info("Viajes generados con n8n (presupuesto: %s)", sobre["estado"])
+            return _completar_imagenes(opciones, preferencias), "n8n", sobre
         logger.info("N8N_WEBHOOK_URL no está configurada: se usa el generador local")
     except Exception as exc:
         logger.warning("El flujo de n8n falló (%s): se usa el generador local", exc)
 
-    return generar_localmente(preferencias), "local"
+    # El generador local dimensiona las opciones sobre el presupuesto pedido,
+    # así que por construcción no hay nada que avisar.
+    return generar_localmente(preferencias), "local", {"estado": "ok", "aviso": None}
 
 
 def _completar_imagenes(opciones, preferencias):

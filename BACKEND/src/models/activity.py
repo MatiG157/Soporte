@@ -18,6 +18,13 @@ class Actividad(db.Model):
     horario_sugerido = db.Column(db.String(30))
     ubicacion = db.Column(db.String(150))
 
+    # Procedencia del precio: el flujo de n8n cotiza vuelos y hoteles contra
+    # APIs reales y manda el link de la oferta, una nota y un aviso cuando el
+    # precio le resulta dudoso.
+    link = db.Column(db.String(500))
+    nota = db.Column(db.String(300))
+    precio_sospechoso = db.Column(db.Boolean, default=False, nullable=False)
+
     id_viaje_destino = db.Column(
         db.Integer,
         db.ForeignKey("viaje_destinos.id_viaje_destino"),
