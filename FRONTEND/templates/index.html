@@ -99,21 +99,10 @@
                         <label class="form-label-small mb-1 d-block text-uppercase fw-bold"
                                style="font-size: 0.75rem;" data-i18n="index_budget">Budget</label>
 
-                        <div class="d-flex align-items-center">
-                            <div class="budget-group">
-                                <span class="v-separator"></span>
-                                <input type="number" id="budgetMin" min="0" step="100"
-                                       class="form-control input-clean p-0 border-0 bg-transparent shadow-none w-100"
-                                       placeholder="Min $" data-i18n-placeholder="index_ph_min">
-                            </div>
-                            <div class="mx-2"></div>
-                            <div class="budget-group">
-                                <span class="v-separator"></span>
-                                <input type="number" id="budgetMax" min="0" step="100"
-                                       class="form-control input-clean p-0 border-0 bg-transparent shadow-none w-100"
-                                       placeholder="Max $" data-i18n-placeholder="index_ph_max">
-                            </div>
-                        </div>
+                        <input type="number" id="budget" min="0" step="100"
+                               class="form-control input-clean p-0 border-0 bg-transparent shadow-none w-100"
+                               placeholder="How much do you want to spend?"
+                               data-i18n-placeholder="index_ph_budget">
                     </div>
                 </div>
             </div>
@@ -362,6 +351,10 @@
     <p class="loading-note" id="loading-note" data-i18n="load_slow">
         Still working. Complex trips take a bit longer.
     </p>
+
+    <button type="button" class="loading-cancel" id="loading-cancel" data-i18n="load_cancel">
+        Cancel and go back
+    </button>
 </div>
 {% endblock %}
 
@@ -426,8 +419,9 @@ function leerFormulario() {
         fecha_inicio: document.getElementById('date-start').value,
         fecha_fin: document.getElementById('date-end').value,
         cantidad_personas: parseInt(document.getElementById('travelers').value, 10) || null,
-        costo_min: parseFloat(document.getElementById('budgetMin').value) || null,
-        costo_max: parseFloat(document.getElementById('budgetMax').value) || null,
+        // Un solo presupuesto: es lo que el usuario quiere gastar. Se manda como
+        // `costo_max` porque es el techo que usa la reoptimización del backend.
+        costo_max: parseFloat(document.getElementById('budget').value) || null,
         grupo: (document.querySelector('input[name="tripType"]:checked') || {}).value || null,
         edades_viajeros: document.getElementById('ages').value.trim(),
         hospedaje: valores('#acc-group input[type="checkbox"]').join(', '),
@@ -482,8 +476,7 @@ function loadTripFormFromSession() {
     asignar('date-start', datos.fecha_inicio);
     asignar('date-end', datos.fecha_fin);
     asignar('travelers', datos.cantidad_personas);
-    asignar('budgetMin', datos.costo_min);
-    asignar('budgetMax', datos.costo_max);
+    asignar('budget', datos.costo_max);
     asignar('ages', datos.edades_viajeros);
     asignar('extras', datos.otros);
 
@@ -557,7 +550,9 @@ const Espera = {
     TOPE: 60,          // referencia para la barra, no un límite duro
     AVISO_LENTO: 45,   // a partir de acá se avisa que sigue trabajando
 
-    iniciar() {
+    iniciar(controlador) {
+        // Guardamos el AbortController para poder cortar el fetch si cancela.
+        this.controlador = controlador;
         this.comienzo = Date.now();
         this.overlay = document.getElementById('loading-overlay');
         this.pasos = Array.from(document.querySelectorAll('#loading-steps li'));
@@ -571,6 +566,16 @@ const Espera = {
 
         this.pintar();
         this.tic = setInterval(() => this.pintar(), 500);
+
+        const cancelar = document.getElementById('loading-cancel');
+        cancelar.onclick = () => {
+            // El formulario sigue intacto detrás del overlay: alcanza con
+            // cortar la petición y cerrarlo para que el usuario siga editando.
+            if (this.controlador) this.controlador.abort();
+            this.cancelar();
+            const boton = document.getElementById('create-trip-btn');
+            if (boton) restaurarBoton(boton);
+        };
     },
 
     pintar() {
@@ -625,9 +630,6 @@ async function submitTripForm(evento) {
     if (!datos.fecha_fin)     return mostrarAlerta(t('err_arr'));
     if (new Date(datos.fecha_inicio) > new Date(datos.fecha_fin)) return mostrarAlerta(t('err_dates'));
     if (!datos.cantidad_personas || datos.cantidad_personas < 1)  return mostrarAlerta(t('err_travelers'));
-    if (datos.costo_min && datos.costo_max && datos.costo_min > datos.costo_max) {
-        return mostrarAlerta(t('err_budget'));
-    }
 
     if (HAS_DRAFTS && !window.draftConfirmed) {
         const modal = new bootstrap.Modal(document.getElementById('draftWarningModal'));
@@ -643,12 +645,15 @@ async function submitTripForm(evento) {
 
     boton.disabled = true;
     boton.innerHTML = `<i class="fa-solid fa-spinner fa-spin me-2"></i> ${t('index_creating', 'Creating…')}`;
-    Espera.iniciar();
+
+    const controlador = new AbortController();
+    Espera.iniciar(controlador);
 
     try {
         const resp = await apiFetch("{{ url_for('create_trip') }}", {
             method: 'POST',
-            body: JSON.stringify(datos)
+            body: JSON.stringify(datos),
+            signal: controlador.signal
         });
         const respuesta = await resp.json();
 
@@ -663,6 +668,8 @@ async function submitTripForm(evento) {
             restaurarBoton(boton);
         }
     } catch (err) {
+        // Si canceló el usuario, ya cerramos todo: no hay nada que informar.
+        if (err.name === 'AbortError') return;
         console.error(err);
         Espera.cancelar();
         mostrarAlerta(t('err_server'));

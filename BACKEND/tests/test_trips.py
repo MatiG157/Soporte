@@ -209,6 +209,38 @@ def test_el_viaje_generado_nace_con_titulo(client, auth, usuario):
     assert viaje["titulo"] == "Osaka, Japan → Kyoto, Japan"
 
 
+def test_borrar_un_borrador_borra_todo_su_grupo(client, auth, usuario):
+    """Regresión: el aviso de "tenés un viaje sin elegir" no se iba.
+
+    La interfaz muestra una sola tarjeta por grupo de borradores, pero el
+    borrado eliminaba un único viaje: los otros dos seguían vivos.
+    """
+    _generar(client, auth, usuario)
+
+    drafts = client.get(f"/viajes/usuario/{usuario}/drafts", headers=auth).get_json()
+    assert len(drafts) == 3
+
+    assert client.delete(f"/viajes/{drafts[0]['id_viaje']}", headers=auth).status_code == 200
+
+    assert client.get(f"/viajes/usuario/{usuario}/drafts", headers=auth).get_json() == []
+    assert client.get(f"/viajes/usuario/{usuario}", headers=auth).get_json() == []
+
+
+def test_borrar_un_viaje_guardado_no_toca_los_demas(client, auth, usuario):
+    _generar(client, auth, usuario)
+    drafts = client.get(f"/viajes/usuario/{usuario}/drafts", headers=auth).get_json()
+    client.post(f"/viajes/{drafts[0]['id_viaje']}/select", headers=auth)
+
+    _generar(client, auth, usuario)   # un grupo nuevo de borradores
+
+    guardado = [v for v in client.get(f"/viajes/usuario/{usuario}", headers=auth).get_json()
+                if v["estado"] == "guardado"][0]
+    assert client.delete(f"/viajes/{guardado['id_viaje']}", headers=auth).status_code == 200
+
+    # Los borradores del otro grupo siguen intactos.
+    assert len(client.get(f"/viajes/usuario/{usuario}/drafts", headers=auth).get_json()) == 3
+
+
 def test_los_textos_largos_se_recortan_a_la_columna(client, auth, usuario):
     opcion = opcion_de_viaje(tipo="Economy", dias=1)
     opcion["itinerario"][0]["actividades"][0].update({

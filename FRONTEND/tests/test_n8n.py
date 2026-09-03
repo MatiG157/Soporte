@@ -86,7 +86,7 @@ def n8n(monkeypatch):
 def test_usa_n8n_cuando_esta_configurado(n8n):
     n8n["respuesta"] = RespuestaFalsa([_opcion(t) for t in ("Economy", "Balanced", "Luxury")])
 
-    opciones, proveedor = trip_generator.generar_opciones(PREFERENCIAS)
+    opciones, proveedor, _ = trip_generator.generar_opciones(PREFERENCIAS)
 
     assert proveedor == "n8n"
     assert len(opciones) == 3
@@ -109,7 +109,7 @@ def test_usa_basic_auth_cuando_esta_configurado(n8n, monkeypatch):
     monkeypatch.setenv("N8N_BASIC_PASSWORD", "secreta")
     n8n["respuesta"] = RespuestaFalsa([_opcion(t) for t in ("Economy", "Balanced", "Luxury")])
 
-    _, proveedor = trip_generator.generar_opciones(PREFERENCIAS)
+    _, proveedor, _ = trip_generator.generar_opciones(PREFERENCIAS)
 
     assert proveedor == "n8n"
     assert n8n["auth"] == ("pepe", "secreta")
@@ -128,19 +128,62 @@ def test_header_configurable(n8n, monkeypatch):
     assert n8n["auth"] is None
 
 
+def test_lee_el_estado_del_presupuesto(n8n):
+    """El flujo pasó a devolver {estado, opciones, aviso_presupuesto}."""
+    aviso = {"presupuesto_solicitado": 100, "costo_minimo_estimado": 9256,
+             "dias_que_entran": 0, "mensaje": "No alcanza."}
+    n8n["respuesta"] = RespuestaFalsa({
+        "estado": "presupuesto_insuficiente",
+        "opciones": [_opcion(t) for t in ("Economy", "Balanced", "Luxury")],
+        "aviso_presupuesto": aviso,
+    })
+
+    opciones, proveedor, presupuesto = trip_generator.generar_opciones(PREFERENCIAS)
+
+    assert proveedor == "n8n"
+    assert len(opciones) == 3          # las opciones vienen igual
+    assert presupuesto["estado"] == "presupuesto_insuficiente"
+    assert presupuesto["aviso"]["dias_que_entran"] == 0
+
+
+def test_un_array_pelado_sigue_siendo_valido(n8n):
+    """La forma vieja (array sin sobre) no puede romper."""
+    n8n["respuesta"] = RespuestaFalsa([_opcion(t) for t in ("Economy", "Balanced", "Luxury")])
+
+    _, proveedor, presupuesto = trip_generator.generar_opciones(PREFERENCIAS)
+
+    assert proveedor == "n8n"
+    assert presupuesto == {"estado": "ok", "aviso": None}
+
+
+def test_conserva_el_indice_de_destino_de_cada_dia(n8n):
+    """Sin `destino_indice` el backend cuelga todo del primer destino."""
+    opciones = [_opcion(t) for t in ("Economy", "Balanced", "Luxury")]
+    for opcion in opciones:
+        for indice, dia in enumerate(opcion["itinerario"]):
+            dia["destino_indice"] = 0 if indice < 2 else 1
+            dia["destino"] = "Osaka" if indice < 2 else "Kioto"
+
+    validadas = trip_generator.validar_opciones(opciones, PREFERENCIAS)
+    dias = validadas[0]["itinerario"]
+
+    assert [d["destino_indice"] for d in dias] == [0, 0, 1, 1, 1]
+    assert dias[4]["destino"] == "Kioto"
+
+
 def test_acepta_la_respuesta_envuelta_en_un_objeto(n8n):
     n8n["respuesta"] = RespuestaFalsa(
         {"data": [_opcion(t) for t in ("Economy", "Balanced", "Luxury")]}
     )
 
-    _, proveedor = trip_generator.generar_opciones(PREFERENCIAS)
+    _, proveedor, _ = trip_generator.generar_opciones(PREFERENCIAS)
     assert proveedor == "n8n"
 
 
 def test_cae_al_generador_local_si_n8n_devuelve_error(n8n):
     n8n["respuesta"] = RespuestaFalsa({"error": "algo explotó"}, status=502)
 
-    opciones, proveedor = trip_generator.generar_opciones(PREFERENCIAS)
+    opciones, proveedor, _ = trip_generator.generar_opciones(PREFERENCIAS)
 
     assert proveedor == "local"
     assert len(opciones) == 3
@@ -149,7 +192,7 @@ def test_cae_al_generador_local_si_n8n_devuelve_error(n8n):
 def test_cae_al_generador_local_si_faltan_tipos(n8n):
     n8n["respuesta"] = RespuestaFalsa([_opcion("Economy"), _opcion("Balanced")])
 
-    _, proveedor = trip_generator.generar_opciones(PREFERENCIAS)
+    _, proveedor, _ = trip_generator.generar_opciones(PREFERENCIAS)
     assert proveedor == "local"
 
 
@@ -158,7 +201,7 @@ def test_cae_al_generador_local_si_un_dia_no_trae_actividades(n8n):
     opciones[0]["itinerario"][2]["actividades"] = []
     n8n["respuesta"] = RespuestaFalsa(opciones)
 
-    _, proveedor = trip_generator.generar_opciones(PREFERENCIAS)
+    _, proveedor, _ = trip_generator.generar_opciones(PREFERENCIAS)
     assert proveedor == "local"
 
 
@@ -166,7 +209,7 @@ def test_sin_webhook_configurado_usa_el_generador_local(monkeypatch):
     monkeypatch.setenv("N8N_WEBHOOK_URL", "")
     monkeypatch.setattr(trip_generator, "obtener_imagen_destino", lambda destino: None)
 
-    opciones, proveedor = trip_generator.generar_opciones(PREFERENCIAS)
+    opciones, proveedor, _ = trip_generator.generar_opciones(PREFERENCIAS)
 
     assert proveedor == "local"
     assert len(opciones) == 3

@@ -69,6 +69,9 @@ class BackendSimulado:
     def __init__(self):
         self.llamadas = []
         self.drafts = []
+        # Campos extra del detalle de un viaje (`fuente_datos`, por ejemplo),
+        # para que cada test arme el suyo sin tocar el viaje base.
+        self.extra_viaje = {}
 
     def responder(self, metodo, ruta, **kwargs):
         self.llamadas.append((metodo, ruta, kwargs.get("json")))
@@ -78,7 +81,7 @@ class BackendSimulado:
         if ruta.startswith("/viajes/usuario/"):
             return [VIAJE_GUARDADO]
         if ruta.startswith("/viajes/") and metodo == "GET":
-            return dict(VIAJE_GUARDADO)
+            return {**VIAJE_GUARDADO, **self.extra_viaje}
         if ruta == "/viajes/generate":
             return {"group_id": "grupo-nuevo"}
         if ruta == "/preferencias/":

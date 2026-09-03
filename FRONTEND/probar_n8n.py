@@ -46,7 +46,6 @@ def payload_de_prueba(destino, dias, personas, presupuesto, origen="Buenos Aires
         "origen": origen,
         "fecha_inicio": inicio.isoformat(),
         "fecha_fin": fin.isoformat(),
-        "costo_min": round(presupuesto * 0.5),
         "costo_max": presupuesto,
         "cantidad_personas": personas,
         "grupo": "friends",

@@ -42,6 +42,7 @@ def test_create_trip_completo(logueado, csrf, backend):
     assert datos["redirect"].endswith("/compare")
     # Sin N8N_WEBHOOK_URL configurada, cae al generador local.
     assert datos["proveedor"] == "local"
+    assert datos["presupuesto"] == "ok"
 
     generadas = [c for c in backend.llamadas if c[1] == "/viajes/generate"]
     assert len(generadas) == 1

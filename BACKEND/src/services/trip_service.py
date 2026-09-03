@@ -24,6 +24,8 @@ LIMITES = {
     "nombre": 120,
     "categoria": 80,
     "horario_sugerido": 30,
+    "link": 500,
+    "nota": 300,
     "ubicacion": 150,
     "tipo_viaje": 20,
     "imagen": 500,
@@ -178,12 +180,30 @@ def actualizar_viaje(id_viaje, datos):
 
 
 def eliminar_viaje(id_viaje):
+    """Elimina un viaje. Si es un borrador, se lleva todo su grupo.
+
+    Los tres borradores de un grupo son alternativas de una misma decisión, y la
+    interfaz los muestra como una sola tarjeta. Borrar sólo uno dejaba los otros
+    dos vivos: el aviso de "tenés un viaje sin elegir" seguía apareciendo aunque
+    el usuario creyera haberlo descartado.
+    """
     viaje = db.session.get(Viaje, id_viaje)
-    if viaje:
+    if not viaje:
+        return False
+
+    if viaje.estado == "draft" and viaje.group_id:
+        hermanos = Viaje.query.filter_by(
+            id_usuario=viaje.id_usuario,
+            group_id=viaje.group_id,
+            estado="draft",
+        ).all()
+        for borrador in hermanos:
+            db.session.delete(borrador)
+    else:
         db.session.delete(viaje)
-        db.session.commit()
-        return True
-    return False
+
+    db.session.commit()
+    return True
 
 
 def _presupuesto_de_preferencias(id_user_preferences):
@@ -235,8 +255,10 @@ def _guardar_itinerario(viaje, itinerario_data):
                 horario_sugerido=_recortar(
                     act_data.get("horario_sugerido"), LIMITES["horario_sugerido"]) or "",
                 ubicacion=_recortar(act_data.get("ubicacion"), LIMITES["ubicacion"]) or "",
+                link=_recortar(act_data.get("link"), LIMITES["link"]),
+                nota=_recortar(act_data.get("nota"), LIMITES["nota"]),
+                precio_sospechoso=bool(act_data.get("precio_sospechoso")),
                 destino_viaje=destino_del_dia
-
             )
             nueva_actividad.itinerario = nuevo_itinerario
             db.session.add(nueva_actividad)
@@ -356,7 +378,9 @@ def obtener_drafts_activos(id_usuario):
 
     return (
         Viaje.query
-        .filter_by(id_usuario=id_usuario, group_id=ultimo_viaje.group_id)
+        # `estado` también: sin esto, un viaje ya confirmado del mismo grupo
+        # se colaba entre los borradores pendientes de elegir.
+        .filter_by(id_usuario=id_usuario, group_id=ultimo_viaje.group_id, estado="draft")
         .order_by(Viaje.id_viaje.asc())
         .all()
     )
