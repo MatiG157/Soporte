@@ -325,5 +325,7 @@
   "budget_suggestions": "What you can do",
   "budget_cheapest": "Even so, this is the cheapest we can put together. You can pick one anyway.",
   "act_see_offer": "See offer",
-  "act_price_odd": "This price looks off — double-check it"
+  "act_price_odd": "This price looks off — double-check it",
+  "index_dates": "Trip dates",
+  "index_ph_dates": "Select your travel dates"
 }

@@ -325,5 +325,7 @@
   "about_team_hint": "小组成员 — 请填写真实姓名。",
   "about_repo_btn": "在 GitHub 上查看代码",
   "compare_confirm_btn": "选择此方案",
-  "compare_confirm_title": "确认选择"
+  "compare_confirm_title": "确认选择",
+  "index_dates": "行程日期",
+  "index_ph_dates": "选择你的行程日期"
 }

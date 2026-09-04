@@ -325,5 +325,7 @@
   "about_team_hint": "グループのメンバー — 実際の名前を記入してください。",
   "about_repo_btn": "GitHub でコードを見る",
   "compare_confirm_btn": "このプランを選ぶ",
-  "compare_confirm_title": "選択の確認"
+  "compare_confirm_title": "選択の確認",
+  "index_dates": "旅行の日程",
+  "index_ph_dates": "旅行の日程を選択"
 }

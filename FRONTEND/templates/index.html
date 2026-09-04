@@ -3,6 +3,64 @@
 
 {% block head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='loading.css') }}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+<style>
+    /* ─── Calendario de rango (salida ↔ vuelta) ─────────────────────────── */
+    .flatpickr-calendar {
+        border-radius: 14px;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 14px 38px rgba(0, 0, 0, 0.16);
+        font-family: inherit;
+    }
+    .flatpickr-day { border-radius: 8px; font-weight: 500; }
+    .flatpickr-day:hover { background: #eef2f1; border-color: #eef2f1; }
+
+    /* Días pasados: gris y sin interacción */
+    .flatpickr-day.flatpickr-disabled,
+    .flatpickr-day.flatpickr-disabled:hover,
+    .flatpickr-day.prevMonthDay,
+    .flatpickr-day.nextMonthDay {
+        color: #cbd5e1;
+        background: transparent;
+        border-color: transparent;
+        cursor: default;
+    }
+
+    /* Hoy */
+    .flatpickr-day.today { border-color: var(--brand-color, #006d5b); }
+    .flatpickr-day.today:hover { background: var(--brand-color, #006d5b); color: #fff; }
+
+    /* Extremos del rango: salida y vuelta */
+    .flatpickr-day.selected,
+    .flatpickr-day.startRange,
+    .flatpickr-day.endRange,
+    .flatpickr-day.selected:hover,
+    .flatpickr-day.startRange:hover,
+    .flatpickr-day.endRange:hover {
+        background: var(--brand-color, #006d5b);
+        border-color: var(--brand-color, #006d5b);
+        color: #fff;
+        box-shadow: none;
+    }
+
+    /* Días intermedios resaltados */
+    .flatpickr-day.inRange,
+    .flatpickr-day.inRange:hover {
+        background: #d7ebe7;
+        border-color: #d7ebe7;
+        box-shadow: -5px 0 0 #d7ebe7, 5px 0 0 #d7ebe7;
+    }
+
+    .flatpickr-months .flatpickr-prev-month:hover svg,
+    .flatpickr-months .flatpickr-next-month:hover svg { fill: var(--brand-color, #006d5b); }
+    .flatpickr-current-month .flatpickr-monthDropdown-months:focus { outline: none; }
+
+    /* El campo de fechas se abre al clic aunque flatpickr lo ponga readonly */
+    #date-range, input.flatpickr-input, input.form-control.input-clean[readonly] {
+        cursor: pointer;
+        background: transparent;
+    }
+</style>
 {% endblock %}
 
 {% block body %}
@@ -66,29 +124,25 @@
             </div>
         </div>
 
-        <!-- Fechas -->
+        <!-- Fechas: un único campo de rango (salida → vuelta) -->
         <div class="row g-3 mb-3">
-            <div class="col-sm-6">
+            <div class="col-12">
                 <div class="d-flex align-items-center bg-light rounded p-2 h-100">
-                    <i class="fa-solid fa-plane-departure fs-5 text-center" style="width: 30px;"></i>
+                    <i class="fa-solid fa-plane fs-5 text-center" style="width: 30px;"></i>
                     <div class="flex-grow-1 ms-2">
-                        <label for="date-start" class="form-label-small mb-1 d-block text-uppercase fw-bold"
-                               style="font-size: 0.75rem;" data-i18n="index_dep">Departure</label>
-                        <input type="date" id="date-start" class="form-control input-clean p-0 border-0 bg-transparent shadow-none">
-                    </div>
-                </div>
-            </div>
-            <div class="col-sm-6">
-                <div class="d-flex align-items-center bg-light rounded p-2 h-100">
-                    <i class="fa-solid fa-plane-arrival fs-5 text-center" style="width: 30px;"></i>
-                    <div class="flex-grow-1 ms-2">
-                        <label for="date-end" class="form-label-small mb-1 d-block text-uppercase fw-bold"
-                               style="font-size: 0.75rem;" data-i18n="index_arr">Arrival</label>
-                        <input type="date" id="date-end" class="form-control input-clean p-0 border-0 bg-transparent shadow-none">
+                        <label for="date-range" class="form-label-small mb-1 d-block text-uppercase fw-bold"
+                               style="font-size: 0.75rem;" data-i18n="index_dates">Trip dates</label>
+                        <input type="text" id="date-range" autocomplete="off"
+                               class="form-control input-clean p-0 border-0 bg-transparent shadow-none"
+                               data-i18n-placeholder="index_ph_dates" placeholder="Select your travel dates">
                     </div>
                 </div>
             </div>
         </div>
+
+        <!-- El backend y n8n siguen recibiendo fecha_inicio / fecha_fin por separado -->
+        <input type="hidden" id="date-start">
+        <input type="hidden" id="date-end">
 
         <!-- Presupuesto y viajeros -->
         <div class="row g-3 mb-3">
@@ -363,6 +417,15 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/es.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/pt.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/fr.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/it.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/de.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/ru.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/ja.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/l10n/zh.js"></script>
 <script>
     const HAS_DRAFTS = {{ 'true' if has_drafts else 'false' }};
 
@@ -477,8 +540,14 @@ function loadTripFormFromSession() {
     const asignar = (id, valor) => { if (valor) document.getElementById(id).value = valor; };
 
     asignar('origin-input', datos.origen);
-    asignar('date-start', datos.fecha_inicio);
-    asignar('date-end', datos.fecha_fin);
+    if (datos.fecha_inicio && window._rangePicker) {
+        // Dispara onChange, que rellena los hidden date-start / date-end.
+        window._rangePicker.setDate(
+            [datos.fecha_inicio, datos.fecha_fin].filter(Boolean), true);
+    } else {
+        asignar('date-start', datos.fecha_inicio);
+        asignar('date-end', datos.fecha_fin);
+    }
     asignar('travelers', datos.cantidad_personas);
     asignar('budget', datos.costo_max);
     asignar('ages', datos.edades_viajeros);
@@ -512,6 +581,7 @@ function loadTripFormFromSession() {
 
 function clearTripForm() {
     document.getElementById('trip-form').reset();
+    if (window._rangePicker) window._rangePicker.clear();
 
     document.querySelectorAll('.dest-entry').forEach((entrada, i) => {
         if (i === 0) entrada.querySelector('.dest-input').value = '';
@@ -526,6 +596,51 @@ function clearTripForm() {
     document.getElementById('form-alert-container').innerHTML = '';
     sessionStorage.removeItem('pendingTripForm');
 }
+
+// ─── Calendario de rango (salida ↔ vuelta) ───────────────────────────────────
+
+// flatpickr trae traducciones propias; sólo las que coinciden con un idioma
+// de la app. El resto cae en inglés (default).
+const FP_IDIOMAS = ['es', 'pt', 'fr', 'it', 'de', 'ru', 'ja', 'zh'];
+
+function localeFlatpickr() {
+    return FP_IDIOMAS.includes(window.IDIOMA_ACTUAL) ? window.IDIOMA_ACTUAL : 'default';
+}
+
+// Un solo campo visible ("del 16 sep al 25 sep"), pero el formulario sigue
+// mandando fecha_inicio / fecha_fin por separado a través de dos hidden.
+function volcarFechasOcultas(fechas, fp) {
+    const iso = f => fp.formatDate(f, 'Y-m-d');
+    document.getElementById('date-start').value = fechas[0] ? iso(fechas[0]) : '';
+    document.getElementById('date-end').value   = fechas[1] ? iso(fechas[1]) : '';
+}
+
+function inicializarCalendario() {
+    if (typeof flatpickr === 'undefined') return;   // el CDN no cargó
+
+    const fechasPrevias = window._rangePicker ? window._rangePicker.selectedDates : [];
+    if (window._rangePicker) window._rangePicker.destroy();
+
+    window._rangePicker = flatpickr('#date-range', {
+        mode: 'range',
+        dateFormat: 'Y-m-d',        // valor interno; los hidden llevan lo mismo
+        altInput: true,             // campo visible con formato legible
+        altFormat: 'j M Y',         // "16 Sep 2026" (localizado por flatpickr)
+        minDate: 'today',           // los días pasados quedan grises y bloqueados
+        showMonths: window.innerWidth >= 720 ? 2 : 1,
+        disableMobile: true,        // fuerza el calendario propio también en celular
+        locale: localeFlatpickr(),
+        onChange(fechas, _str, fp) {
+            volcarFechasOcultas(fechas, fp);
+            saveTripFormToSession();
+        }
+    });
+
+    // Al cambiar de idioma, flatpickr no reescribe los meses: se reconstruye.
+    if (fechasPrevias.length) window._rangePicker.setDate(fechasPrevias, true);
+}
+
+document.addEventListener('idiomaCambiado', inicializarCalendario);
 
 // ─── Envío ───────────────────────────────────────────────────────────────────
 
@@ -726,13 +841,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Las fechas no pueden ser anteriores a hoy, y el regreso no antes de la salida.
-    const hoy = new Date().toISOString().split('T')[0];
-    const inicio = document.getElementById('date-start');
-    const fin = document.getElementById('date-end');
-    inicio.min = hoy;
-    fin.min = hoy;
-    inicio.addEventListener('change', () => { fin.min = inicio.value || hoy; });
+    inicializarCalendario();
 
     const formulario = document.getElementById('trip-form');
     formulario.addEventListener('input', saveTripFormToSession);

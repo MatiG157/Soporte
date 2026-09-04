@@ -325,5 +325,7 @@
   "about_team_hint": "Membres du groupe — à compléter avec les vrais noms.",
   "about_repo_btn": "Voir le code sur GitHub",
   "compare_confirm_btn": "Choisir ce plan",
-  "compare_confirm_title": "Confirmer la sélection"
+  "compare_confirm_title": "Confirmer la sélection",
+  "index_dates": "Dates du voyage",
+  "index_ph_dates": "Choisissez les dates de votre voyage"
 }

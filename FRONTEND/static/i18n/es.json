@@ -325,5 +325,7 @@
   "budget_suggestions": "Qué podés hacer",
   "budget_cheapest": "Aun así, esto es lo más barato que podemos armar. Podés elegir una igual.",
   "act_see_offer": "Ver oferta",
-  "act_price_odd": "Este precio parece raro: conviene verificarlo"
+  "act_price_odd": "Este precio parece raro: conviene verificarlo",
+  "index_dates": "Fechas del viaje",
+  "index_ph_dates": "Elegí las fechas de tu viaje"
 }

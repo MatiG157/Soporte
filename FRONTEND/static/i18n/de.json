@@ -325,5 +325,7 @@
   "about_team_hint": "Gruppenmitglieder – mit den echten Namen ausfüllen.",
   "about_repo_btn": "Code auf GitHub ansehen",
   "compare_confirm_btn": "Diesen Plan wählen",
-  "compare_confirm_title": "Auswahl bestätigen"
+  "compare_confirm_title": "Auswahl bestätigen",
+  "index_dates": "Reisezeitraum",
+  "index_ph_dates": "Reisezeitraum wählen"
 }

@@ -325,5 +325,7 @@
   "about_team_hint": "Участники группы — заполните настоящими именами.",
   "about_repo_btn": "Посмотреть код на GitHub",
   "compare_confirm_btn": "Выбрать этот план",
-  "compare_confirm_title": "Подтвердить выбор"
+  "compare_confirm_title": "Подтвердить выбор",
+  "index_dates": "Даты поездки",
+  "index_ph_dates": "Выберите даты поездки"
 }
