@@ -97,10 +97,16 @@
                             <label class="form-label small fw-bold text-uppercase" data-i18n="settings_photo">Profile photo</label>
 
                             <div class="d-flex align-items-center gap-3">
-                                <img id="p-foto-preview" class="rounded-circle border"
-                                     style="width: 64px; height: 64px; object-fit: cover;
-                                            {% if not perfil.get('foto') %}display: none;{% endif %}"
-                                     src="{{ perfil.get('foto') or '' }}" alt="">
+                                <div class="position-relative rounded-circle border d-flex align-items-center justify-content-center flex-shrink-0 overflow-hidden"
+                                     style="width: 72px; height: 72px; background-color: var(--brand-color, #006d5b);
+                                            color: #fff; font-weight: 700; font-size: 1.4rem;">
+                                    <span>{{ (perfil.get('nombre') or perfil.get('email') or '?')[:1] | upper }}{{ (perfil.get('apellido') or '')[:1] | upper }}</span>
+                                    <img id="p-foto-preview" referrerpolicy="no-referrer"
+                                         class="position-absolute top-0 start-0 w-100 h-100"
+                                         style="object-fit: cover; {% if not perfil.get('foto') %}display: none;{% endif %}"
+                                         src="{{ perfil.get('foto') or '' }}" alt=""
+                                         onerror="this.style.display='none';">
+                                </div>
                                 <div class="flex-grow-1">
                                     <input type="file" id="p-foto-file" class="form-control"
                                            accept="image/png, image/jpeg, image/webp">

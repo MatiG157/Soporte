@@ -246,6 +246,11 @@ def index():
     return render_template("index.html", has_drafts=has_drafts)
 
 
+@app.route("/about")
+def about():
+    return render_template("about.html")
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "GET":

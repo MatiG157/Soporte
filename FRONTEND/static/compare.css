@@ -25,3 +25,13 @@
 .text-info {
     color: var(--brand-color, #006d5b) !important;
 }
+
+/* Evita que el texto de los botones (ej. "SELECCIONAR") se parta en dos líneas */
+.plan-card .preview-btn,
+.plan-card .select-btn {
+    white-space: nowrap;
+    font-size: 0.8rem;
+    letter-spacing: -0.2px;
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
+}

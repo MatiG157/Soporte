@@ -3,7 +3,7 @@
 import pytest
 
 
-@pytest.mark.parametrize("ruta", ["/", "/login", "/register"])
+@pytest.mark.parametrize("ruta", ["/", "/login", "/register", "/about"])
 def test_paginas_publicas_renderizan(client, ruta):
     respuesta = client.get(ruta)
     assert respuesta.status_code == 200
