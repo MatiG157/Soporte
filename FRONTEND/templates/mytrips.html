@@ -46,7 +46,7 @@
                         {% if viaje.is_draft or viaje.status_label == 'draft' %}
                         <span class="badge-custom mb-2 d-inline-block text-white fw-bold"
                               style="background-color: rgba(245, 158, 11, 0.9); backdrop-filter: blur(6px); padding: 3px 10px; border-radius: 20px; font-size: 0.65rem; text-transform: uppercase;">
-                            <i class="fa-solid fa-file-pen me-1"></i><span>Draft</span>
+                            <i class="fa-solid fa-file-pen me-1"></i><span data-i18n="mytrips_draft">Draft</span>
                         </span>
                         {% elif viaje.status_label == 'current trip' %}
                         <span class="badge-custom mb-2 d-inline-block text-white fw-bold"
@@ -76,11 +76,18 @@
                                     {{ d_nombre | short_dest }}{% if not loop.last %} <i class="fa-solid fa-chevron-right mx-1 fs-6 text-white-50"></i> {% endif %}
                                 {% endfor %}
                             </div>
+                            {% if not viaje.is_draft %}
                             <span class="trip-date d-block mt-1">
                                 <i class="fa-solid fa-wallet me-1"></i>
-                                ${{ '{:,.0f}'.format(viaje.costo_total_estimado or 0) }} 
-                                {% if not viaje.is_draft %}· {{ viaje.tipo_viaje }}{% endif %}
+                                ${{ '{:,.0f}'.format(viaje.costo_total_estimado or 0) }}
+                                {% if viaje.tipo_viaje %}· <span data-i18n="{{ viaje.tipo_viaje | tipo_key }}">{{ viaje.tipo_viaje }}</span>{% endif %}
                             </span>
+                            {% elif viaje.presupuesto_estimado %}
+                            <span class="trip-date d-block mt-1">
+                                <i class="fa-solid fa-wallet me-1"></i>
+                                <span data-i18n="mytrips_budget">Budget</span>: ${{ '{:,.0f}'.format(viaje.presupuesto_estimado) }}
+                            </span>
+                            {% endif %}
                         </div>
                     </div>
                 </a>

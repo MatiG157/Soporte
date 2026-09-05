@@ -225,6 +225,12 @@ def _destino_corto(nombre):
 app.jinja_env.filters["short_dest"] = _destino_corto
 
 
+# Las tres variantes son un enum fijo: se traducen con las claves que ya usa
+# la pantalla de comparación. Cualquier otro valor no lleva data-i18n.
+_CLAVE_TIPO_VIAJE = {"Economy": "compare_eco", "Balanced": "compare_bal", "Luxury": "compare_lux"}
+app.jinja_env.filters["tipo_key"] = lambda valor: _CLAVE_TIPO_VIAJE.get((valor or "").strip(), "")
+
+
 @app.context_processor
 def variables_globales():
     """Datos disponibles en todas las plantillas."""
@@ -468,9 +474,11 @@ def create_trip():
         logger.error("No se pudieron guardar las preferencias: %s", exc.mensaje)
         return jsonify({"error": f"No se pudieron guardar tus preferencias: {exc.mensaje}"}), 400
 
-    # 2) Generar las 3 variantes con el flujo de n8n.
+    # 2) Generar las 3 variantes con el flujo de n8n. Se le pasa el idioma del
+    #    usuario para que el prompt escriba los textos (actividades, notas) en él.
     try:
-        opciones, proveedor, presupuesto = trip_generator.generar_opciones(preferencias)
+        opciones, proveedor, presupuesto = trip_generator.generar_opciones(
+            preferencias, idioma=session.get("user_lang", "en"))
     except Exception as exc:
         logger.exception("Falló la generación de viajes")
         return jsonify({"error": f"No se pudieron generar los viajes: {exc}"}), 500

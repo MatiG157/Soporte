@@ -16,7 +16,7 @@
         <i class="fa-solid fa-check"></i>
         <span class="sidebar-select-text">
           <span class="sidebar-select-action" data-i18n="compare_select">SELECT</span>
-          <span class="sidebar-select-type">{{ viaje.tipo_viaje or '' }}</span>
+          <span class="sidebar-select-type" data-i18n="{{ viaje.tipo_viaje | tipo_key }}">{{ viaje.tipo_viaje or '' }}</span>
         </span>
       </button>
     </div>
@@ -37,7 +37,7 @@
             <div>
               <h5 class="modal-title fw-bold text-dark mb-0" id="sidebarConfirmSelectModalLabel" data-i18n="compare_confirm_title">Confirm selection</h5>
               {% if viaje.tipo_viaje %}
-              <small class="text-secondary fw-medium">{{ viaje.tipo_viaje }}</small>
+              <small class="text-secondary fw-medium" data-i18n="{{ viaje.tipo_viaje | tipo_key }}">{{ viaje.tipo_viaje }}</small>
               {% endif %}
             </div>
           </div>

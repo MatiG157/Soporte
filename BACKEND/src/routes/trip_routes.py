@@ -68,6 +68,9 @@ def _serializar_resumen(v):
         "tipo_viaje": v.tipo_viaje,
         "titulo": v.titulo,
         "costo_total_estimado": v.costo_total_estimado,
+        # Presupuesto que cargó el usuario en el formulario. En un borrador es lo
+        # único que tiene sentido mostrar: el costo por variante todavía no se eligió.
+        "presupuesto_estimado": v.preferencias.costo_max if v.preferencias else None,
         "estado": v.estado,
         "group_id": v.group_id,
         "created_at": v.created_at.isoformat() if v.created_at else None,

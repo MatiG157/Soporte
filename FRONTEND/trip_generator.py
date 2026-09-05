@@ -420,7 +420,7 @@ def validar_opciones(opciones, preferencias):
 
 # ─── Proveedores ─────────────────────────────────────────────────────────────
 
-def _generar_con_n8n(preferencias):
+def _generar_con_n8n(preferencias, idioma="en"):
     url = os.getenv("N8N_WEBHOOK_URL", "").strip()
     if not url:
         return None   # sin webhook no hay nada que pedir: decide el caller
@@ -449,6 +449,9 @@ def _generar_con_n8n(preferencias):
     cuerpo["cantidad_dias"] = cantidad_de_dias(
         preferencias.get("fecha_inicio"), preferencias.get("fecha_fin")
     )
+    # El flujo de n8n usa esto en el prompt para redactar los textos del
+    # itinerario (nombres de actividades, descripciones, notas) en este idioma.
+    cuerpo["idioma"] = idioma or "en"
 
     respuesta = requests.post(
         url,
@@ -463,14 +466,15 @@ def _generar_con_n8n(preferencias):
     return validar_opciones(crudo, preferencias), sobre
 
 
-def generar_opciones(preferencias):
-    """Devuelve `(opciones, proveedor_usado)`.
+def generar_opciones(preferencias, idioma="en"):
+    """Devuelve `(opciones, proveedor_usado, sobre)`.
 
+    `idioma` viaja a n8n para que redacte el itinerario en el idioma del usuario.
     Nunca lanza: si n8n no responde o devuelve algo que no cumple el contrato,
     cae al generador local para que el usuario igual reciba sus tres opciones.
     """
     try:
-        resultado = _generar_con_n8n(preferencias)
+        resultado = _generar_con_n8n(preferencias, idioma)
         if resultado:
             opciones, sobre = resultado
             logger.info("Viajes generados con n8n (presupuesto: %s)", sobre["estado"])

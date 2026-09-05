@@ -165,7 +165,7 @@
                   <p class="text-secondary fs-7 mb-3">{{ act.descripcion }}</p>
                   <div class="d-flex gap-2 flex-wrap align-items-center">
                     {% if act.categoria %}
-                    <span class="badge rounded p-1 px-2 fw-semibold tag-badge tag-sightseeing"> <i class="fa-solid fa-tag me-1"></i> {{ act.categoria }} </span>
+                    <span class="badge rounded p-1 px-2 fw-semibold tag-badge tag-sightseeing"> <i class="fa-solid fa-tag me-1"></i> <span class="js-cat-label" data-cat="{{ act.categoria }}">{{ act.categoria }}</span> </span>
                     {% endif %} {% if act.ubicacion %}
                     <button type="button" class="badge rounded p-1 px-2 fw-semibold tag-badge tag-activity tag-ubicacion-btn" data-id="{{ act.id_actividad }}" data-ubicacion="{{ act.ubicacion }}" data-i18n-title="iti_map_center" title="Centrar en el mapa">
                       <i class="fa-solid fa-map-pin me-1"></i> {{ act.ubicacion }}
@@ -495,6 +495,45 @@
   ];
   const CATEGORIAS_DEL_VIAJE = {{ categorias_actividad | tojson }};
   const OTRA_CATEGORIA = '__otra__';
+
+  // El valor de la categoría se guarda tal cual en la base (lo usan los iconos,
+  // el mapa y el dashboard); acá sólo se traduce lo que se muestra. La clave se
+  // busca por una forma normalizada, así "Gastronomía", "gastronomia" y "Comida"
+  // caen todas en la misma traducción. Lo que no está en el mapa se muestra crudo.
+  const CATEGORIA_I18N = {
+      'sightseeing': 'cat_sightseeing', 'turismo': 'cat_sightseeing',
+      'cultural': 'cat_cultural', 'cultura': 'cat_cultural',
+      'museos': 'cat_museums', 'museo': 'cat_museums',
+      'gastronomia': 'cat_food', 'comida': 'cat_food', 'comidas': 'cat_food', 'food': 'cat_food',
+      'aventura': 'cat_adventure', 'adventure': 'cat_adventure', 'excursion': 'cat_adventure',
+      'relax': 'cat_relax', 'relajacion': 'cat_relax',
+      'naturaleza': 'cat_nature', 'caminata': 'cat_nature',
+      'playa': 'cat_beach',
+      'deportes': 'cat_sports', 'deporte': 'cat_sports',
+      'compras': 'cat_shopping',
+      'vida nocturna': 'cat_nightlife',
+      'espectaculos': 'cat_shows',
+      'transporte': 'cat_transport', 'transport': 'cat_transport',
+      'traslado': 'cat_transport', 'vuelo': 'cat_transport',
+      'alojamiento': 'cat_lodging', 'hospedaje': 'cat_lodging', 'hotel': 'cat_lodging',
+  };
+
+  function normalizarCategoria(valor) {
+      return (valor || '').toString().trim().toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  function traducirCategoria(valor) {
+      const clave = CATEGORIA_I18N[normalizarCategoria(valor)];
+      return clave ? t(clave, valor) : (valor || '');
+  }
+
+  // Reescribe las etiquetas de categoría ya pintadas (tarjetas de actividad).
+  function traducirCategoriasEnPantalla() {
+      document.querySelectorAll('.js-cat-label').forEach(el => {
+          el.textContent = traducirCategoria(el.dataset.cat);
+      });
+  }
 
   function pintarIconos() {
       document.querySelectorAll('.activity-icon-wrapper').forEach(el => {
@@ -846,7 +885,7 @@
 
           const popupHtml = `
               <div class="map-popup-card">
-                  ${categoria ? `<span class="popup-category" style="background-color: ${color};"><i class="fa-solid ${icono} me-1"></i>${categoria}</span>` : ''}
+                  ${categoria ? `<span class="popup-category" style="background-color: ${color};"><i class="fa-solid ${icono} me-1"></i>${traducirCategoria(categoria)}</span>` : ''}
                   <div class="popup-title">${nombre}</div>
                   ${horario ? `<div class="popup-info"><i class="fa-regular fa-clock text-secondary"></i><span>${horario}</span></div>` : ''}
                   ${ubicacion ? `<div class="popup-info"><i class="fa-solid fa-map-pin text-secondary"></i><span class="text-truncate">${ubicacion}</span></div>` : ''}
@@ -1422,11 +1461,12 @@
       const otraInput = document.getElementById('act-categoria-otra');
 
       const opciones = [...new Set([...CATEGORIAS_SUGERIDAS, ...CATEGORIAS_DEL_VIAJE])]
-          .sort((a, b) => a.localeCompare(b));
+          .sort((a, b) => traducirCategoria(a).localeCompare(traducirCategoria(b)));
 
       select.innerHTML = '';
       select.add(new Option('—', ''));
-      opciones.forEach(c => select.add(new Option(c, c)));
+      // La etiqueta va traducida; el value sigue siendo la categoría cruda.
+      opciones.forEach(c => select.add(new Option(traducirCategoria(c), c)));
       select.add(new Option(t('act_category_other_opt', 'Other…'), OTRA_CATEGORIA));
 
       if (valorActual && !opciones.includes(valorActual)) {
@@ -1878,7 +1918,9 @@
       dibujarFranjaHoraria();
       restaurarDia();
       inicializarProximaActividad();
-      
+      traducirCategoriasEnPantalla();
+      document.addEventListener('idiomaCambiado', traducirCategoriasEnPantalla);
+
       const activeDayBtn = document.querySelector('.day-tab-btn.btn-brand');
       if(activeDayBtn) {
           actualizarPresupuestoDia(activeDayBtn.dataset.day);
