@@ -19,6 +19,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+# La consola de Windows usa cp1252, que no sabe escribir '→' ni '✓'. Sin esto,
+# imprimir el nombre de una migración pendiente lanzaba UnicodeEncodeError y el
+# runner revertía todo: la migración fallaba por un cartel, no por el SQL.
+for _flujo in (sys.stdout, sys.stderr):
+    try:
+        _flujo.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
+
 # En modo silencioso (arranque de la app) las migraciones no imprimen nada:
 # lo que interese lo loguea `app.py`.
 _SILENCIOSO = False
@@ -295,6 +305,96 @@ def m009_procedencia_de_actividades(cursor):
     _agregar_columna(cursor, "actividades", "precio_sospechoso", "BOOLEAN NOT NULL DEFAULT FALSE")
 
 
+def m010_actividades_de_google_places(cursor):
+    """Datos del lugar real que el flujo cruzó contra Google Places.
+
+    La foto se guarda como referencia (`places/.../photos/...`), no como URL:
+    la URL que manda el flujo lleva la API key de Google adentro y no puede
+    llegar al navegador. La imagen se sirve por el proxy del frontend.
+    """
+    _agregar_columna(cursor, "actividades", "imagen_ref", "VARCHAR(300) NULL")
+    _agregar_columna(cursor, "actividades", "rating", "FLOAT NULL")
+    _agregar_columna(cursor, "actividades", "opiniones", "INT NULL")
+    _agregar_columna(cursor, "actividades", "mapa", "VARCHAR(500) NULL")
+    _agregar_columna(cursor, "actividades", "web", "VARCHAR(500) NULL")
+    _agregar_columna(cursor, "actividades", "place_id", "VARCHAR(120) NULL")
+    _agregar_columna(cursor, "actividades", "lat", "FLOAT NULL")
+    _agregar_columna(cursor, "actividades", "lng", "FLOAT NULL")
+
+
+def m011_referencias_de_foto_largas(cursor):
+    """`imagen_ref` no entra en 300 caracteres.
+
+    Un id de foto de Google Places mide unos 258 caracteres, y con el prefijo
+    `places/<id del lugar>/photos/` el total queda en 300 justos: al borde. Un
+    id apenas más largo se guardaba cortado, y una referencia cortada no sirve
+    para nada. Se agranda la columna y se descartan las que ya quedaron rotas.
+    """
+    if not _existe_columna(cursor, "actividades", "imagen_ref"):
+        _log("    · 'actividades.imagen_ref' todavía no existe, se omite")
+        return
+
+    cursor.execute("ALTER TABLE actividades MODIFY COLUMN imagen_ref VARCHAR(1000) NULL")
+    _log("    ✓ 'actividades.imagen_ref' ampliada a 1000")
+
+    for columna in ("mapa", "web", "link"):
+        if _existe_columna(cursor, "actividades", columna):
+            cursor.execute(f"ALTER TABLE actividades MODIFY COLUMN {columna} VARCHAR(1000) NULL")
+    _log("    ✓ 'mapa', 'web' y 'link' ampliadas a 1000")
+
+    # Una referencia sin '/photos/' quedó cortada antes de esa parte: pedirla
+    # es un 404 seguro, así que se limpia para que la tarjeta use el fondo de
+    # categoría sin hacer el viaje de ida.
+    cursor.execute(
+        "UPDATE actividades SET imagen_ref = NULL "
+        "WHERE imagen_ref IS NOT NULL AND imagen_ref NOT LIKE '%%/photos/%%'")
+    _log(f"    ✓ {cursor.rowcount} referencias rotas descartadas")
+
+
+def m012_descartar_referencias_cortadas(cursor):
+    """Las referencias de exactamente 300 caracteres están cortadas.
+
+    La 011 amplió la columna, pero el frontend seguía recortando a 300 antes de
+    mandarlas, así que las que ya estaban guardadas quedaron cortas igual.
+    Pedirle a Google una referencia cortada es un 404 seguro: se descartan para
+    que la tarjeta use el fondo de categoría sin hacer el viaje de ida.
+    """
+    if not _existe_columna(cursor, "actividades", "imagen_ref"):
+        return
+
+    cursor.execute("UPDATE actividades SET imagen_ref = NULL "
+                   "WHERE imagen_ref IS NOT NULL AND CHAR_LENGTH(imagen_ref) = 300")
+    _log(f"    ✓ {cursor.rowcount} referencias cortadas descartadas")
+
+
+def m013_vacios_de_google_como_null(cursor):
+    """Los campos sin ficha de Google quedaron en "" en vez de NULL.
+
+    Google no encuentra todos los lugares. Guardar la cadena vacía hace que
+    `imagen_ref IS NOT NULL` cuente filas que no tienen foto, y eso despista a
+    cualquiera que mire la base para entender qué falta.
+    """
+    for columna in ("imagen_ref", "mapa", "web", "place_id", "link", "nota"):
+        if _existe_columna(cursor, "actividades", columna):
+            cursor.execute(f"UPDATE actividades SET {columna} = NULL WHERE {columna} = ''")
+    _log("    ✓ campos vacíos normalizados a NULL")
+
+
+def m014_procedencia_del_precio(cursor):
+    """De dónde salió el precio de cada actividad.
+
+    El flujo distingue dos cosas que hasta ahora se veían igual en la tarjeta:
+    un precio consultado (el `priceRange` de Google, con montos reales) y uno
+    que estimó un modelo de memoria. Mostrarlos sin diferencia hace pasar por
+    dato lo que es una aproximación, y eso es justamente lo que hay que poder
+    defender.
+    """
+    _agregar_columna(cursor, "actividades", "precio_fuente", "VARCHAR(40) NULL")
+    _agregar_columna(cursor, "actividades", "precio_desde", "FLOAT NULL")
+    _agregar_columna(cursor, "actividades", "precio_hasta", "FLOAT NULL")
+    _agregar_columna(cursor, "actividades", "precio_moneda", "VARCHAR(8) NULL")
+
+
 MIGRACIONES = [
     ("001_destinos_como_json", m001_destinos_como_json),
     ("002_campos_de_usuario", m002_campos_de_usuario),
@@ -305,6 +405,11 @@ MIGRACIONES = [
     ("007_destinos_relacionales", m007_destinos_relacionales),
     ("008_viajes_titulo", m008_viajes_titulo),
     ("009_procedencia_de_actividades", m009_procedencia_de_actividades),
+    ("010_actividades_de_google_places", m010_actividades_de_google_places),
+    ("011_referencias_de_foto_largas", m011_referencias_de_foto_largas),
+    ("012_descartar_referencias_cortadas", m012_descartar_referencias_cortadas),
+    ("013_vacios_de_google_como_null", m013_vacios_de_google_como_null),
+    ("014_procedencia_del_precio", m014_procedencia_del_precio),
 ]
 
 

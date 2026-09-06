@@ -306,7 +306,16 @@
                            data-i18n="index_extras">Extras / Special Requests</label>
                     <textarea id="extras" rows="2" class="form-control input-clean p-0 border-0 bg-transparent shadow-none"
                               data-i18n-placeholder="index_extras_ph"
-                              placeholder="Any extra destination or requirement? (e.g. Needs Vegan Food)"></textarea>
+                              placeholder="e.g. 5 days in Miami, we like hiking, vegan food"></textarea>
+                    {# Este campo dejó de ser decorativo: de acá salen el reparto
+                       de días por ciudad y una búsqueda de lugares por interés.
+                       Pero los pedidos sobre precios o vuelos no se aplican, y
+                       sin decirlo el usuario los escribe creyendo que sí. #}
+                    <p class="text-secondary mb-0 mt-2" style="font-size: 0.75rem;" data-i18n="index_extras_hint">
+                        Days per city and your interests do shape the trip. Price or flight
+                        requests ("under $200 a night", "no layovers") aren't applied:
+                        flights and hotels come from live pricing data.
+                    </p>
                 </div>
 
             </div>

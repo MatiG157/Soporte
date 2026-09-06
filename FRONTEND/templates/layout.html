@@ -140,10 +140,35 @@
     window.USUARIO_LOGUEADO = {{ (user_id is not none) | tojson }};
     window.traducciones = {};
 
+    // Algunas frases llevan números adentro ("el vuelo se lleva $3.800 de tus
+    // $4.000"). El texto traducido usa {placeholders} y los valores viajan en
+    // data-i18n-params. Si falta alguno, se devuelve null y el elemento se
+    // queda con el texto que ya tenía: mejor eso que mostrar "{vuelo}".
+    function interpolar(texto, el) {
+        const crudo = el.getAttribute('data-i18n-params');
+        if (!crudo) return texto;
+
+        let params;
+        try { params = JSON.parse(crudo); } catch (e) { return null; }
+
+        let faltaAlguno = false;
+        const resultado = texto.replace(/\{(\w+)\}/g, (_, clave) => {
+            if (params[clave] === undefined || params[clave] === null) {
+                faltaAlguno = true;
+                return '';
+            }
+            return params[clave];
+        });
+        return faltaAlguno ? null : resultado;
+    }
+
     function aplicarTraducciones(dict) {
         document.querySelectorAll('[data-i18n]').forEach(el => {
-            const texto = dict[el.getAttribute('data-i18n')];
+            let texto = dict[el.getAttribute('data-i18n')];
             if (texto === undefined) return;
+
+            texto = interpolar(texto, el);
+            if (texto === null) return;
 
             // Si el elemento tiene hijos (iconos), sólo reemplazamos el texto suelto.
             const nodosTexto = Array.from(el.childNodes)

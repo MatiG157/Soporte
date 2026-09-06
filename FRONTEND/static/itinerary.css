@@ -715,3 +715,19 @@
     text-transform: uppercase;
     color: #9aa5a2;
 }
+
+/* La foto real del lugar tapa el fondo por categoría. Si Google no la devuelve
+   el <img> se borra solo (onerror) y vuelve a verse el icono de siempre. */
+.activity-icon-wrapper {
+  position: relative;
+  overflow: hidden;
+}
+
+.activity-icon-wrapper .foto-lugar {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}

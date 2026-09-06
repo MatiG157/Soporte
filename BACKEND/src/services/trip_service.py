@@ -24,8 +24,14 @@ LIMITES = {
     "nombre": 120,
     "categoria": 80,
     "horario_sugerido": 30,
-    "link": 500,
+    "link": 1000,
     "nota": 300,
+    "imagen_ref": 1000,
+    "mapa": 1000,
+    "web": 1000,
+    "place_id": 120,
+    "precio_fuente": 40,
+    "precio_moneda": 8,
     "ubicacion": 150,
     "tipo_viaje": 20,
     "imagen": 500,
@@ -213,6 +219,37 @@ def _presupuesto_de_preferencias(id_user_preferences):
     return preferencia.costo_max if preferencia else None
 
 
+def _texto_o_nada(valor, limite):
+    """Recorta, pero un texto vacío se guarda como NULL.
+
+    Google no encuentra todos los lugares: cuando no hay ficha, los campos
+    vienen en "". Guardar la cadena vacía hacía que `imagen_ref IS NOT NULL`
+    contara 52 filas cuando sólo 20 tenían foto de verdad, y eso confunde a
+    cualquiera que después mire la base para entender qué falta.
+    """
+    recortado = _recortar(valor, limite)
+    return recortado or None
+
+
+def _a_float_o_nada(valor):
+    """Como `_a_float`, pero un dato ausente queda en None y no en 0.
+
+    Un lugar sin rating no tiene rating; mostrarlo como 0 estrellas sería
+    inventar una calificación pésima que Google nunca dio.
+    """
+    if valor is None or valor == "":
+        return None
+    try:
+        return float(valor)
+    except (TypeError, ValueError):
+        return None
+
+
+def _a_entero_o_nada(valor):
+    numero = _a_float_o_nada(valor)
+    return int(numero) if numero is not None else None
+
+
 def _guardar_itinerario(viaje, itinerario_data):
     """Crea los itinerarios y actividades de un viaje. Devuelve el total de actividades."""
     total_actividades = 0
@@ -255,9 +292,23 @@ def _guardar_itinerario(viaje, itinerario_data):
                 horario_sugerido=_recortar(
                     act_data.get("horario_sugerido"), LIMITES["horario_sugerido"]) or "",
                 ubicacion=_recortar(act_data.get("ubicacion"), LIMITES["ubicacion"]) or "",
-                link=_recortar(act_data.get("link"), LIMITES["link"]),
-                nota=_recortar(act_data.get("nota"), LIMITES["nota"]),
+                link=_texto_o_nada(act_data.get("link"), LIMITES["link"]),
+                nota=_texto_o_nada(act_data.get("nota"), LIMITES["nota"]),
                 precio_sospechoso=bool(act_data.get("precio_sospechoso")),
+                imagen_ref=_texto_o_nada(act_data.get("imagen_ref"), LIMITES["imagen_ref"]),
+                rating=_a_float_o_nada(act_data.get("rating")),
+                opiniones=_a_entero_o_nada(act_data.get("opiniones")),
+                mapa=_texto_o_nada(act_data.get("mapa"), LIMITES["mapa"]),
+                web=_texto_o_nada(act_data.get("web"), LIMITES["web"]),
+                place_id=_texto_o_nada(act_data.get("place_id"), LIMITES["place_id"]),
+                lat=_a_float_o_nada(act_data.get("lat")),
+                lng=_a_float_o_nada(act_data.get("lng")),
+                precio_fuente=_texto_o_nada(act_data.get("precio_fuente"),
+                                            LIMITES["precio_fuente"]),
+                precio_desde=_a_float_o_nada((act_data.get("precio_rango") or {}).get("desde")),
+                precio_hasta=_a_float_o_nada((act_data.get("precio_rango") or {}).get("hasta")),
+                precio_moneda=_texto_o_nada((act_data.get("precio_rango") or {}).get("moneda"),
+                                            LIMITES["precio_moneda"]),
                 destino_viaje=destino_del_dia
             )
             nueva_actividad.itinerario = nuevo_itinerario

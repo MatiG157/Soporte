@@ -131,6 +131,9 @@
                             <span class="text-secondary">
                                 <span data-i18n="budget_days_fit">Days it covers</span>:
                                 <strong>{{ aviso.get('dias_que_entran') }}</strong>
+                                {% if aviso.get('dias_solicitados') %}
+                                <span class="text-secondary">/ {{ aviso.get('dias_solicitados') }}</span>
+                                {% endif %}
                             </span>
                             {% endif %}
                             {% if aviso.get('alcanza_para_el_vuelo') is not none %}
@@ -141,12 +144,33 @@
                             {% endif %}
                         </div>
 
-                        {% if aviso.get('sugerencias') %}
+                        {% if aviso.get('costo_fijo_transporte') and aviso.get('costo_por_dia') %}
+                        {# "1 de 8 días" leído solo parece un error de cuenta. Lo
+                           que pasa es que el vuelo se lleva casi todo y no baja
+                           recortando días, así que conviene mostrarlo al lado. #}
+                        <p class="text-secondary mb-2" style="font-size: .8rem;">
+                            <span data-i18n="budget_breakdown">Flight</span>
+                            <strong>${{ '{:,.0f}'.format(aviso.get('costo_fijo_transporte')) }}</strong>
+                            +
+                            <strong>${{ '{:,.0f}'.format(aviso.get('costo_por_dia')) }}</strong>
+                            <span data-i18n="budget_per_day">per day</span>
+                            {% if aviso.get('presupuesto_restante_tras_vuelo') is not none %}
+                            ·
+                            <span data-i18n="budget_left_after_flight">left after the flight</span>:
+                            <strong>${{ '{:,.0f}'.format(aviso.get('presupuesto_restante_tras_vuelo')) }}</strong>
+                            {% endif %}
+                        </p>
+                        {% endif %}
+
+                        {% if sugerencias %}
                         <div class="fw-semibold mb-1" style="font-size: 0.85rem; color: {{ '#991b1b' if corto else '#92400e' }};"
                              data-i18n="budget_suggestions">What you can do</div>
                         <ul class="mb-0 ps-3 text-secondary" style="font-size: 0.9rem;">
-                            {% for sugerencia in aviso.get('sugerencias') %}
-                            <li>{{ sugerencia }}</li>
+                            {% for sugerencia in sugerencias %}
+                            {# El texto del flujo es el respaldo: se ve mientras
+                               carga el idioma, y queda si el código es nuevo. #}
+                            <li {% if sugerencia.clave %}data-i18n="{{ sugerencia.clave }}"
+                                data-i18n-params='{{ sugerencia.params }}'{% endif %}>{{ sugerencia.texto }}</li>
                             {% endfor %}
                         </ul>
                         {% endif %}

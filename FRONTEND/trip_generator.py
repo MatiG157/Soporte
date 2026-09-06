@@ -37,8 +37,12 @@ REPARTO = {
 # Presupuesto por persona y por día cuando el usuario no indica ninguno.
 COSTO_DIARIO_POR_PERSONA = 120.0
 
+# `imagen_ref` tiene que entrar entera o no sirve: una referencia cortada es
+# un 404 seguro en Google. Los ids de foto son largos y no tienen un tope
+# documentado, así que el margen es amplio a propósito.
 LIMITES = {"nombre": 120, "categoria": 80, "horario_sugerido": 30, "ubicacion": 150,
-           "link": 500, "nota": 300}
+           "link": 1000, "nota": 300, "imagen_ref": 1000, "mapa": 1000, "web": 1000,
+           "place_id": 120, "precio_fuente": 40, "precio_moneda": 8}
 
 IMAGEN_POR_DEFECTO = (
     "https://images.unsplash.com/photo-1488646953014-85cb44e25828"
@@ -142,6 +146,26 @@ def _hora_de_inicio(actividad):
     if not coincidencia:
         return 24 * 60
     return int(coincidencia.group(1)) * 60 + int(coincidencia.group(2))
+
+
+def _ordenar_si_hace_falta(actividades):
+    """Deja el orden del flujo salvo que sea evidentemente incoherente.
+
+    El flujo entrega el día ya ordenado como recorrido, y ése es el orden que
+    hay que respetar. Pero el generador local y cualquier flujo viejo no
+    ordenan nada, y ahí un día podía arrancar a las 20:00 y seguir a las 09:00.
+
+    El criterio: si los horarios que se pueden leer ya vienen en orden, no se
+    toca nada. Sólo se ordena cuando están claramente desordenados, que es la
+    señal de que nadie resolvió la ruta.
+    """
+    horas = [_hora_de_inicio(a) for a in actividades]
+    legibles = [h for h in horas if h < 24 * 60]
+
+    if legibles == sorted(legibles):
+        return actividades
+
+    return sorted(actividades, key=_hora_de_inicio)
 
 
 def _lista_desde_csv(valor):
@@ -317,13 +341,128 @@ def leer_sobre(respuesta):
 
     for clave in ("opciones", "data", "viajes", "result"):
         if isinstance(respuesta.get(clave), list):
+            opciones = respuesta[clave]
             estado = respuesta.get("estado")
-            return respuesta[clave], {
+            aviso = respuesta.get("aviso_presupuesto")
+
+            # El flujo repite el aviso dentro de cada opción, en `fuente_datos`.
+            # Si el nivel de arriba viene sin él, se usa esa copia.
+            if estado not in ESTADOS_PRESUPUESTO or aviso is None:
+                copia_estado, copia_aviso = _aviso_de_la_opcion(opciones)
+                if estado not in ESTADOS_PRESUPUESTO:
+                    estado = copia_estado
+                if aviso is None:
+                    aviso = copia_aviso
+
+            return opciones, {
                 "estado": estado if estado in ESTADOS_PRESUPUESTO else "ok",
-                "aviso": respuesta.get("aviso_presupuesto"),
+                "aviso": aviso,
             }
 
     return respuesta, {"estado": "ok", "aviso": None}
+
+
+def _aviso_de_la_opcion(opciones):
+    """Busca el estado del presupuesto en la copia que va dentro de cada opción."""
+    for opcion in opciones:
+        if not isinstance(opcion, dict):
+            continue
+        fuente = opcion.get("fuente_datos")
+        if isinstance(fuente, dict):
+            return fuente.get("estado_presupuesto"), fuente.get("aviso_presupuesto")
+    return None, None
+
+
+# Categorías que el desglose cuenta como transporte. Se repite el criterio del
+# frontend a propósito: acá sólo hace falta encontrar el vuelo, no clasificar.
+CATEGORIAS_DE_TRANSPORTE = {"transporte", "transport", "vuelo", "flight", "traslado"}
+
+
+def _media_de_google(actividad):
+    """Datos del lugar que el flujo cruzó contra Google Places.
+
+    `imagen` se descarta a propósito: el flujo la manda ya firmada y la URL
+    lleva la API key de Google adentro. Publicarla en el HTML expondría la key
+    a cualquiera que abra el inspector. Se guarda `imagen_ref` y la foto se pide
+    por el proxy del servidor, que es el único que conoce la clave.
+    """
+    def numero(valor):
+        try:
+            return float(valor)
+        except (TypeError, ValueError):
+            return None
+
+    # El rango sólo existe cuando el precio salió del `priceRange` de Google.
+    rango = actividad.get("precio_rango")
+    rango = rango if isinstance(rango, dict) else {}
+
+    return {
+        "precio_fuente": _recortar(actividad.get("precio_fuente") or "",
+                                   LIMITES["precio_fuente"]),
+        "precio_rango": {
+            "desde": numero(rango.get("desde")),
+            "hasta": numero(rango.get("hasta")),
+            "moneda": _recortar(rango.get("moneda") or "", LIMITES["precio_moneda"]),
+        } if rango else None,
+        "imagen_ref": _recortar(actividad.get("imagen_ref") or "", LIMITES["imagen_ref"]),
+        "rating": numero(actividad.get("rating")),
+        "opiniones": int(actividad.get("opiniones") or 0),
+        "mapa": _recortar(actividad.get("mapa") or "", LIMITES["mapa"]),
+        "web": _recortar(actividad.get("web") or "", LIMITES["web"]),
+        "place_id": _recortar(actividad.get("place_id") or "", LIMITES["place_id"]),
+        "lat": numero(actividad.get("lat")),
+        "lng": numero(actividad.get("lng")),
+    }
+
+
+def _enganchar_datos_del_vuelo(dias, fuente_datos):
+    """Pega el link, la nota y el aviso de precio dudoso al vuelo que describen.
+
+    `fuente_datos.vuelo` describe UN vuelo: el internacional de ida y vuelta,
+    que es el primer tramo del itinerario. Los tramos intermedios se cotizan
+    aparte y tienen precio propio, así que copiarles esta nota sería mentir
+    sobre de dónde salió su número.
+    """
+    if not isinstance(fuente_datos, dict):
+        return
+    vuelo = fuente_datos.get("vuelo")
+    if not isinstance(vuelo, dict):
+        return
+
+    datos = {
+        "link": _recortar(vuelo.get("link") or "", LIMITES["link"]),
+        "nota": _recortar(vuelo.get("nota") or "", LIMITES["nota"]),
+        "precio_sospechoso": bool(vuelo.get("precio_sospechoso")),
+    }
+    if not any(datos.values()):
+        return
+
+    for dia in dias:
+        for actividad in dia["actividades"]:
+            if (actividad.get("categoria") or "").strip().lower() in CATEGORIAS_DE_TRANSPORTE:
+                actividad.update(datos)
+                return
+
+
+def _registrar_cobertura(opciones):
+    """Deja en el log cuántas actividades encontraron ficha en Google Places.
+
+    El flujo informa `google_match` por actividad. No cambia nada de lo que se
+    muestra —la tarjeta ya decide por `imagen_ref`—, pero si una corrida pasa de
+    64% a 5% es porque algo se rompió del lado del flujo, y sin esta línea eso
+    sólo se nota mirando las tarjetas de a una.
+    """
+    total = con_ficha = 0
+    for opcion in opciones:
+        for dia in opcion.get("itinerario") or []:
+            for actividad in dia.get("actividades") or []:
+                total += 1
+                if actividad.get("imagen_ref"):
+                    con_ficha += 1
+
+    if total:
+        logger.info("Google Places: %s de %s actividades con ficha (%s%%)",
+                    con_ficha, total, round(100 * con_ficha / total))
 
 
 def validar_opciones(opciones, preferencias):
@@ -367,22 +506,29 @@ def validar_opciones(opciones, preferencias):
                     "horario_sugerido": _recortar(
                         a.get("horario_sugerido") or "", LIMITES["horario_sugerido"]),
                     "ubicacion": _recortar(a.get("ubicacion") or "", LIMITES["ubicacion"]),
-                    # Procedencia del precio: el link de la oferta cotizada, la
-                    # nota del flujo y su aviso de precio dudoso. Se descartaban
-                    # acá, así que el itinerario no podía mostrar de dónde salía
-                    # cada número.
-                    "link": _recortar(a.get("link") or "", LIMITES["link"]),
-                    "nota": _recortar(a.get("nota") or "", LIMITES["nota"]),
-                    "precio_sospechoso": bool(a.get("precio_sospechoso")),
+                    **_media_de_google(a),
+                    # Procedencia del precio. No viene por actividad: el flujo la
+                    # manda una sola vez en `fuente_datos.vuelo`, y más abajo se
+                    # engancha al tramo que describe.
+                    "link": "",
+                    "nota": "",
+                    "precio_sospechoso": False,
                 } for a in actividades
             ]
 
             dia_normalizado = {
                 "dia": indice,
                 "resumen": str(dia.get("resumen") or f"Día {indice}"),
-                # El modelo no siempre devuelve las actividades en orden horario,
-                # y el timeline del itinerario las muestra tal cual vienen.
-                "actividades": sorted(normalizadas_del_dia, key=_hora_de_inicio),
+                # El orden del array ES el recorrido del día. El flujo agrupa
+                # los lugares por zona y después resuelve la ruta (vecino más
+                # cercano desde el hotel, más 2-opt para sacar cruces), y deja
+                # `horario_sugerido` coherente con esa ruta.
+                #
+                # Acá se ordenaba por hora de inicio, que servía cuando el orden
+                # venía al azar. Ahora sería contraproducente: dos actividades a
+                # la misma hora, o una hora que no parsea, alcanzan para romper
+                # una ruta que ya está optimizada. Se respeta como viene.
+                "actividades": _ordenar_si_hace_falta(normalizadas_del_dia),
             }
 
             # `destino_indice` dice a qué ciudad pertenece el día. Sin esto el
@@ -405,6 +551,8 @@ def validar_opciones(opciones, preferencias):
             "desglose_costos": opcion.get("desglose_costos"),
             "itinerario": dias_normalizados,
         }
+
+        _enganchar_datos_del_vuelo(dias_normalizados, opcion.get("fuente_datos"))
 
         # Lo que el flujo agregue de más (por ejemplo `fuente_datos`: de dónde
         # salió cada precio) se conserva tal cual. El backend lo guarda en
@@ -463,7 +611,9 @@ def _generar_con_n8n(preferencias, idioma="en"):
     respuesta.raise_for_status()
 
     crudo, sobre = leer_sobre(respuesta.json())
-    return validar_opciones(crudo, preferencias), sobre
+    validadas = validar_opciones(crudo, preferencias)
+    _registrar_cobertura(validadas)
+    return validadas, sobre
 
 
 def generar_opciones(preferencias, idioma="en"):
