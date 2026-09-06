@@ -1,14 +1,19 @@
+import hashlib
+import json
 import logging
 import os
 import re
 import secrets
 from datetime import date, datetime, timedelta
 from functools import wraps
+from pathlib import Path
 
+import requests
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
 from flask import (
     Flask,
+    Response,
     jsonify,
     redirect,
     render_template,
@@ -502,6 +507,62 @@ def create_trip():
                     "presupuesto": presupuesto["estado"]})
 
 
+
+# Los códigos que el flujo puede mandar en `sugerencias_codigos`. Cada uno tiene
+# su clave de i18n, así el cartel se arma con las etiquetas de la web y no queda
+# medio en inglés y medio en castellano.
+CODIGOS_DE_SUGERENCIA = {
+    "vuelo_no_alcanza": "budget_tip_flight_alone",
+    "vuelo_come_casi_todo": "budget_tip_flight_eats_it",
+    "subir_presupuesto": "budget_tip_raise",
+    "menos_gente": "budget_tip_fewer_people",
+    "temporada_baja": "budget_tip_low_season",
+}
+
+
+def _sugerencias_del_aviso(aviso):
+    """Arma las sugerencias del cartel de presupuesto.
+
+    El flujo manda el texto ya escrito (`sugerencias`) y además los datos
+    crudos (`sugerencias_codigos`). Se usan los dos: el código con la i18n de
+    la web es lo que se muestra, y el texto del flujo queda como respaldo para
+    antes de que cargue el idioma o si aparece un código que no conocemos.
+    """
+    if not isinstance(aviso, dict):
+        return []
+
+    textos = aviso.get("sugerencias")
+    textos = textos if isinstance(textos, list) else []
+    codigos = aviso.get("sugerencias_codigos")
+    codigos = codigos if isinstance(codigos, list) else []
+
+    if not codigos:
+        return [{"clave": None, "params": None, "texto": str(t)} for t in textos if t]
+
+    sugerencias = []
+    for indice, dato in enumerate(codigos):
+        if not isinstance(dato, dict):
+            continue
+        # Los dos arrays vienen en paralelo, pero se emparejan por índice con
+        # cuidado: si el flujo manda distinta cantidad, no se rompe nada.
+        respaldo = str(textos[indice]) if indice < len(textos) else ""
+        clave = CODIGOS_DE_SUGERENCIA.get(dato.get("codigo"))
+        params = {k: _numero_legible(v) for k, v in dato.items() if k != "codigo"}
+        sugerencias.append({
+            "clave": clave,
+            "params": json.dumps(params, ensure_ascii=False) if clave else None,
+            "texto": respaldo,
+        })
+    return [s for s in sugerencias if s["texto"] or s["clave"]]
+
+
+def _numero_legible(valor):
+    """Los montos se muestran con separador de miles; el resto va tal cual."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return valor
+    return f"{valor:,.0f}" if abs(valor) >= 1000 else f"{valor:g}"
+
+
 @app.route("/compare")
 @login_requerido
 def compare():
@@ -537,7 +598,8 @@ def compare():
 
     return render_template("compare.html", viajes_por_tipo=viajes_por_tipo,
                            nav=_sidebar(drafts=drafts),
-                           presupuesto=presupuesto)
+                           presupuesto=presupuesto,
+                           sugerencias=_sugerencias_del_aviso(presupuesto.get("aviso")))
 
 
 def _highlights_de(detalle, cantidad=3):
@@ -991,6 +1053,130 @@ def budget(id_viaje=None):
 
 
 # ─── Configuración ───────────────────────────────────────────────────────────
+
+# ─── Fotos de Google Places ──────────────────────────────────────────────────
+
+# El flujo de n8n manda la foto de cada lugar como una URL ya firmada, con la
+# API key de Google adentro. Renderizarla tal cual la publicaría a cualquiera
+# que abra el inspector, y el repo es público. Así que se guarda sólo la
+# referencia (`places/<id>/photos/<id>`) y la foto se pide por acá: la clave
+# vive en el servidor y nunca sale.
+# Un id de foto de Google mide unos 258 caracteres, y el del lugar unos 27. El
+# límite anterior de 200 para la foto rechazaba TODAS las referencias reales:
+# por eso las tarjetas mostraban el degradé en vez de la imagen.
+REFERENCIA_DE_FOTO = re.compile(r"\Aplaces/[A-Za-z0-9_-]{1,200}/photos/[A-Za-z0-9_-]{1,900}\Z")
+
+ANCHO_MAXIMO_DE_FOTO = 800
+
+# Google factura el SKU "Place Photos" cuando el navegador carga la imagen, no
+# cuando n8n arma la URL. Sin copia local, cada visita a un itinerario vuelve a
+# facturar todas sus fotos: el costo escalaría con las visitas y no con los
+# viajes generados. Así que la foto se baja una sola vez y se guarda en disco.
+CACHE_DE_FOTOS = Path(os.getenv("PLACE_PHOTO_CACHE") or (Path(app.root_path) / ".cache" / "fotos"))
+
+EXTENSIONES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp",
+               "image/gif": ".gif"}
+
+TIPOS = {extension: tipo for tipo, extension in EXTENSIONES.items()}
+
+
+_AVISO_DE_CLAVE_DADO = False
+
+
+def _foto_en_cache(referencia):
+    """La copia local de una referencia, si ya se bajó alguna vez."""
+    nombre = hashlib.sha256(referencia.encode()).hexdigest()
+    for extension in EXTENSIONES.values():
+        camino = CACHE_DE_FOTOS / f"{nombre}{extension}"
+        if camino.exists():
+            return camino
+    return None
+
+
+def _guardar_foto(referencia, contenido, tipo):
+    """Deja la foto en el disco para no volver a pedírsela a Google."""
+    extension = EXTENSIONES.get(tipo)
+    if not extension:
+        return None
+
+    try:
+        CACHE_DE_FOTOS.mkdir(parents=True, exist_ok=True)
+        nombre = hashlib.sha256(referencia.encode()).hexdigest()
+        destino = CACHE_DE_FOTOS / f"{nombre}{extension}"
+        # Se escribe aparte y se renombra: si el proceso muere a mitad, no
+        # queda una foto cortada haciéndose pasar por buena.
+        provisorio = destino.with_suffix(destino.suffix + ".parcial")
+        provisorio.write_bytes(contenido)
+        provisorio.replace(destino)
+        return destino
+    except OSError as exc:
+        # Que no se pueda escribir no debería tumbar la página: se sirve la
+        # foto igual, sólo que la próxima visita la vuelve a pedir.
+        logger.warning("No se pudo cachear la foto %s: %s", referencia[:40], exc)
+        return None
+
+
+def _respuesta_de_foto(contenido, tipo):
+    # La referencia es inmutable, así que el navegador puede guardarla para
+    # siempre y ni siquiera revalidar.
+    return Response(contenido, mimetype=tipo, headers={
+        "Cache-Control": "private, max-age=31536000, immutable",
+    })
+
+
+@app.route("/place-photo")
+@login_requerido
+def place_photo():
+    referencia = (request.args.get("ref") or "").strip()
+
+    # La referencia se valida contra un formato cerrado antes de armar la URL:
+    # sin esto, un `ref` arbitrario convertiría esta ruta en un proxy abierto
+    # que cualquiera podría usar para pegarle a otros hosts con nuestra clave.
+    if not REFERENCIA_DE_FOTO.match(referencia):
+        return "", 404
+
+    guardada = _foto_en_cache(referencia)
+    if guardada:
+        return _respuesta_de_foto(guardada.read_bytes(),
+                                  TIPOS.get(guardada.suffix, "image/jpeg"))
+
+    clave = os.getenv("GOOGLE_PLACES_API_KEY", "").strip()
+    if not clave:
+        # Sin clave no hay foto, y no es un error: la tarjeta usa el fondo de
+        # categoría de siempre. Pero desde afuera se ve igual que una foto rota,
+        # así que conviene decirlo una vez en el log en vez de dejar al que
+        # depura adivinando por qué no aparece nada.
+        global _AVISO_DE_CLAVE_DADO
+        if not _AVISO_DE_CLAVE_DADO:
+            _AVISO_DE_CLAVE_DADO = True
+            logger.warning(
+                "GOOGLE_PLACES_API_KEY no está en FRONTEND/.env: las tarjetas "
+                "de actividad van a mostrar el fondo de categoría en vez de la "
+                "foto del lugar.")
+        return "", 404
+
+    try:
+        respuesta = requests.get(
+            f"https://places.googleapis.com/v1/{referencia}/media",
+            params={"maxWidthPx": ANCHO_MAXIMO_DE_FOTO, "key": clave},
+            timeout=10,
+        )
+    except requests.RequestException as exc:
+        logger.warning("No se pudo traer la foto %s: %s", referencia[:40], exc)
+        return "", 502
+
+    if respuesta.status_code != 200:
+        logger.info("Google devolvió %s para la foto %s",
+                    respuesta.status_code, referencia[:40])
+        return "", 404
+
+    tipo = respuesta.headers.get("Content-Type", "").split(";")[0].strip()
+    if tipo not in EXTENSIONES:
+        return "", 404
+
+    _guardar_foto(referencia, respuesta.content, tipo)
+    return _respuesta_de_foto(respuesta.content, tipo)
+
 
 @app.route("/settings")
 @login_requerido

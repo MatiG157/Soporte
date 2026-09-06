@@ -73,6 +73,18 @@ def _serializar(a):
         "link": a.link,
         "nota": a.nota,
         "precio_sospechoso": bool(a.precio_sospechoso),
+        "imagen_ref": a.imagen_ref,
+        "rating": a.rating,
+        "opiniones": a.opiniones,
+        "mapa": a.mapa,
+        "web": a.web,
+        "place_id": a.place_id,
+        "lat": a.lat,
+        "lng": a.lng,
+        "precio_fuente": a.precio_fuente,
+        "precio_desde": a.precio_desde,
+        "precio_hasta": a.precio_hasta,
+        "precio_moneda": a.precio_moneda,
     }
 
 

@@ -154,6 +154,18 @@ def get_viaje(id_viaje):
                         "link": act.link,
                         "nota": act.nota,
                         "precio_sospechoso": bool(act.precio_sospechoso),
+                        "imagen_ref": act.imagen_ref,
+                        "rating": act.rating,
+                        "opiniones": act.opiniones,
+                        "mapa": act.mapa,
+                        "web": act.web,
+                        "place_id": act.place_id,
+                        "lat": act.lat,
+                        "lng": act.lng,
+                        "precio_fuente": act.precio_fuente,
+                        "precio_desde": act.precio_desde,
+                        "precio_hasta": act.precio_hasta,
+                        "precio_moneda": act.precio_moneda,
                     } for act in iti.actividades
                 ],
             } for iti in sorted(v.itinerarios, key=lambda i: i.dia)

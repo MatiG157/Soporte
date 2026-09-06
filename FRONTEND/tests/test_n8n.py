@@ -322,3 +322,186 @@ def test_el_generador_local_escala_con_el_presupuesto():
     # Dentro de una misma corrida, Economy < Balanced < Luxury.
     totales = por_tipo(caras)
     assert totales["Economy"] < totales["Balanced"] < totales["Luxury"]
+
+
+def test_la_actividad_no_conserva_la_url_firmada_de_google(n8n):
+    """Esa URL lleva la API key: se guarda la referencia, no la URL."""
+    opciones = [_opcion(t) for t in ("Economy", "Balanced", "Luxury")]
+    for opcion in opciones:
+        opcion["itinerario"][0]["actividades"][0].update({
+            "imagen": "https://places.googleapis.com/v1/places/P1/photos/AF9/media?key=SECRETA",
+            "imagen_ref": "places/P1/photos/AF9",
+            "rating": 4.7, "opiniones": 90000, "lat": 28.41, "lng": -81.58,
+        })
+
+    actividad = trip_generator.validar_opciones(opciones, PREFERENCIAS)[0]["itinerario"][0]["actividades"][0]
+
+    assert actividad["imagen_ref"] == "places/P1/photos/AF9"
+    assert "imagen" not in actividad
+    assert actividad["rating"] == 4.7
+    assert actividad["lat"] == 28.41
+
+
+def test_sin_datos_de_google_el_rating_queda_en_nada(n8n):
+    """Un lugar sin rating no tiene rating: 0 sería inventar 0 estrellas."""
+    opciones = [_opcion(t) for t in ("Economy", "Balanced", "Luxury")]
+
+    actividad = trip_generator.validar_opciones(opciones, PREFERENCIAS)[0]["itinerario"][0]["actividades"][0]
+
+    assert actividad["rating"] is None
+    assert actividad["lat"] is None
+    assert actividad["imagen_ref"] == ""
+
+
+def test_el_link_del_vuelo_va_al_tramo_que_describe(n8n):
+    """`fuente_datos.vuelo` describe el internacional, no cada traslado."""
+    opciones = [_opcion(t) for t in ("Economy", "Balanced", "Luxury")]
+    for opcion in opciones:
+        opcion["itinerario"][0]["actividades"][0]["categoria"] = "Vuelo"
+        opcion["itinerario"][1]["actividades"][0]["categoria"] = "Transporte"
+        opcion["fuente_datos"] = {"vuelo": {
+            "link": "https://www.aviasales.com/search/ROS0812MIA1",
+            "nota": "Precio de otra fecha de la misma ruta.",
+            "precio_sospechoso": True,
+        }}
+
+    dias = trip_generator.validar_opciones(opciones, PREFERENCIAS)[0]["itinerario"]
+
+    primero = dias[0]["actividades"][0]
+    segundo = dias[1]["actividades"][0]
+    assert primero["link"].endswith("ROS0812MIA1")
+    assert primero["precio_sospechoso"] is True
+    # El tramo intermedio se cotiza aparte: copiarle la nota sería mentir.
+    assert segundo["link"] == ""
+    assert segundo["precio_sospechoso"] is False
+
+
+def test_el_estado_del_presupuesto_se_lee_de_la_opcion_si_falta_arriba(n8n):
+    """El flujo repite el aviso dentro de cada opción por si se pierde."""
+    aviso = {"mensaje": "No alcanza.", "dias_que_entran": 4}
+    opciones = [_opcion(t) for t in ("Economy", "Balanced", "Luxury")]
+    opciones[0]["fuente_datos"] = {"estado_presupuesto": "ajustado",
+                                   "aviso_presupuesto": aviso}
+    n8n["respuesta"] = RespuestaFalsa({"opciones": opciones})
+
+    _, _, presupuesto = trip_generator.generar_opciones(PREFERENCIAS)
+
+    assert presupuesto["estado"] == "ajustado"
+    assert presupuesto["aviso"]["dias_que_entran"] == 4
+
+
+def test_la_referencia_de_foto_entra_entera(n8n):
+    """Medida contra el flujo real: llegan a 494 caracteres.
+
+    El tope viejo de 300 le cortaba casi 200 a cada una, y una referencia
+    cortada es un 404 seguro en Google. Ése era el motivo de que las tarjetas
+    mostraran el degradé en vez de la foto.
+    """
+    referencia = "places/" + "C" * 27 + "/photos/" + "A" * 452
+    assert len(referencia) == 494
+
+    opciones = [_opcion(t) for t in ("Economy", "Balanced", "Luxury")]
+    for opcion in opciones:
+        opcion["itinerario"][0]["actividades"][0]["imagen_ref"] = referencia
+
+    guardada = trip_generator.validar_opciones(
+        opciones, PREFERENCIAS)[0]["itinerario"][0]["actividades"][0]["imagen_ref"]
+
+    assert guardada == referencia
+
+    # Y el proxy tiene que aceptarla, que es donde se rompía antes.
+    import app
+    assert app.REFERENCIA_DE_FOTO.match(guardada)
+
+
+def test_registra_cuantas_actividades_encontraron_ficha(n8n, caplog):
+    """Si la cobertura se desploma, tiene que verse en el log y no de a una."""
+    import logging
+
+    opciones = [_opcion(t) for t in ("Economy", "Balanced", "Luxury")]
+    for opcion in opciones:
+        opcion["itinerario"][0]["actividades"][0]["imagen_ref"] = (
+            "places/" + "C" * 27 + "/photos/" + "A" * 452)
+    n8n["respuesta"] = RespuestaFalsa(opciones)
+
+    with caplog.at_level(logging.INFO, logger="trip_generator"):
+        trip_generator.generar_opciones(PREFERENCIAS)
+
+    lineas = [r.getMessage() for r in caplog.records]
+    assert any("Google Places: 3 de 15 actividades con ficha (20%)" in l for l in lineas), lineas
+
+
+def test_conserva_de_donde_salio_el_precio(n8n):
+    """Un precio del `priceRange` de Google no es lo mismo que uno estimado."""
+    opciones = [_opcion(t) for t in ("Economy", "Balanced", "Luxury")]
+    for opcion in opciones:
+        actividades = opcion["itinerario"][0]["actividades"]
+        actividades[0].update({
+            "precio_fuente": "google_price_range",
+            "precio_rango": {"desde": 25, "hasta": 50, "moneda": "USD"},
+        })
+
+    dia = trip_generator.validar_opciones(opciones, PREFERENCIAS)[0]["itinerario"][0]
+    actividad = dia["actividades"][0]
+
+    assert actividad["precio_fuente"] == "google_price_range"
+    assert actividad["precio_rango"] == {"desde": 25.0, "hasta": 50.0, "moneda": "USD"}
+
+
+def test_sin_rango_no_se_inventa_uno(n8n):
+    opciones = [_opcion(t) for t in ("Economy", "Balanced", "Luxury")]
+    for opcion in opciones:
+        opcion["itinerario"][0]["actividades"][0]["precio_fuente"] = "tasacion_ia"
+
+    actividad = trip_generator.validar_opciones(
+        opciones, PREFERENCIAS)[0]["itinerario"][0]["actividades"][0]
+
+    assert actividad["precio_fuente"] == "tasacion_ia"
+    assert actividad["precio_rango"] is None
+
+
+def test_respeta_el_recorrido_que_arma_el_flujo(n8n):
+    """El orden del array es la ruta optimizada, no un orden cualquiera.
+
+    El flujo agrupa por zonas y resuelve la ruta desde el hotel. Reordenar por
+    hora rompía eso en cuanto dos actividades compartían horario o una hora no
+    parseaba.
+    """
+    def actividad(nombre, horario):
+        return {"nombre": nombre, "descripcion": "", "precio_estimado": 10,
+                "categoria": "Cultural", "horario_sugerido": horario,
+                "ubicacion": "Kioto"}
+
+    opciones = [_opcion(t) for t in ("Economy", "Balanced", "Luxury")]
+    for opcion in opciones:
+        # Dos a la misma hora: ahí es donde ordenar por hora rompía la ruta.
+        opcion["itinerario"][0]["actividades"] = [
+            actividad("Zona norte A", "10:00 - 12:00"),
+            actividad("Zona norte B", "10:00 - 12:00"),
+            actividad("Zona norte C", "14:00 - 16:00"),
+        ]
+
+    dia = trip_generator.validar_opciones(opciones, PREFERENCIAS)[0]["itinerario"][0]
+    nombres = [a["nombre"] for a in dia["actividades"]]
+
+    assert nombres == ["Zona norte A", "Zona norte B", "Zona norte C"]
+
+
+def test_ordena_igual_cuando_el_dia_viene_al_reves(n8n):
+    """Un flujo viejo, o el generador local, no resuelven ninguna ruta."""
+    def actividad(horario):
+        return {"nombre": f"Actividad {horario}", "descripcion": "",
+                "precio_estimado": 10, "categoria": "Cultural",
+                "horario_sugerido": horario, "ubicacion": "Kioto"}
+
+    opciones = [_opcion(t) for t in ("Economy", "Balanced", "Luxury")]
+    for opcion in opciones:
+        opcion["itinerario"][0]["actividades"] = [
+            actividad("20:00 - 22:00"), actividad("09:00 - 11:00"),
+            actividad("14:00 - 16:00"),
+        ]
+
+    dia = trip_generator.validar_opciones(opciones, PREFERENCIAS)[0]["itinerario"][0]
+    horas = [a["horario_sugerido"] for a in dia["actividades"]]
+
+    assert horas == ["09:00 - 11:00", "14:00 - 16:00", "20:00 - 22:00"]

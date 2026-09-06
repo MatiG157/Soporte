@@ -538,11 +538,349 @@ def test_itinerario_muestra_link_nota_y_precio_dudoso(logueado, backend):
     assert "https://aviasales.com/oferta-42" in html
     assert "Tarifa con una escala en Doha." in html
     assert "act_price_odd" in html
-    assert "act_see_offer" in html
+    assert "act_see_flight" in html
 
 
 def test_itinerario_sin_procedencia_no_dibuja_nada(logueado, backend):
     html = logueado.get("/itinerary/1").get_data(as_text=True)
 
-    assert "act_see_offer" not in html
+    assert "act_see_flight" not in html
     assert "act_price_odd" not in html
+
+
+# ─── Fotos de Google Places ──────────────────────────────────────────────────
+
+def test_la_foto_del_lugar_pasa_por_el_proxy(logueado, backend):
+    """La URL firmada de Google lleva la API key: no puede llegar al HTML."""
+    base = backend.responder("GET", "/viajes/1")
+    detalle = {**base}
+    detalle["itinerarios"] = [{
+        **base["itinerarios"][0],
+        "actividades": [{
+            **base["itinerarios"][0]["actividades"][0],
+            "imagen_ref": "places/P1/photos/AF9",
+            "rating": 4.7, "opiniones": 90000,
+            "mapa": "https://maps.google.com/?cid=9",
+            "web": "https://ejemplo.com",
+            "lat": 28.41, "lng": -81.58,
+        }],
+    }]
+    backend.extra_viaje = detalle
+
+    html = logueado.get("/itinerary/1").get_data(as_text=True)
+
+    assert "/place-photo?ref=places" in html
+    assert "places.googleapis.com" not in html   # jamás la URL con la key
+    assert "4.7" in html and "90,000" in html
+    assert "act_open_maps" in html and "act_website" in html
+    assert 'data-lat="28.41"' in html
+
+
+def test_el_proxy_de_fotos_rechaza_referencias_inventadas(logueado, monkeypatch):
+    """Sin validar el `ref`, la ruta sería un proxy abierto con nuestra clave."""
+    import app as modulo
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "clave-de-test")
+
+    def no_llamar(*args, **kwargs):
+        raise AssertionError("no se debería salir a la red con un ref inválido")
+
+    monkeypatch.setattr(modulo.requests, "get", no_llamar)
+
+    for ref in ["", "../../etc/passwd", "https://evil.example.com/x",
+                "places/P1/photos/AF9/../../..", "otracosa/P1/photos/AF9",
+                "places/P1 P2/photos/AF9", "places//photos/AF9"]:
+        assert logueado.get("/place-photo", query_string={"ref": ref}).status_code == 404
+
+
+def test_el_proxy_de_fotos_no_rompe_sin_clave(logueado, monkeypatch):
+    """Sin clave configurada la tarjeta usa el fondo por categoría, no un 500."""
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "")
+
+    respuesta = logueado.get("/place-photo",
+                             query_string={"ref": "places/P1/photos/AF9"})
+
+    assert respuesta.status_code == 404
+
+
+def test_el_proxy_de_fotos_requiere_sesion(client):
+    respuesta = client.get("/place-photo", query_string={"ref": "places/P1/photos/AF9"})
+
+    assert respuesta.status_code == 302
+    assert "/login" in respuesta.headers["Location"]
+
+
+# ─── Caché de fotos y referencias reales ─────────────────────────────────────
+
+REF_REAL = ("places/ChIJd5jmZ1JrcRcRQl_4xTdQFZo/photos/"
+            + "A" * 258)   # los ids de foto de Google rondan los 258 caracteres
+
+
+def test_el_proxy_acepta_las_referencias_reales_de_google(logueado, monkeypatch, tmp_path):
+    """El límite viejo era 200 y rechazaba TODAS: por eso no se veía ninguna foto."""
+    import app as modulo
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "clave-de-test")
+    monkeypatch.setattr(modulo, "CACHE_DE_FOTOS", tmp_path / "fotos")
+
+    class RespuestaFalsa:
+        status_code = 200
+        headers = {"Content-Type": "image/jpeg"}
+        content = b"\xff\xd8\xff-una-foto"
+
+    monkeypatch.setattr(modulo.requests, "get", lambda *a, **k: RespuestaFalsa())
+
+    respuesta = logueado.get("/place-photo", query_string={"ref": REF_REAL})
+
+    assert respuesta.status_code == 200
+    assert respuesta.data == b"\xff\xd8\xff-una-foto"
+
+
+def test_la_foto_se_baja_una_sola_vez(logueado, monkeypatch, tmp_path):
+    """Google factura cuando el navegador carga la foto, no cuando n8n la arma."""
+    import app as modulo
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "clave-de-test")
+    monkeypatch.setattr(modulo, "CACHE_DE_FOTOS", tmp_path / "fotos")
+
+    llamadas = []
+
+    class RespuestaFalsa:
+        status_code = 200
+        headers = {"Content-Type": "image/jpeg"}
+        content = b"\xff\xd8\xff-una-foto"
+
+    def falso_get(*args, **kwargs):
+        llamadas.append(args)
+        return RespuestaFalsa()
+
+    monkeypatch.setattr(modulo.requests, "get", falso_get)
+
+    for _ in range(3):
+        respuesta = logueado.get("/place-photo", query_string={"ref": REF_REAL})
+        assert respuesta.status_code == 200
+        assert respuesta.data == b"\xff\xd8\xff-una-foto"
+
+    assert len(llamadas) == 1, "la segunda visita volvió a facturarle a Google"
+
+
+def test_una_foto_cacheada_no_necesita_la_clave(logueado, monkeypatch, tmp_path):
+    """Si alguien borra la key del .env, lo ya bajado se sigue viendo."""
+    import app as modulo
+    monkeypatch.setattr(modulo, "CACHE_DE_FOTOS", tmp_path / "fotos")
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "clave-de-test")
+
+    class RespuestaFalsa:
+        status_code = 200
+        headers = {"Content-Type": "image/jpeg"}
+        content = b"\xff\xd8\xff-una-foto"
+
+    monkeypatch.setattr(modulo.requests, "get", lambda *a, **k: RespuestaFalsa())
+    logueado.get("/place-photo", query_string={"ref": REF_REAL})
+
+    monkeypatch.setenv("GOOGLE_PLACES_API_KEY", "")
+
+    def no_llamar(*args, **kwargs):
+        raise AssertionError("estaba en disco: no hacía falta salir a la red")
+
+    monkeypatch.setattr(modulo.requests, "get", no_llamar)
+
+    assert logueado.get("/place-photo", query_string={"ref": REF_REAL}).status_code == 200
+
+
+# ─── Sugerencias del presupuesto ─────────────────────────────────────────────
+
+AVISO_CON_CODIGOS = {
+    "presupuesto_solicitado": 4000, "costo_minimo_estimado": 4772,
+    "costo_fijo_transporte": 3800, "presupuesto_restante_tras_vuelo": 200,
+    "costo_por_dia": 121.5, "dias_solicitados": 8, "dias_que_entran": 1,
+    "alcanza_para_el_vuelo": True,
+    "mensaje": "No alcanza.",
+    "sugerencias": ["El vuelo se come casi todo", "Subí el presupuesto"],
+    "sugerencias_codigos": [
+        {"codigo": "vuelo_come_casi_todo", "vuelo": 3800, "presupuesto": 4000,
+         "restante": 200, "dias": 1, "dias_pedidos": 8},
+        {"codigo": "subir_presupuesto", "minimo": 4772, "faltante": 772, "dias": 8},
+    ],
+}
+
+
+def test_el_cartel_arma_las_sugerencias_con_la_i18n_propia(logueado, backend):
+    backend.drafts = _tres_borradores()
+    with logueado.session_transaction() as sesion:
+        sesion["presupuesto"] = {"estado": "presupuesto_insuficiente",
+                                 "aviso": AVISO_CON_CODIGOS}
+
+    html = logueado.get("/compare").get_data(as_text=True)
+
+    assert "budget_tip_flight_eats_it" in html
+    assert "budget_tip_raise" in html
+    # Los números viajan como parámetros para que los interpole la traducción.
+    assert "&#34;vuelo&#34;: &#34;3,800&#34;" in html or '"vuelo": "3,800"' in html
+    # El texto del flujo queda como respaldo hasta que carga el idioma.
+    assert "Sub" in html and "presupuesto" in html
+
+
+def test_el_cartel_explica_por_que_entra_un_solo_dia(logueado, backend):
+    """'1 de 8 días' leído solo parece un error: falta decir qué se lleva el vuelo."""
+    backend.drafts = _tres_borradores()
+    with logueado.session_transaction() as sesion:
+        sesion["presupuesto"] = {"estado": "presupuesto_insuficiente",
+                                 "aviso": AVISO_CON_CODIGOS}
+
+    html = logueado.get("/compare").get_data(as_text=True)
+
+    assert "budget_breakdown" in html and "budget_per_day" in html
+    assert "$3,800" in html and "$122" in html
+    assert "budget_left_after_flight" in html and "$200" in html
+    assert "/ 8" in html          # 1 de 8 días
+
+
+def test_un_codigo_desconocido_se_muestra_con_el_texto_del_flujo(logueado, backend):
+    backend.drafts = _tres_borradores()
+    with logueado.session_transaction() as sesion:
+        sesion["presupuesto"] = {"estado": "ajustado", "aviso": {
+            "mensaje": "Se ajustó.",
+            "sugerencias": ["Probá con otra aerolínea"],
+            "sugerencias_codigos": [{"codigo": "algo_que_no_existe_todavia"}],
+        }}
+
+    html = logueado.get("/compare").get_data(as_text=True)
+
+    assert "Probá con otra aerolínea" in html
+
+
+def test_el_pintor_de_iconos_no_borra_la_foto_del_lugar():
+    """La foto vive dentro de `.activity-icon-wrapper`, que el JS reescribe.
+
+    `pintarIconos()` pisa el innerHTML del contenedor para poner el icono de
+    categoría. Como la foto es hija de ese mismo nodo, se borraba apenas
+    cargaba la página: el dato y el proxy estaban bien y aun así no se veía
+    nada. Si alguien vuelve a escribir ese innerHTML sin rescatarla, esto falla.
+    """
+    from pathlib import Path
+
+    plantilla = Path(__file__).resolve().parent.parent / "templates" / "itinerary.html"
+    cuerpo = plantilla.read_text(encoding="utf-8")
+
+    inicio = cuerpo.index("function pintarIconos()")
+    fin = cuerpo.index("\n  }", inicio)
+    funcion = cuerpo[inicio:fin]
+
+    assert "innerHTML" in funcion, "cambió la función: revisar este test"
+    assert "querySelector('.foto-lugar')" in funcion
+    assert "appendChild(foto)" in funcion
+
+
+def test_el_mapa_descarta_puntos_lejos_del_destino():
+    """El sesgo de Photon es una sugerencia, no un filtro.
+
+    Con una ubicación genérica ("mercado local") puede devolver un homónimo de
+    otro país, y en un viaje a Punta Cana aparecía un marcador en Europa. Un
+    punto falso es peor que ninguno.
+    """
+    from pathlib import Path
+
+    plantilla = Path(__file__).resolve().parent.parent / "templates" / "itinerary.html"
+    cuerpo = plantilla.read_text(encoding="utf-8")
+
+    assert "KM_MAXIMOS_DEL_DESTINO" in cuerpo
+    assert "function kmEntre" in cuerpo
+    # Y el filtro tiene que estar aplicado, no sólo definido.
+    assert "kmEntre(coords, sesgo) > KM_MAXIMOS_DEL_DESTINO" in cuerpo
+
+
+# ─── Procedencia del precio ──────────────────────────────────────────────────
+
+def _viaje_con_actividad(backend, **campos):
+    base = backend.responder("GET", "/viajes/1")
+    detalle = {**base}
+    detalle["itinerarios"] = [{
+        **base["itinerarios"][0],
+        "actividades": [{**base["itinerarios"][0]["actividades"][0], **campos}],
+    }]
+    backend.extra_viaje = detalle
+    return detalle
+
+
+def test_un_precio_consultado_a_google_se_muestra_como_tal(logueado, backend):
+    _viaje_con_actividad(backend, precio_estimado=35.0,
+                         precio_fuente="google_price_range",
+                         precio_desde=25.0, precio_hasta=50.0, precio_moneda="USD")
+
+    html = logueado.get("/itinerary/1").get_data(as_text=True)
+
+    assert "act_price_from_google" in html
+    assert "USD 25–50" in html
+    assert "act_price_approx" not in html
+    assert "act_price_from_ai" not in html
+
+
+def test_un_precio_estimado_no_se_hace_pasar_por_consultado(logueado, backend):
+    """El lugar es real; el precio, cuando lo estimó un modelo, no es un dato."""
+    _viaje_con_actividad(backend, precio_estimado=35.0, precio_fuente="tasacion_ia")
+
+    html = logueado.get("/itinerary/1").get_data(as_text=True)
+
+    assert "act_price_approx" in html
+    assert "act_price_from_ai" in html
+    assert "act_price_from_google" not in html
+
+
+def test_sin_procedencia_el_precio_se_muestra_a_secas(logueado, backend):
+    """Los viajes viejos no tienen el campo: no pueden quedar mal etiquetados."""
+    _viaje_con_actividad(backend, precio_estimado=35.0, precio_fuente=None)
+
+    html = logueado.get("/itinerary/1").get_data(as_text=True)
+
+    assert "act_price_from_google" not in html
+    assert "act_price_from_ai" not in html
+    assert "$35" in html
+
+
+def test_el_campo_de_texto_libre_llega_entero_a_n8n(logueado, backend, csrf, monkeypatch):
+    """De ahí salen el reparto de días por ciudad y la búsqueda por intereses.
+
+    Si se recortara o se perdiera en el camino, el flujo repartiría los días en
+    partes iguales sin que nadie se entere de por qué.
+    """
+    import trip_generator
+
+    capturado = {}
+
+    def espiar(preferencias, idioma="en"):
+        capturado.update(preferencias)
+        return None    # sin webhook: sigue con el generador local
+
+    monkeypatch.setattr(trip_generator, "_generar_con_n8n", espiar)
+
+    texto = ("5 días en Miami y 3 en Nueva York, nos gusta el trekking y la "
+             "comida vegana, no queremos madrugar")
+    respuesta = logueado.post("/create_trip", json={
+        "destinos": ["Miami, United States", "New York, United States"],
+        "fecha_inicio": "2030-03-10", "fecha_fin": "2030-03-17",
+        "costo_max": 4000, "cantidad_personas": 2, "otros": texto,
+    }, headers=csrf)
+
+    assert respuesta.status_code == 200, respuesta.get_data(as_text=True)
+    assert capturado.get("otros") == texto
+
+
+def test_el_formulario_explica_para_que_sirve_el_texto_libre():
+    """El campo dejó de ser decorativo, pero eso no se puede adivinar."""
+    from pathlib import Path
+
+    plantilla = Path(__file__).resolve().parent.parent / "templates" / "index.html"
+    cuerpo = plantilla.read_text(encoding="utf-8")
+
+    assert 'data-i18n="index_extras_hint"' in cuerpo
+    assert "5 days in Miami" in cuerpo     # el formato que el flujo reconoce
+
+
+def test_el_mapa_dibuja_el_recorrido_del_dia():
+    """El orden de las actividades es una ruta resuelta: se puede mostrar."""
+    from pathlib import Path
+
+    plantilla = Path(__file__).resolve().parent.parent / "templates" / "itinerary.html"
+    cuerpo = plantilla.read_text(encoding="utf-8")
+
+    assert "function dibujarRecorridoDelDia" in cuerpo
+    assert "dibujarRecorridoDelDia();" in cuerpo      # y está llamada
+    assert "L.polyline(puntosDelDiaActual" in cuerpo

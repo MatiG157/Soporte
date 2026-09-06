@@ -137,12 +137,25 @@
             data-categoria-nombre="{{ act.categoria or '' }}"
             data-horario="{{ act.horario_sugerido or '' }}"
             data-ubicacion="{{ act.ubicacion or '' }}"
+            data-lat="{{ act.lat if act.lat is not none else '' }}"
+            data-lng="{{ act.lng if act.lng is not none else '' }}"
           >
             <div class="timeline-dot {% if loop.first %}active-dot{% endif %}"></div>
             <div class="card timeline-card border rounded-4 shadow-sm">
               <div class="row g-0">
                 <div class="col-md-4 p-3 pe-md-0">
+                  {% if act.imagen_ref %}
+                  {# La foto se pide por /place-photo: la URL que manda el flujo
+                     lleva la API key de Google y no puede llegar al navegador.
+                     Si falla, queda el fondo por categoría de siempre. #}
+                  <div class="activity-icon-wrapper w-100 h-100" data-categoria="{{ act.categoria | lower }}">
+                    <img src="{{ url_for('place_photo', ref=act.imagen_ref) }}"
+                         alt="{{ act.nombre }}" loading="lazy" class="foto-lugar"
+                         onerror="this.remove();">
+                  </div>
+                  {% else %}
                   <div class="activity-icon-wrapper w-100 h-100" data-categoria="{{ act.categoria | lower }}"></div>
+                  {% endif %}
                 </div>
                 <div class="col-md-8 p-3">
                   <div class="d-flex justify-content-between align-items-start mb-2">
@@ -152,7 +165,25 @@
                       <i class="fa-solid fa-triangle-exclamation text-warning" data-i18n-title="act_price_odd"
                          title="This price looks off — double-check it"></i>
                       {% endif %}
+                      {# El lugar siempre es real, el precio no siempre. Uno
+                         consultado y uno que un modelo recordó no pueden verse
+                         igual: eso haría pasar por dato una aproximación. #}
+                      {% if act.precio_fuente == 'google_price_range' %}
+                      <span class="badge bg-light text-secondary fs-6"
+                            {% if act.precio_desde and act.precio_hasta %}
+                            title="{{ act.precio_moneda or '$' }} {{ '{:,.0f}'.format(act.precio_desde) }}–{{ '{:,.0f}'.format(act.precio_hasta) }}"
+                            {% endif %}>
+                        <i class="fa-solid fa-circle-check text-success me-1" style="font-size: .7rem;"></i>
+                        ${{ '{:,.0f}'.format(act.precio_estimado or 0) }}
+                      </span>
+                      {% elif act.precio_estimado %}
+                      <span class="badge bg-light text-secondary fs-6">
+                        <span class="text-secondary" style="font-size: .7rem;" data-i18n="act_price_approx">approx.</span>
+                        ${{ '{:,.0f}'.format(act.precio_estimado) }}
+                      </span>
+                      {% else %}
                       <span class="badge bg-light text-secondary fs-6"> ${{ '{:,.0f}'.format(act.precio_estimado or 0) }} </span>
+                      {% endif %}
                       <button type="button" class="btn btn-sm act-action-btn act-edit-btn" data-i18n-title="act_edit" title="Edit activity" aria-label="Edit activity">
                         <i class="fa-solid fa-pen"></i>
                       </button>
@@ -162,6 +193,16 @@
                     </div>
                   </div>
                   <h4 class="fw-bold mb-2 text-dark">{{ act.nombre }}</h4>
+                  {% if act.rating %}
+                  <div class="d-flex align-items-center gap-1 mb-2" style="font-size: .78rem;">
+                    <i class="fa-solid fa-star" style="color: #f59e0b;"></i>
+                    <span class="fw-bold">{{ '%.1f'|format(act.rating) }}</span>
+                    {% if act.opiniones %}
+                    <span class="text-secondary">({{ '{:,.0f}'.format(act.opiniones) }})</span>
+                    {% endif %}
+                    <span class="text-secondary" data-i18n="act_on_google">on Google</span>
+                  </div>
+                  {% endif %}
                   <p class="text-secondary fs-7 mb-3">{{ act.descripcion }}</p>
                   <div class="d-flex gap-2 flex-wrap align-items-center">
                     {% if act.categoria %}
@@ -171,16 +212,44 @@
                       <i class="fa-solid fa-map-pin me-1"></i> {{ act.ubicacion }}
                     </button>
                     {% endif %}
+                    {% if act.mapa %}
+                    <a class="badge rounded p-1 px-2 fw-semibold tag-badge tag-activity text-decoration-none"
+                       href="{{ act.mapa }}" target="_blank" rel="noopener noreferrer">
+                      <i class="fa-brands fa-google me-1"></i>
+                      <span data-i18n="act_open_maps">Open in Maps</span>
+                    </a>
+                    {% endif %}
+                    {% if act.web %}
+                    <a class="badge rounded p-1 px-2 fw-semibold tag-badge tag-activity text-decoration-none"
+                       href="{{ act.web }}" target="_blank" rel="noopener noreferrer">
+                      <i class="fa-solid fa-globe me-1"></i>
+                      <span data-i18n="act_website">Website</span>
+                    </a>
+                    {% endif %}
                     {% if act.link %}
                     {# El flujo cotiza el vuelo contra Aviasales: el link es la
                        oferta concreta de la que salió el precio. #}
                     <a class="badge rounded p-1 px-2 fw-semibold tag-badge tag-activity text-decoration-none"
                        href="{{ act.link }}" target="_blank" rel="noopener noreferrer">
                       <i class="fa-solid fa-arrow-up-right-from-square me-1"></i>
-                      <span data-i18n="act_see_offer">See offer</span>
+                      <span data-i18n="act_see_flight">See flight</span>
                     </a>
                     {% endif %}
                   </div>
+                  {% if act.precio_fuente == 'google_price_range' %}
+                  <p class="text-secondary mt-2 mb-0" style="font-size: 0.75rem;">
+                    <i class="fa-solid fa-tag me-1"></i>
+                    <span data-i18n="act_price_from_google">Price range published on Google</span>
+                    {% if act.precio_desde and act.precio_hasta %}
+                    · {{ act.precio_moneda or '$' }} {{ '{:,.0f}'.format(act.precio_desde) }}–{{ '{:,.0f}'.format(act.precio_hasta) }}
+                    {% endif %}
+                  </p>
+                  {% elif act.precio_fuente == 'tasacion_ia' and act.precio_estimado %}
+                  <p class="text-secondary mt-2 mb-0" style="font-size: 0.75rem;">
+                    <i class="fa-solid fa-wand-magic-sparkles me-1"></i>
+                    <span data-i18n="act_price_from_ai">Estimated price, not a quote</span>
+                  </p>
+                  {% endif %}
                   {% if act.nota %}
                   <p class="text-secondary fst-italic mt-2 mb-0" style="font-size: 0.8rem;">
                     <i class="fa-solid fa-circle-info me-1"></i>{{ act.nota }}
@@ -539,8 +608,16 @@
       document.querySelectorAll('.activity-icon-wrapper').forEach(el => {
           const categoria = (el.dataset.categoria || '').trim();
           const [icono, color] = ESTILO_CATEGORIA[categoria] || ['fa-location-dot', '#475569'];
+
+          // La foto del lugar vive dentro de este mismo contenedor. Reescribir
+          // el innerHTML la borraba apenas cargaba la página: por eso nunca se
+          // veía, aunque el dato y el proxy estuvieran bien. Se la saca antes
+          // y se la vuelve a poner encima del degradé, que queda de fondo para
+          // cuando no hay foto o Google no la devuelve.
+          const foto = el.querySelector('.foto-lugar');
           el.style.background = `linear-gradient(135deg, ${color}, ${color}bb)`;
           el.innerHTML = `<i class="fa-solid ${icono}"></i>`;
+          if (foto) el.appendChild(foto);
       });
   }
 
@@ -681,6 +758,32 @@
   let actividadSeleccionadaId = null;
   let puntosDelDiaActual = [];
   let mapaEstaAgrandado = false;
+
+  function coordenadasDeGoogle(act) {
+      const lat = parseFloat(act.dataset.lat);
+      const lon = parseFloat(act.dataset.lng);
+      // `0, 0` es el Golfo de Guinea: si el flujo mandó ceros, no es un lugar.
+      if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) {
+          return null;
+      }
+      return { lat, lon };
+  }
+
+
+  // Hasta dónde puede estar una actividad de su ciudad para seguir siendo
+  // creíble. Una excursión de día entero puede irse lejos, pero no a otro
+  // continente.
+  const KM_MAXIMOS_DEL_DESTINO = 250;
+
+  function kmEntre(a, b) {
+      const R = 6371;
+      const rad = g => g * Math.PI / 180;
+      const dLat = rad(b.lat - a.lat);
+      const dLon = rad(b.lon - a.lon);
+      const h = Math.sin(dLat / 2) ** 2
+              + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLon / 2) ** 2;
+      return 2 * R * Math.asin(Math.sqrt(h));
+  }
 
   async function geocodificar(consulta, puntoSesgo = null) {
       if (!consulta || !consulta.trim()) return null;
@@ -855,15 +958,30 @@
       // Filtrar actividades con ubicación y que cumplan el filtro de destino
       const paraMapear = actividadesItems.filter(act => {
           const coincideDest = (destFiltro === 'all' || act.dataset.dest === destFiltro);
-          return coincideDest && (act.dataset.ubicacion || '').trim().length > 0;
+          const tieneDonde = coordenadasDeGoogle(act) || (act.dataset.ubicacion || '').trim().length > 0;
+          return coincideDest && tieneDonde;
       });
 
-      // Geocodificar en paralelo
+      // Google Places ya devolvió las coordenadas exactas del lugar. Cuando
+      // están, se usan tal cual: geocodificar el texto de la dirección era una
+      // llamada de red por actividad y podía caer en otra ciudad.
       const tareas = paraMapear.map(async act => {
-          const ubicacion = act.dataset.ubicacion.trim();
+          const exactas = coordenadasDeGoogle(act);
+          if (exactas) return { act, coords: exactas };
+
+          const ubicacion = (act.dataset.ubicacion || '').trim();
           const actDest = act.dataset.dest || VIAJE.destinos[0];
           const sesgo = actDest ? await geocodificar(actDest) : null;
           const coords = await geocodificar(ubicacion, sesgo);
+
+          // El sesgo es sólo una sugerencia para Photon, no un filtro: con una
+          // ubicación genérica ("mercado local", "chiringuito") puede devolver
+          // un homónimo de otro país. Un viaje a Punta Cana con un marcador en
+          // España no es un dato incompleto, es un dato falso: mejor no
+          // dibujarlo.
+          if (coords && sesgo && kmEntre(coords, sesgo) > KM_MAXIMOS_DEL_DESTINO) {
+              return { act, coords: null };
+          }
           return { act, coords };
       });
 
@@ -915,7 +1033,25 @@
           puntosDelDiaActual.push([coords.lat, coords.lon]);
       });
 
+      dibujarRecorridoDelDia();
       actualizarVisibilidadDestinos(dia, destFiltro);
+  }
+
+  function dibujarRecorridoDelDia() {
+      // El orden del array de actividades ES el recorrido: el flujo agrupa los
+      // lugares por zona y después resuelve la ruta desde el hotel. Dibujar la
+      // línea hace visible que el día no cruza la ciudad de punta a punta, que
+      // es justamente el trabajo que hay detrás y no se nota en una lista.
+      if (!capaActividades || puntosDelDiaActual.length < 2) return;
+
+      L.polyline(puntosDelDiaActual, {
+          color: '#006d5b',
+          weight: 2,
+          opacity: 0.55,
+          dashArray: '6, 8',
+          // Debajo de los marcadores: es contexto, no el dato principal.
+          interactive: false,
+      }).addTo(capaActividades).bringToBack();
   }
 
   function actualizarVisibilidadDestinos(dia, destFiltro) {

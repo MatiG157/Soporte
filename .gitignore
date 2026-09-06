@@ -59,5 +59,10 @@ htmlcov/
 # Notas de trabajo: se quedan en local, no van al repo
 CAMBIOS.md
 FALTANTES.md
-PROMPT_N8N.md
-PROMPT_N8N_VUELOS.md
+PROMPT_N8N*.md
+
+# Copias locales de las fotos de Google Places. Se rebajan solas.
+FRONTEND/.cache/
+
+# Config local de Claude Code (permisos por máquina)
+.claude/
