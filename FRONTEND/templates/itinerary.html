@@ -30,7 +30,7 @@
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
       <div>
         <div class="d-flex align-items-center gap-2 mb-2 flex-wrap dest-badges-container">
-          <span class="badge rounded-pill px-3 py-1 border fw-semibold dest-badge active" data-dest="all" style="cursor: pointer; background-color: var(--brand-color, #006d5b); color: white">All</span>
+          <span class="badge rounded-pill px-3 py-1 border fw-semibold dest-badge active" data-dest="all" style="cursor: pointer; background-color: var(--brand-color, #006d5b); color: white" data-i18n="iti_dest_all">All</span>
           {% for destino in viaje.destinos %}
           {% set d_nom = destino.nombre if destino is mapping else destino %}
           <span class="badge bg-light text-secondary rounded-pill px-3 py-1 border fw-semibold dest-badge" data-dest="{{ d_nom }}" style="cursor: pointer">{{ d_nom | short_dest }}</span>
@@ -100,7 +100,7 @@
         {% for itin in viaje.itinerarios %}
         <button class="btn {% if loop.first %}btn-brand text-white shadow-sm border-0{% else %}btn-outline-secondary bg-light text-secondary border-1{% endif %} rounded-pill px-4 fw-bold day-tab-btn" data-day="{{ loop.index }}">
           <span data-i18n="iti_day">Day</span> {{ itin.dia }} &bull; {{ itin.fecha_fmt }} {% if itin.cambio_destino %}
-          <i class="fa-solid fa-plane ms-2" style="color: var(--brand-color, #006d5b)" title="Change of destination"></i>
+          <i class="fa-solid fa-plane ms-2" style="color: var(--brand-color, #006d5b)" data-i18n-title="iti_change_dest" title="Change of destination"></i>
           {% endif %}
         </button>
         {% endfor %}
@@ -281,7 +281,7 @@
           <div class="card rounded-4 shadow-sm mb-4 border-0 overflow-hidden map-card-container position-relative" id="map-card-wrapper">
             <div class="position-relative w-100 flex-grow-1" id="trip-map-container">
               <div id="trip-map"></div>
-              <button type="button" id="btn-close-map-x" class="btn-map-close-floating d-none" title="Cerrar vista amplia" aria-label="Cerrar vista amplia">
+              <button type="button" id="btn-close-map-x" class="btn-map-close-floating d-none" data-i18n-title="iti_map_close" title="Close expanded view" aria-label="Close expanded view">
                 <i class="fa-solid fa-xmark"></i>
               </button>
               <button type="button" id="btn-expand-map" class="btn-map-expand" data-i18n-title="iti_map_expand" title="Agrandar mapa" aria-label="Agrandar mapa">
@@ -1292,8 +1292,9 @@
               } else {
                   const dObj = VIAJE.destinos_obj.find(x => x.nombre === dest);
                   if(dObj) {
-                      const d1 = new Date(dObj.fecha_llegada).toLocaleDateString('en-GB', {day: '2-digit', month: 'short'});
-                      const d2 = new Date(dObj.fecha_partida).toLocaleDateString('en-GB', {day: '2-digit', month: 'short'});
+                      const locale = window.IDIOMA_ACTUAL || 'en';
+                      const d1 = new Date(dObj.fecha_llegada).toLocaleDateString(locale, {day: '2-digit', month: 'short'});
+                      const d2 = new Date(dObj.fecha_partida).toLocaleDateString(locale, {day: '2-digit', month: 'short'});
                       headerDuration.innerHTML = `&bull; ${d1} – ${d2}`;
                   }
               }
@@ -1314,7 +1315,7 @@
               const mapCount = document.getElementById('map-activity-count');
               const mapHeader = document.getElementById('map-header-title');
               if (mapHeader) {
-                  mapHeader.textContent = (dest === 'all') ? (VIAJE.destinos[0] || "Todos Los Destinos") : dest;
+                  mapHeader.textContent = (dest === 'all') ? (VIAJE.destinos[0] || t('iti_dest_all', 'All')) : dest;
               }
               if (mapCount) {
                   mapCount.textContent = totalActs;
@@ -1900,9 +1901,9 @@
           msg.push(`${m}m`);
           timeEl.textContent = msg.join(' ');
       } else {
-          nameEl.textContent = "Ninguna programada";
+          nameEl.textContent = t('iti_next_none', 'Nothing scheduled');
           nameEl.classList.remove('fs-5'); nameEl.classList.add('fs-6');
-          timeEl.textContent = "Viaje finalizado o sin fechas";
+          timeEl.textContent = t('iti_next_done', 'Trip finished or no dates');
       }
   }
 
@@ -1919,7 +1920,10 @@
       restaurarDia();
       inicializarProximaActividad();
       traducirCategoriasEnPantalla();
-      document.addEventListener('idiomaCambiado', traducirCategoriasEnPantalla);
+      document.addEventListener('idiomaCambiado', () => {
+          traducirCategoriasEnPantalla();
+          inicializarProximaActividad();  // "Nada programado" / "Viaje finalizado" dependen del idioma
+      });
 
       const activeDayBtn = document.querySelector('.day-tab-btn.btn-brand');
       if(activeDayBtn) {

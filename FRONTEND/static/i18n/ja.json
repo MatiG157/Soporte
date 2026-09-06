@@ -347,5 +347,11 @@
   "cat_nightlife": "ナイトライフ",
   "cat_shows": "ショー",
   "cat_transport": "交通",
-  "cat_lodging": "宿泊"
+  "cat_lodging": "宿泊",
+  "iti_dest_all": "すべて",
+  "iti_change_dest": "目的地の変更",
+  "iti_map_close": "拡大表示を閉じる",
+  "iti_next_none": "予定なし",
+  "iti_next_done": "旅行終了または日付なし",
+  "index_ph_ages": "例：25、28、5"
 }

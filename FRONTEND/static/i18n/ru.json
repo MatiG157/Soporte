@@ -347,5 +347,11 @@
   "cat_nightlife": "Ночная жизнь",
   "cat_shows": "Шоу",
   "cat_transport": "Транспорт",
-  "cat_lodging": "Жильё"
+  "cat_lodging": "Жильё",
+  "iti_dest_all": "Все",
+  "iti_change_dest": "Смена направления",
+  "iti_map_close": "Закрыть увеличенный вид",
+  "iti_next_none": "Ничего не запланировано",
+  "iti_next_done": "Поездка завершена или без дат",
+  "index_ph_ages": "напр. 25, 28, 5"
 }

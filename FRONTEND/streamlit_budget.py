@@ -44,6 +44,9 @@ COLOR = {
 GRIS_TEXTO = "#1f2937"
 GRIS_SUAVE = "#e5e7eb"
 
+# La interfaz del dashboard está traducida a los mismos 9 idiomas que el sitio
+# (ver FRONTEND/static/i18n/). El párrafo de "análisis automático" más abajo
+# sólo tiene es/en: cae en inglés para el resto.
 TEXTOS = {
     "en": {
         "destinations": "Destinations", "all": "All", "day_range": "Day range",
@@ -76,9 +79,10 @@ TEXTOS = {
         "conn_error": "Couldn't reach the backend",
         "days_short": "days", "day_short": "Day", "budget_line": "budget",
         "avg_day": "avg/day", "people": "people",
+        "type_economy": "Economy", "type_balanced": "Balanced", "type_luxury": "Luxury",
     },
     "es": {
-        "destinations": "Destinos", "all": "Todos", "day_range": "Rango de  días",
+        "destinations": "Destinos", "all": "Todos", "day_range": "Rango de días",
         "per_person": "Por persona", "of": "de",
         "kpi_total": "Total del viaje", "kpi_per_day": "Promedio por día",
         "kpi_budget": "Presupuesto usado", "kpi_selection": "Tramo seleccionado",
@@ -110,8 +114,246 @@ TEXTOS = {
         "conn_error": "No se pudo conectar con el servidor",
         "days_short": "días", "day_short": "Día", "budget_line": "presupuesto",
         "avg_day": "prom/día", "people": "personas",
+        "type_economy": "Económico", "type_balanced": "Equilibrado", "type_luxury": "Lujo",
+    },
+    "pt": {
+        "destinations": "Destinos", "all": "Todos", "day_range": "Intervalo de dias",
+        "per_person": "Por pessoa", "of": "de",
+        "kpi_total": "Total da viagem", "kpi_per_day": "Custo por dia",
+        "kpi_budget": "Orçamento usado", "kpi_selection": "Trecho selecionado",
+        "no_budget": "sem orçamento definido", "over_budget": "acima do orçamento",
+        "left": "disponível",
+        "tab_overview": "Resumo", "tab_daily": "Dia a dia",
+        "tab_categories": "Categorias", "tab_compare": "Comparar opções",
+        "lodging": "Hospedagem", "transport": "Transporte",
+        "activities": "Atividades", "food": "Refeições",
+        "category": "Categoria", "amount": "Valor", "share": "Peso",
+        "per_day_chart": "Gasto diário (custos fixos rateados + atividades reais)",
+        "cumulative": "Gasto acumulado ao longo da viagem",
+        "day_detail": "Detalhe do dia", "pick_day": "Escolha um dia",
+        "activity": "Atividade", "time": "Horário", "place": "Local", "price": "Preço",
+        "quoted": "Preço cotado",
+        "quoted_note": "Preço cotado de cada atividade. Os totais acima distribuem o "
+                       "orçamento oficial de atividades entre os dias, ponderado por esses preços.",
+        "fixed_costs": "Custos fixos rateados", "day_total": "Total do dia",
+        "no_activities": "Nenhuma atividade com preço nesta seleção.",
+        "by_category": "Gasto em atividades por categoria",
+        "filter_categories": "Filtrar categorias", "download": "Baixar CSV",
+        "compare_intro": "As três variantes geradas para esta viagem.",
+        "compare_none": "As outras opções foram descartadas ao confirmar esta viagem, "
+                        "então não há mais nada para comparar.",
+        "insight_title": "Análise automática",
+        "no_trip": "Nenhuma viagem selecionada.",
+        "no_costs": "Esta viagem não tem detalhamento de custos carregado.",
+        "conn_error": "Não foi possível conectar ao servidor",
+        "days_short": "dias", "day_short": "Dia", "budget_line": "orçamento",
+        "avg_day": "méd/dia", "people": "pessoas",
+        "type_economy": "Econômico", "type_balanced": "Equilibrado", "type_luxury": "Luxo",
+    },
+    "fr": {
+        "destinations": "Destinations", "all": "Tous", "day_range": "Plage de jours",
+        "per_person": "Par personne", "of": "sur",
+        "kpi_total": "Total du voyage", "kpi_per_day": "Coût par jour",
+        "kpi_budget": "Budget utilisé", "kpi_selection": "Plage sélectionnée",
+        "no_budget": "aucun budget défini", "over_budget": "au-dessus du budget",
+        "left": "restant",
+        "tab_overview": "Aperçu", "tab_daily": "Jour par jour",
+        "tab_categories": "Catégories", "tab_compare": "Comparer les options",
+        "lodging": "Hébergement", "transport": "Transport",
+        "activities": "Activités", "food": "Repas",
+        "category": "Catégorie", "amount": "Montant", "share": "Part",
+        "per_day_chart": "Dépense quotidienne (coûts fixes répartis + activités réelles)",
+        "cumulative": "Dépenses cumulées sur le voyage",
+        "day_detail": "Détail du jour", "pick_day": "Choisissez un jour",
+        "activity": "Activité", "time": "Horaire", "place": "Lieu", "price": "Prix",
+        "quoted": "Prix estimé",
+        "quoted_note": "Prix estimé de chaque activité. Les totaux ci-dessus répartissent le "
+                       "budget officiel des activités entre les jours, pondéré par ces prix.",
+        "fixed_costs": "Coûts fixes répartis", "day_total": "Total du jour",
+        "no_activities": "Aucune activité tarifée dans cette sélection.",
+        "by_category": "Dépenses d'activités par catégorie",
+        "filter_categories": "Filtrer les catégories", "download": "Télécharger le CSV",
+        "compare_intro": "Les trois variantes générées pour ce voyage.",
+        "compare_none": "Les autres options ont été écartées lors de la confirmation de ce "
+                        "voyage, il n'y a donc plus rien à comparer.",
+        "insight_title": "Analyse automatique",
+        "no_trip": "Aucun voyage sélectionné.",
+        "no_costs": "Ce voyage n'a pas de détail des coûts chargé.",
+        "conn_error": "Impossible de joindre le serveur",
+        "days_short": "jours", "day_short": "Jour", "budget_line": "budget",
+        "avg_day": "moy/jour", "people": "personnes",
+        "type_economy": "Économique", "type_balanced": "Équilibré", "type_luxury": "Luxe",
+    },
+    "it": {
+        "destinations": "Destinazioni", "all": "Tutti", "day_range": "Intervallo di giorni",
+        "per_person": "A persona", "of": "di",
+        "kpi_total": "Totale del viaggio", "kpi_per_day": "Costo al giorno",
+        "kpi_budget": "Budget utilizzato", "kpi_selection": "Intervallo selezionato",
+        "no_budget": "nessun budget impostato", "over_budget": "oltre il budget",
+        "left": "disponibile",
+        "tab_overview": "Panoramica", "tab_daily": "Giorno per giorno",
+        "tab_categories": "Categorie", "tab_compare": "Confronta le opzioni",
+        "lodging": "Alloggio", "transport": "Trasporti",
+        "activities": "Attività", "food": "Pasti",
+        "category": "Categoria", "amount": "Importo", "share": "Peso",
+        "per_day_chart": "Spesa giornaliera (costi fissi ripartiti + attività reali)",
+        "cumulative": "Spesa cumulativa durante il viaggio",
+        "day_detail": "Dettaglio del giorno", "pick_day": "Scegli un giorno",
+        "activity": "Attività", "time": "Orario", "place": "Luogo", "price": "Prezzo",
+        "quoted": "Prezzo preventivato",
+        "quoted_note": "Prezzo preventivato di ogni attività. I totali sopra distribuiscono il "
+                       "budget ufficiale delle attività tra i giorni, ponderato in base a questi prezzi.",
+        "fixed_costs": "Costi fissi ripartiti", "day_total": "Totale del giorno",
+        "no_activities": "Nessuna attività con prezzo in questa selezione.",
+        "by_category": "Spesa per attività per categoria",
+        "filter_categories": "Filtra categorie", "download": "Scarica CSV",
+        "compare_intro": "Le tre varianti generate per questo viaggio.",
+        "compare_none": "Le altre opzioni sono state scartate alla conferma di questo viaggio, "
+                        "quindi non c'è più nulla da confrontare.",
+        "insight_title": "Analisi automatica",
+        "no_trip": "Nessun viaggio selezionato.",
+        "no_costs": "Questo viaggio non ha un dettaglio dei costi caricato.",
+        "conn_error": "Impossibile raggiungere il server",
+        "days_short": "giorni", "day_short": "Giorno", "budget_line": "budget",
+        "avg_day": "media/giorno", "people": "persone",
+        "type_economy": "Economico", "type_balanced": "Equilibrato", "type_luxury": "Lusso",
+    },
+    "de": {
+        "destinations": "Reiseziele", "all": "Alle", "day_range": "Tagesbereich",
+        "per_person": "Pro Person", "of": "von",
+        "kpi_total": "Reisegesamtkosten", "kpi_per_day": "Kosten pro Tag",
+        "kpi_budget": "Budget genutzt", "kpi_selection": "Ausgewählter Bereich",
+        "no_budget": "kein Budget festgelegt", "over_budget": "über Budget",
+        "left": "übrig",
+        "tab_overview": "Übersicht", "tab_daily": "Tag für Tag",
+        "tab_categories": "Kategorien", "tab_compare": "Optionen vergleichen",
+        "lodging": "Unterkunft", "transport": "Transport",
+        "activities": "Aktivitäten", "food": "Verpflegung",
+        "category": "Kategorie", "amount": "Betrag", "share": "Anteil",
+        "per_day_chart": "Tägliche Ausgaben (anteilige Fixkosten + tatsächliche Aktivitäten)",
+        "cumulative": "Kumulierte Ausgaben während der Reise",
+        "day_detail": "Tagesdetail", "pick_day": "Tag auswählen",
+        "activity": "Aktivität", "time": "Uhrzeit", "place": "Ort", "price": "Preis",
+        "quoted": "Angegebener Preis",
+        "quoted_note": "Angegebener Preis jeder Aktivität. Die Summen oben verteilen das "
+                       "offizielle Aktivitätsbudget auf die Tage, gewichtet nach diesen Preisen.",
+        "fixed_costs": "Anteilige Fixkosten", "day_total": "Tagessumme",
+        "no_activities": "Keine Aktivitäten mit Preis in dieser Auswahl.",
+        "by_category": "Aktivitätsausgaben nach Kategorie",
+        "filter_categories": "Kategorien filtern", "download": "CSV herunterladen",
+        "compare_intro": "Die drei für diese Reise erzeugten Varianten.",
+        "compare_none": "Die anderen Optionen wurden bei der Bestätigung dieser Reise "
+                        "verworfen, es gibt also nichts mehr zu vergleichen.",
+        "insight_title": "Automatische Analyse",
+        "no_trip": "Keine Reise ausgewählt.",
+        "no_costs": "Für diese Reise ist keine Kostenaufstellung geladen.",
+        "conn_error": "Server nicht erreichbar",
+        "days_short": "Tage", "day_short": "Tag", "budget_line": "Budget",
+        "avg_day": "Ø/Tag", "people": "Personen",
+        "type_economy": "Sparsam", "type_balanced": "Ausgewogen", "type_luxury": "Luxus",
+    },
+    "ru": {
+        "destinations": "Направления", "all": "Все", "day_range": "Диапазон дней",
+        "per_person": "На человека", "of": "из",
+        "kpi_total": "Всего за поездку", "kpi_per_day": "Стоимость в день",
+        "kpi_budget": "Использовано бюджета", "kpi_selection": "Выбранный отрезок",
+        "no_budget": "бюджет не задан", "over_budget": "сверх бюджета",
+        "left": "осталось",
+        "tab_overview": "Обзор", "tab_daily": "По дням",
+        "tab_categories": "Категории", "tab_compare": "Сравнить варианты",
+        "lodging": "Проживание", "transport": "Транспорт",
+        "activities": "Активности", "food": "Питание",
+        "category": "Категория", "amount": "Сумма", "share": "Доля",
+        "per_day_chart": "Расходы в день (распределённые фиксированные затраты + реальные активности)",
+        "cumulative": "Накопленные расходы за поездку",
+        "day_detail": "Детали дня", "pick_day": "Выберите день",
+        "activity": "Активность", "time": "Время", "place": "Место", "price": "Цена",
+        "quoted": "Заявленная цена",
+        "quoted_note": "Заявленная цена каждой активности. Итоги выше распределяют официальный "
+                       "бюджет на активности по дням, взвешивая его по этим ценам.",
+        "fixed_costs": "Распределённые фиксированные затраты", "day_total": "Итого за день",
+        "no_activities": "В этой выборке нет активностей с ценой.",
+        "by_category": "Расходы на активности по категориям",
+        "filter_categories": "Фильтровать категории", "download": "Скачать CSV",
+        "compare_intro": "Три варианта, созданные для этой поездки.",
+        "compare_none": "Другие варианты были отброшены при подтверждении этой поездки, "
+                        "поэтому сравнивать больше нечего.",
+        "insight_title": "Автоматический анализ",
+        "no_trip": "Поездка не выбрана.",
+        "no_costs": "Для этой поездки не загружена разбивка расходов.",
+        "conn_error": "Не удалось подключиться к серверу",
+        "days_short": "дн.", "day_short": "День", "budget_line": "бюджет",
+        "avg_day": "сред./день", "people": "чел.",
+        "type_economy": "Эконом", "type_balanced": "Сбалансированный", "type_luxury": "Люкс",
+    },
+    "zh": {
+        "destinations": "目的地", "all": "全部", "day_range": "天数范围",
+        "per_person": "每人", "of": "/",
+        "kpi_total": "行程总计", "kpi_per_day": "每日花费",
+        "kpi_budget": "已用预算", "kpi_selection": "所选区间",
+        "no_budget": "未设置预算", "over_budget": "超出预算",
+        "left": "剩余",
+        "tab_overview": "概览", "tab_daily": "逐日",
+        "tab_categories": "类别", "tab_compare": "比较方案",
+        "lodging": "住宿", "transport": "交通",
+        "activities": "活动", "food": "餐饮",
+        "category": "类别", "amount": "金额", "share": "占比",
+        "per_day_chart": "每日支出（按比例分摊的固定成本 + 实际活动）",
+        "cumulative": "整个行程的累计支出",
+        "day_detail": "当日明细", "pick_day": "选择一天",
+        "activity": "活动", "time": "时间", "place": "地点", "price": "价格",
+        "quoted": "报价",
+        "quoted_note": "每项活动的报价。上方的总计按这些价格加权，将官方活动预算分配到各天。",
+        "fixed_costs": "按比例分摊的固定成本", "day_total": "当日合计",
+        "no_activities": "此选择中没有已定价的活动。",
+        "by_category": "按类别的活动支出",
+        "filter_categories": "筛选类别", "download": "下载 CSV",
+        "compare_intro": "为这次行程生成的三个方案。",
+        "compare_none": "确认此行程时其他方案已被放弃，因此没有可比较的内容。",
+        "insight_title": "自动分析",
+        "no_trip": "未选择行程。",
+        "no_costs": "此行程未加载费用明细。",
+        "conn_error": "无法连接到服务器",
+        "days_short": "天", "day_short": "天", "budget_line": "预算",
+        "avg_day": "日均", "people": "人",
+        "type_economy": "经济", "type_balanced": "均衡", "type_luxury": "豪华",
+    },
+    "ja": {
+        "destinations": "目的地", "all": "すべて", "day_range": "日の範囲",
+        "per_person": "一人あたり", "of": "/",
+        "kpi_total": "旅行合計", "kpi_per_day": "1日あたりの費用",
+        "kpi_budget": "予算の使用率", "kpi_selection": "選択した区間",
+        "no_budget": "予算未設定", "over_budget": "予算超過",
+        "left": "残り",
+        "tab_overview": "概要", "tab_daily": "日ごと",
+        "tab_categories": "カテゴリ", "tab_compare": "選択肢を比較",
+        "lodging": "宿泊", "transport": "交通",
+        "activities": "アクティビティ", "food": "食事",
+        "category": "カテゴリ", "amount": "金額", "share": "割合",
+        "per_day_chart": "1日の支出（按分した固定費 + 実際のアクティビティ）",
+        "cumulative": "旅行全体の累計支出",
+        "day_detail": "日の詳細", "pick_day": "日を選択",
+        "activity": "アクティビティ", "time": "時間", "place": "場所", "price": "価格",
+        "quoted": "見積価格",
+        "quoted_note": "各アクティビティの見積価格。上の合計は、これらの価格で重み付けして"
+                       "公式のアクティビティ予算を各日に配分しています。",
+        "fixed_costs": "按分した固定費", "day_total": "日の合計",
+        "no_activities": "この選択には価格付きのアクティビティがありません。",
+        "by_category": "カテゴリ別のアクティビティ支出",
+        "filter_categories": "カテゴリを絞り込む", "download": "CSV をダウンロード",
+        "compare_intro": "この旅行のために生成された3つのバリエーション。",
+        "compare_none": "この旅行を確定した際に他の選択肢は破棄されたため、比較できるものはありません。",
+        "insight_title": "自動分析",
+        "no_trip": "旅行が選択されていません。",
+        "no_costs": "この旅行には費用の内訳が読み込まれていません。",
+        "conn_error": "サーバーに接続できませんでした",
+        "days_short": "日", "day_short": "日", "budget_line": "予算",
+        "avg_day": "平均/日", "people": "人",
+        "type_economy": "エコノミー", "type_balanced": "バランス", "type_luxury": "ラグジュアリー",
     },
 }
+
+IDIOMAS_VALIDOS = set(TEXTOS)
 
 st.set_page_config(page_title="Budget", layout="wide", initial_sidebar_state="collapsed")
 
@@ -212,16 +454,28 @@ def parse_fecha(valor):
         return None
 
 
-def fmt_fecha(d, es_lang=True):
+# Abreviaturas de mes por idioma. zh/ja no las usan (formato "9月5日", abajo).
+_MESES = {
+    "en": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    "es": ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
+    "pt": ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"],
+    "fr": ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."],
+    "it": ["gen", "feb", "mar", "apr", "mag", "giu", "lug", "ago", "set", "ott", "nov", "dic"],
+    "de": ["Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sept.", "Okt.", "Nov.", "Dez."],
+    "ru": ["янв.", "февр.", "марта", "апр.", "мая", "июня", "июля", "авг.", "сент.", "окт.", "нояб.", "дек."],
+}
+
+
+def fmt_fecha(d, lang_code="en"):
     if not d:
         return ""
     if isinstance(d, str):
         d = parse_fecha(d)
     if not d:
         return ""
-    meses_es = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-    meses_en = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    meses = meses_es if es_lang else meses_en
+    if lang_code in ("zh", "ja"):
+        return f"{d.month}月{d.day}日"
+    meses = _MESES.get(lang_code, _MESES["en"])
     return f"{d.day:02d} {meses[d.month - 1]}"
 
 
@@ -274,9 +528,23 @@ def estilo(fig, alto=300, leyenda=True):
 params = st.query_params
 id_viaje = params.get("id_viaje")
 id_usuario = params.get("id_usuario")
-lang = "es" if params.get("lang") == "es" else "en"
+lang = params.get("lang") if params.get("lang") in IDIOMAS_VALIDOS else "en"
 t = TEXTOS[lang]
 es = lang == "es"
+
+
+def tipo_label(valor):
+    """'Economy'/'Balanced'/'Luxury' -> etiqueta traducida (o el valor crudo)."""
+    return t.get("type_" + (valor or "").strip().lower(), valor or "")
+
+
+def dia_label(numero):
+    """'Day 3' con el orden correcto de cada idioma."""
+    if lang == "zh":
+        return f"第{numero}天"
+    if lang == "ja":
+        return f"{numero}日目"
+    return f"{t['day_short']} {numero}"
 
 if not id_viaje:
     st.info(t["no_trip"], icon=":material/info:")
@@ -391,7 +659,7 @@ else:
     if not f_fin and fecha_inicio:
         f_fin = fecha_inicio + timedelta(days=max(dias_destino_actual) - 1)
 
-texto_fechas = f" • {fmt_fecha(f_ini, es)} – {fmt_fecha(f_fin, es)}" if f_ini and f_fin else ""
+texto_fechas = f" • {fmt_fecha(f_ini, lang)} – {fmt_fecha(f_fin, lang)}" if f_ini and f_fin else ""
 label_slider = f"{t['day_range']}{texto_fechas}"
 min_dia_slider = min(dias_destino_actual)
 max_dia_slider = max(dias_destino_actual)
@@ -404,7 +672,7 @@ with col_dias:
         )
     else:
         rango = (min_dia_slider, max_dia_slider)
-        st.caption(f"{label_slider}: {t['day_short']} {rango[0]}")
+        st.caption(f"{label_slider}: {dia_label(rango[0])}")
 
 with col_modo:
     por_persona = st.toggle(
@@ -444,9 +712,9 @@ k1, k2, k3, k4 = st.columns(4)
 
 k1.metric(
     t["kpi_total"], dinero(total_mostrado),
-    delta=viaje.get("tipo_viaje"), delta_color="off",
+    delta=tipo_label(viaje.get("tipo_viaje")), delta_color="off",
     help=f"{dias_totales} {t['days_short']}"
-         + (f" · {cantidad_personas} pax" if cantidad_personas > 1 else ""),
+         + (f" · {cantidad_personas} {t['people']}" if cantidad_personas > 1 else ""),
 )
 k2.metric(t["kpi_per_day"], dinero(total_mostrado / dias_totales), help=t["per_day_chart"])
 
@@ -545,7 +813,7 @@ with tab_dia:
         for clave, etiqueta in (("alojamiento", t["lodging"]), ("transporte", t["transport"]),
                                 ("comidas", t["food"])):
             df_dias[etiqueta] = fijos_por_dia[clave]
-        df_dias["etiqueta"] = df_dias["dia"].map(lambda d: f"{t['day_short']} {d}")
+        df_dias["etiqueta"] = df_dias["dia"].map(dia_label)
 
         st.caption(t["per_day_chart"])
         fig = go.Figure()
@@ -575,7 +843,7 @@ with tab_dia:
         # pestaña es la que más alto ocupa.
         with st.expander(t["day_detail"], icon=":material/event:"):
             dia_elegido = st.selectbox(
-                t["pick_day"], dias_sel, format_func=lambda d: f"{t['day_short']} {d}",
+                t["pick_day"], dias_sel, format_func=dia_label,
                 key="f_dia_detalle",
             )
             detalle = df_f[df_f["dia"] == dia_elegido]
@@ -691,7 +959,7 @@ with tab_comp:
                          else f"{dinero(dif)} {t['left']}")
                 color = "inverse" if dif < 0 else "normal"
             col.metric(
-                (v.get("tipo_viaje") or "") + ("  ←" if es_actual else ""),
+                tipo_label(v.get("tipo_viaje")) + ("  ←" if es_actual else ""),
                 dinero(total_v), delta=delta, delta_color=color,
             )
 
@@ -705,7 +973,7 @@ with tab_comp:
         for etiqueta, clave_costo, clave_color in claves:
             fig.add_bar(
                 name=etiqueta,
-                x=[v.get("tipo_viaje") for v in variantes],
+                x=[tipo_label(v.get("tipo_viaje")) for v in variantes],
                 y=[((v.get("costos") or {}).get(clave_costo) or 0) / divisor
                    for v in variantes],
                 marker=dict(color=COLOR[clave_color], line=dict(width=0)),
@@ -733,11 +1001,11 @@ if presupuesto_max:
     uso = total_viaje / presupuesto_max
     if uso > 1:
         frases.append(
-            f"Este plan **{viaje.get('tipo_viaje')}** se pasa del presupuesto en "
+            f"Este plan **{tipo_label(viaje.get('tipo_viaje'))}** se pasa del presupuesto en "
             f"**{dinero_md(total_viaje - presupuesto_max)}** ({uso * 100:.0f}% del máximo). "
             f"Que la variante más cara lo exceda es esperado: para eso están las tres opciones."
             if es else
-            f"This **{viaje.get('tipo_viaje')}** plan goes over budget by "
+            f"This **{tipo_label(viaje.get('tipo_viaje'))}** plan goes over budget by "
             f"**{dinero_md(total_viaje - presupuesto_max)}** ({uso * 100:.0f}% of the max). "
             f"The priciest variant going over is expected: that's why there are three options."
         )

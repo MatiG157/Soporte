@@ -347,5 +347,11 @@
   "cat_nightlife": "夜生活",
   "cat_shows": "演出",
   "cat_transport": "交通",
-  "cat_lodging": "住宿"
+  "cat_lodging": "住宿",
+  "iti_dest_all": "全部",
+  "iti_change_dest": "更换目的地",
+  "iti_map_close": "关闭放大视图",
+  "iti_next_none": "没有安排",
+  "iti_next_done": "行程已结束或无日期",
+  "index_ph_ages": "例如 25、28、5"
 }

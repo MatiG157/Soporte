@@ -347,5 +347,11 @@
   "cat_nightlife": "Vida nocturna",
   "cat_shows": "Espectáculos",
   "cat_transport": "Transporte",
-  "cat_lodging": "Alojamiento"
+  "cat_lodging": "Alojamiento",
+  "iti_dest_all": "Todos",
+  "iti_change_dest": "Cambio de destino",
+  "iti_map_close": "Cerrar vista ampliada",
+  "iti_next_none": "Nada programado",
+  "iti_next_done": "Viaje finalizado o sin fechas",
+  "index_ph_ages": "ej. 25, 28, 5"
 }
