@@ -59,20 +59,20 @@ TEXTOS = {
         "lodging": "Accommodation", "transport": "Transport",
         "activities": "Activities", "food": "Food",
         "category": "Category", "amount": "Amount", "share": "Share",
-        "per_day_chart": "Daily spending (fixed costs prorated + real activities)",
+        "per_day_chart": "Daily spending by category (real activities + average for inactive categories)",
         "cumulative": "Cumulative spending across the trip",
         "day_detail": "Day detail", "pick_day": "Pick a day",
         "activity": "Activity", "time": "Time", "place": "Place", "price": "Price",
         "quoted": "Quoted price",
-        "quoted_note": "Quoted price of each activity. The totals above distribute the "
-                       "official activities budget across days, weighted by these prices.",
+        "quoted_note": "Price of each activity. Categories without specific activities on that day "
+                       "are estimated using the daily average.",
         "fixed_costs": "Prorated fixed costs", "day_total": "Day total",
         "no_activities": "No priced activities in this selection.",
         "by_category": "Activity spending by category",
         "filter_categories": "Filter categories", "download": "Download CSV",
         "compare_intro": "The three variants generated for this trip.",
         "compare_none": "The other options were discarded when this trip was confirmed, "
-                        "so there is nothing left to compare.",
+        "so there is nothing left to compare.",
         "insight_title": "Automatic insight",
         "no_trip": "No trip selected.",
         "no_costs": "This trip has no cost breakdown loaded.",
@@ -93,14 +93,13 @@ TEXTOS = {
         "lodging": "Alojamiento", "transport": "Transporte",
         "activities": "Actividades", "food": "Comidas",
         "category": "Categoría", "amount": "Monto", "share": "Peso",
-        "per_day_chart": "Gasto diario (costos fijos prorrateados + actividades reales)",
+        "per_day_chart": "Gasto diario por rubro (actividades reales + promedio en rubros sin actividad)",
         "cumulative": "Gasto acumulado a lo largo del viaje",
         "day_detail": "Detalle del día", "pick_day": "Elegí un día",
         "activity": "Actividad", "time": "Horario", "place": "Lugar", "price": "Precio",
         "quoted": "Precio cotizado",
-        "quoted_note": "Precio cotizado de cada actividad. Los totales de arriba reparten "
-                       "el presupuesto oficial de actividades entre los días, usando estos "
-                       "precios como peso.",
+        "quoted_note": "Precio de cada actividad. Los rubros sin actividades específicas en el día "
+                       "se completan con el promedio diario estimado.",
         "fixed_costs": "Costos fijos prorrateados", "day_total": "Total del día",
         "no_activities": "No hay actividades con precio en esta selección.",
         "by_category": "Gasto en actividades por categoría",
@@ -576,9 +575,27 @@ FIJOS = {
     "transporte": costos.get("costo_transporte") or 0,
     "comidas": costos.get("costo_comidas") or 0,
 }
-cat_actividades = costos.get("costo_actividades") or 0
 total_viaje = (costos.get("costo_total_ajustado") or viaje.get("costo_total_estimado")
                or costos.get("costo_total_base") or 0)
+
+# Categorías con las que el flujo etiqueta las actividades. Se agrupan por
+# rubro porque el vuelo y el check-in llegan como actividades del itinerario
+# (mismo criterio que FRONTEND/app.py).
+RUBRO_POR_CATEGORIA = {
+    "transporte": "transporte", "transport": "transporte", "vuelo": "transporte",
+    "traslado": "transporte",
+    "alojamiento": "alojamiento", "hospedaje": "alojamiento", "hotel": "alojamiento",
+    "accommodation": "alojamiento", "lodging": "alojamiento",
+    "gastronomía": "comidas", "gastronomia": "comidas", "comida": "comidas",
+    "comidas": "comidas", "food": "comidas", "restaurante": "comidas",
+}
+
+
+def rubro_de(actividad):
+    """A qué rubro del presupuesto corresponde una actividad."""
+    categoria = (actividad.get("categoria") or "").strip().lower()
+    return RUBRO_POR_CATEGORIA.get(categoria, "actividades")
+
 
 # Cada día del itinerario se asigna al destino cuyo rango de fechas lo contiene
 # (misma lógica que `_cargar_viaje()` en FRONTEND/app.py).
@@ -611,25 +628,16 @@ for indice, itin in enumerate(itinerarios):
             "destino": act.get("destino") or destino_dia or "",
             "actividad": act.get("nombre") or "",
             "categoria": act.get("categoria") or ("Otros" if es else "Other"),
+            "rubro": rubro_de(act),
             "horario": act.get("horario_sugerido") or "",
             "lugar": act.get("ubicacion") or "",
             "precio": float(act.get("precio_estimado") or 0),
         })
 
 df_actividades = pd.DataFrame(filas, columns=[
-    "dia", "destino", "actividad", "categoria", "horario", "lugar", "precio"
+    "dia", "destino", "actividad", "categoria", "rubro", "horario", "lugar", "precio"
 ])
 dias_disponibles = [i.get("dia") for i in itinerarios if i.get("dia") is not None] or [1]
-
-# El desglose de n8n trae un total de categoría para actividades que no coincide
-# con la suma de los precios cotizados actividad por actividad (son dos salidas
-# independientes del flujo). El total del desglose es el que cierra con el costo
-# del viaje, así que es el que manda: se reparte entre los días usando los
-# precios cotizados como peso. Así cada día y cada tramo suman exactamente el
-# total del viaje, y la forma del gasto (qué día pesa más) se conserva.
-suma_cotizada = float(df_actividades["precio"].sum())
-factor_actividades = (cat_actividades / suma_cotizada) if suma_cotizada else 0.0
-df_actividades["asignado"] = df_actividades["precio"] * factor_actividades
 
 
 # ─── Filtros ─────────────────────────────────────────────────────────────────
@@ -676,33 +684,51 @@ with col_dias:
 
 with col_modo:
     por_persona = st.toggle(
-        t["per_person"], key="f_persona", disabled=cantidad_personas <= 1,
+        t["per_person"], value=True, key="f_persona", disabled=cantidad_personas <= 1,
         help=f"{cantidad_personas} {t['people']}",
     )
 
 divisor = cantidad_personas if por_persona else 1
+mult_persona = 1.0 if por_persona else float(cantidad_personas)
 
-# Filtrar por destino recorta también los días: los costos fijos se prorratean
+# Filtrar por destino recorta también los días: los costos se analizan
 # sobre los días que se están mirando, no sobre los del viaje entero.
 dias_sel = [d for d in dias_disponibles if rango[0] <= d <= rango[1]]
 if filtro_destino != t["all"]:
     dias_sel = [d for d in dias_sel if dia_destino.get(d) == filtro_destino]
 tramo_completo = len(dias_sel) == len(dias_disponibles) and filtro_destino == t["all"]
 
-# Los costos fijos se prorratean por día: así el "día a día" y cualquier tramo
-# muestran lo que cuesta estar ahí, no sólo las actividades sueltas. Sin esto,
-# filtrar por un día dejaba el desglose en 100% actividades y no decía nada.
-fijos_por_dia = {k: v / dias_totales / divisor for k, v in FIJOS.items()}
-fijo_diario = sum(fijos_por_dia.values())
+# Per-diem para rubros no cubiertos por actividades en el día (idéntico a FRONTEND/app.py).
+# Si por_persona es True: divisor = personas (unidad por persona).
+# Si por_persona es False: divisor = 1 (unidad total grupo).
+per_diem = {k: v / dias_totales / divisor for k, v in FIJOS.items()}
+
+# Cálculo de costos por día respetando actividades cotizadas y completando
+# con per-diem sólo cuando el rubro no tiene actividades en ese día.
+costos_por_dia = {}
+for itin in itinerarios:
+    d = itin.get("dia")
+    rubros_dia = {"actividades": 0.0, "comidas": 0.0, "transporte": 0.0, "alojamiento": 0.0}
+    cubiertos = set()
+    for act in itin.get("actividades") or []:
+        r = rubro_de(act)
+        rubros_dia[r] += float(act.get("precio_estimado") or 0) * mult_persona
+        cubiertos.add(r)
+    for r in ("alojamiento", "transporte", "comidas"):
+        if r not in cubiertos and per_diem.get(r, 0) > 0:
+            rubros_dia[r] += per_diem[r]
+    costos_por_dia[d] = {k: round(v, 2) for k, v in rubros_dia.items()}
 
 df_f = df_actividades.copy()
 if filtro_destino != t["all"]:
     df_f = df_f[df_f["destino"] == filtro_destino]
 df_f = df_f[df_f["dia"].isin(dias_sel)].copy()
-df_f[["precio", "asignado"]] = df_f[["precio", "asignado"]] / divisor
+df_f["monto"] = df_f["precio"] * mult_persona
 
-actividades_tramo = float(df_f["asignado"].sum())
-subtotal_tramo = actividades_tramo + fijo_diario * len(dias_sel)
+subtotal_tramo = sum(
+    sum(costos_por_dia.get(d, {}).values())
+    for d in dias_sel
+)
 
 
 # ─── KPIs ────────────────────────────────────────────────────────────────────
@@ -756,12 +782,13 @@ tab_resumen, tab_dia, tab_cat, tab_comp = st.tabs([
 
 # 1) Resumen: desglose según la selección de filtros activos.
 with tab_resumen:
-    n_dias = len(dias_sel)
+    total_aloj = sum(costos_por_dia.get(d, {}).get("alojamiento", 0.0) for d in dias_sel)
+    total_transp = sum(costos_por_dia.get(d, {}).get("transporte", 0.0) for d in dias_sel)
+    total_act = sum(costos_por_dia.get(d, {}).get("actividades", 0.0) for d in dias_sel)
+    total_comidas = sum(costos_por_dia.get(d, {}).get("comidas", 0.0) for d in dias_sel)
+
     etiquetas = [t["lodging"], t["transport"], t["activities"], t["food"]]
-    valores = [fijos_por_dia["alojamiento"] * n_dias,
-               fijos_por_dia["transporte"] * n_dias,
-               actividades_tramo,
-               fijos_por_dia["comidas"] * n_dias]
+    valores = [total_aloj, total_transp, total_act, total_comidas]
     colores = [COLOR["alojamiento"], COLOR["transporte"],
                COLOR["actividades"], COLOR["comidas"]]
 
@@ -806,14 +833,12 @@ with tab_dia:
     if not dias_sel:
         st.caption(t["no_activities"])
     else:
-        gasto_dia = (df_f.groupby("dia")["asignado"].sum() if not df_f.empty
-                     else pd.Series(dtype=float))
         df_dias = pd.DataFrame({"dia": dias_sel})
-        df_dias[t["activities"]] = df_dias["dia"].map(gasto_dia).fillna(0.0)
-        for clave, etiqueta in (("alojamiento", t["lodging"]), ("transporte", t["transport"]),
-                                ("comidas", t["food"])):
-            df_dias[etiqueta] = fijos_por_dia[clave]
         df_dias["etiqueta"] = df_dias["dia"].map(dia_label)
+        df_dias[t["lodging"]] = df_dias["dia"].map(lambda d: costos_por_dia.get(d, {}).get("alojamiento", 0.0))
+        df_dias[t["transport"]] = df_dias["dia"].map(lambda d: costos_por_dia.get(d, {}).get("transporte", 0.0))
+        df_dias[t["food"]] = df_dias["dia"].map(lambda d: costos_por_dia.get(d, {}).get("comidas", 0.0))
+        df_dias[t["activities"]] = df_dias["dia"].map(lambda d: costos_por_dia.get(d, {}).get("actividades", 0.0))
 
         st.caption(t["per_day_chart"])
         fig = go.Figure()
@@ -847,21 +872,25 @@ with tab_dia:
                 key="f_dia_detalle",
             )
             detalle = df_f[df_f["dia"] == dia_elegido]
+            costos_este_dia = costos_por_dia.get(dia_elegido, {})
+            dia_total = sum(costos_este_dia.values())
 
-            c1, c2, c3 = st.columns(3)
-            c1.metric(t["activities"], dinero(detalle["asignado"].sum()))
-            c2.metric(t["fixed_costs"], dinero(fijo_diario), help=t["per_day_chart"])
-            c3.metric(t["day_total"], dinero(detalle["asignado"].sum() + fijo_diario))
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric(t["transport"], dinero(costos_este_dia.get("transporte", 0)))
+            c2.metric(t["lodging"], dinero(costos_este_dia.get("alojamiento", 0)))
+            c3.metric(t["food"], dinero(costos_este_dia.get("comidas", 0)))
+            c4.metric(t["activities"], dinero(costos_este_dia.get("actividades", 0)))
+            c5.metric(t["day_total"], dinero(dia_total))
 
             if detalle.empty:
                 st.caption(t["no_activities"])
             else:
                 st.dataframe(
-                    detalle[["horario", "actividad", "categoria", "lugar", "precio"]].rename(
+                    detalle[["horario", "actividad", "categoria", "lugar", "monto"]].rename(
                         columns={
                             "horario": t["time"], "actividad": t["activity"],
                             "categoria": t["category"], "lugar": t["place"],
-                            "precio": t["quoted"],
+                            "monto": t["quoted"],
                         }
                     ),
                     hide_index=True, width="stretch",
@@ -883,7 +912,7 @@ with tab_cat:
         if df_c.empty:
             st.caption(t["no_activities"])
         else:
-            resumen = (df_c.groupby("categoria")["asignado"].agg(["sum", "count"])
+            resumen = (df_c.groupby("categoria")["monto"].agg(["sum", "count"])
                        .reset_index().sort_values("sum", ascending=False))
             resumen.columns = ["categoria", "total", "cantidad"]
 
@@ -1031,7 +1060,8 @@ if any(FIJOS.values()) and total_viaje:
     )
 
 if not df_f.empty:
-    por_dia_serie = df_f.groupby("dia")["asignado"].sum()
+    df_act_puras = df_f[df_f["rubro"] == "actividades"]
+    por_dia_serie = df_act_puras.groupby("dia")["monto"].sum() if not df_act_puras.empty else pd.Series(dtype=float)
     if len(por_dia_serie) > 1 and por_dia_serie.max() > 0:
         frases.append(
             f"En actividades, el **{t['day_short'].lower()} {por_dia_serie.idxmax()}** es el "

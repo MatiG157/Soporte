@@ -555,29 +555,31 @@
 /* ─── Botones de control del mapa ────────────────────────────────────────── */
 .btn-map-expand {
   position: absolute;
-  bottom: 14px;
+  bottom: 12px;
   right: 12px;
   z-index: 500;
-  width: 36px;
-  height: 36px;
-  background-color: #ffffff;
-  border: 1px solid #cbd5e1;
+  width: 32px;
+  height: 32px;
+  background-color: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #334155;
-  font-size: 0.95rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  font-size: 0.85rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   cursor: pointer;
   transition: all 0.2s ease-in-out;
 }
 
 .btn-map-expand:hover {
-  background-color: #f8fafc;
+  background-color: rgba(255, 255, 255, 0.95) !important;
   color: var(--brand-color, #006d5b);
-  border-color: var(--brand-color, #006d5b);
-  transform: scale(1.08);
+  border-color: var(--brand-color, #006d5b) !important;
+  transform: scale(1.06);
 }
 
 .btn-map-expand:active {
@@ -586,29 +588,31 @@
 
 .btn-map-close-floating {
   position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 500;
-  width: 36px;
-  height: 36px;
-  background-color: #ffffff;
-  border: 1px solid #cbd5e1;
+  top: 12px;
+  right: 12px;
+  z-index: 1002;
+  width: 32px;
+  height: 32px;
+  background-color: rgba(255, 255, 255, 0.75) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #334155;
-  font-size: 1rem;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  font-size: 0.95rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   cursor: pointer;
   transition: all 0.2s ease-in-out;
 }
 
 .btn-map-close-floating:hover {
-  background-color: #fee2e2;
+  background-color: rgba(254, 226, 226, 0.95) !important;
   color: #dc2626;
-  border-color: #fca5a5;
-  transform: scale(1.08);
+  border-color: #fca5a5 !important;
+  transform: scale(1.06);
 }
 
 .btn-map-close-floating:active {
@@ -716,6 +720,40 @@
     color: #9aa5a2;
 }
 
+/* Enlaces interactivos en el widget de Presupuesto del Día */
+.budget-link-itinerary,
+.budget-link-estimated {
+    font-size: 0.76rem;
+    padding: 2px 4px !important;
+    border-radius: 4px;
+    line-height: 1.2;
+    text-decoration: none !important;
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+}
+
+.budget-link-itinerary {
+    color: #4b5563 !important;
+    border-bottom: 1.5px dashed #9ca3af;
+}
+
+.budget-link-itinerary:hover {
+    color: var(--brand-color, #006d5b) !important;
+    border-bottom-color: var(--brand-color, #006d5b);
+    background-color: rgba(0, 109, 91, 0.05);
+}
+
+.budget-link-estimated {
+    color: var(--brand-color, #006d5b) !important;
+    border-bottom: 1.5px dashed rgba(0, 109, 91, 0.4);
+}
+
+.budget-link-estimated:hover {
+    color: var(--brand-color-dark, #004d40) !important;
+    border-bottom-color: var(--brand-color-dark, #004d40);
+    background-color: rgba(0, 109, 91, 0.08);
+}
+
 /* La foto real del lugar tapa el fondo por categoría. Si Google no la devuelve
    el <img> se borra solo (onerror) y vuelve a verse el icono de siempre. */
 .activity-icon-wrapper {
@@ -730,4 +768,104 @@
   height: 100%;
   object-fit: cover;
   border-radius: inherit;
+}
+
+/* ─── Controles del mapa (Leaflet) semitransparentes y compactos ─────────── */
+/* Zoom (+ / -) */
+.leaflet-bar {
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+.leaflet-bar a {
+  background-color: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #334155 !important;
+  width: 30px !important;
+  height: 30px !important;
+  line-height: 30px !important;
+  font-size: 14px !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.leaflet-bar a:last-child {
+  border-bottom: none !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  color: #006d5b !important;
+}
+
+/* Selector de estilos de mapa */
+.leaflet-control-layers {
+  border-radius: 8px !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12) !important;
+  font-family: inherit !important;
+  background-color: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.leaflet-control-layers:hover {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.leaflet-control-layers-toggle {
+  width: 32px !important;
+  height: 32px !important;
+  background-size: 18px 18px !important;
+}
+
+.leaflet-control-layers-expanded {
+  padding: 10px 14px !important;
+  font-size: 0.82rem !important;
+  color: #1e293b !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  min-width: 170px;
+}
+
+.leaflet-control-layers-base label {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  margin-bottom: 6px !important;
+  font-weight: 500;
+  color: #334155;
+  transition: color 0.15s ease;
+}
+
+.leaflet-control-layers-base label:last-child {
+  margin-bottom: 0 !important;
+}
+
+.leaflet-control-layers-base label:hover {
+  color: #006d5b !important;
+}
+
+.leaflet-control-layers-base input[type="radio"] {
+  margin: 0 !important;
+  accent-color: #006d5b;
+  cursor: pointer;
+}
+
+/* En vista ampliada, desplazar los controles superiores derechos para no solapar el botón cerrar */
+.map-card-container.map-is-expanded .leaflet-top.leaflet-right {
+  right: 50px;
+  transition: right 0.25s ease;
+}
+
+/* Ocultar marca de agua y barra de atribución inferior derecha */
+.leaflet-control-attribution {
+  display: none !important;
 }
