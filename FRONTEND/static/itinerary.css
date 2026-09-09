@@ -480,6 +480,28 @@
   z-index: 1000 !important;
 }
 
+.pin-order-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  transform: rotate(45deg);
+  background-color: var(--brand-color, #006d5b);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+  z-index: 10;
+  pointer-events: none;
+}
+
 /* Tarjeta informativa en el popup del mapa */
 .leaflet-popup-content-wrapper {
   border-radius: 0.85rem !important;
@@ -868,4 +890,32 @@
 /* Ocultar marca de agua y barra de atribución inferior derecha */
 .leaflet-control-attribution {
   display: none !important;
+}
+
+/* ─── Mini-mapa de ubicación en el modal de actividad ────────────────────── */
+.act-ubicacion-map-container {
+  height: 200px;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+  z-index: 0;
+  cursor: crosshair;
+}
+
+.act-ubicacion-map-container .leaflet-container {
+  cursor: crosshair !important;
+}
+
+/* ─── Botón de ruta en Google Maps (footer del mapa) ─────────────────────── */
+#btn-open-google-maps-route {
+  transition: all 0.2s ease-in-out;
+  border-color: #d1d5db;
+  font-size: 0.82rem;
+}
+
+#btn-open-google-maps-route:hover {
+  border-color: var(--brand-color, #006d5b);
+  color: var(--brand-color, #006d5b);
+  background-color: rgba(0, 109, 91, 0.05);
+  transform: translateY(-1px);
 }

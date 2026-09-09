@@ -322,29 +322,44 @@
                   <span data-i18n="iti_activities">activities</span>
                 </small>
               </div>
+              <button type="button" id="btn-open-google-maps-route" class="btn btn-sm btn-outline-secondary rounded-pill d-flex align-items-center gap-2 px-3" onclick="abrirRutaGoogleMaps()" data-i18n-title="iti_open_route_gmaps" title="Abrir ruta del día en Google Maps">
+                <i class="fa-brands fa-google"></i>
+                <span class="fw-semibold" style="font-size:.78rem;" data-i18n="iti_route_maps">Ruta en Maps</span>
+                <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:.65rem;"></i>
+              </button>
             </div>
           </div>
 
-          <div class="card border rounded-4 shadow-sm p-4">
+          <div class="card border rounded-4 shadow-sm p-4" id="logistics-card">
             <h5 class="fw-bold mb-4" data-i18n="iti_logistics">Daily Logistics</h5>
 
             <div class="d-flex mb-4">
               <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px">
-                <i class="fa-solid fa-route text-secondary"></i>
+                <i class="fa-solid fa-location-dot text-secondary"></i>
               </div>
               <div>
-                <h6 class="fw-bold mb-1 fs-7" data-i18n="iti_logistics_transport">Transport</h6>
-                <p class="text-secondary fs-7 mb-0">{{ viaje.destinos_display }}</p>
+                <h6 class="fw-bold mb-1 fs-7" data-i18n="iti_logistics_dest">Destino del día</h6>
+                <p class="text-secondary fs-7 mb-0" id="logistics-destino">—</p>
               </div>
             </div>
 
             <div class="d-flex mb-4">
               <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px">
-                <i class="fa-solid fa-calendar-days text-secondary"></i>
+                <i class="fa-solid fa-clock text-secondary"></i>
               </div>
               <div>
-                <h6 class="fw-bold mb-1 fs-7" data-i18n="compare_days">days</h6>
-                <p class="text-secondary fs-7 mb-0">{{ viaje.fecha_inicio_fmt }} – {{ viaje.fecha_fin_fmt }} ({{ viaje.dias_totales }})</p>
+                <h6 class="fw-bold mb-1 fs-7" data-i18n="iti_logistics_schedule">Horario del día</h6>
+                <p class="text-secondary fs-7 mb-0" id="logistics-horario">—</p>
+              </div>
+            </div>
+
+            <div class="d-flex mb-4" id="logistics-alojamiento-row">
+              <div class="bg-light rounded p-2 me-3 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px">
+                <i class="fa-solid fa-bed text-secondary"></i>
+              </div>
+              <div>
+                <h6 class="fw-bold mb-1 fs-7" data-i18n="iti_logistics_hotel">Alojamiento</h6>
+                <p class="text-secondary fs-7 mb-0" id="logistics-alojamiento">—</p>
               </div>
             </div>
 
@@ -353,17 +368,8 @@
                 <i class="fa-solid fa-wallet text-secondary"></i>
               </div>
               <div>
-                <h6 class="fw-bold mb-1 fs-7" data-i18n="budget_breakdown">Cost breakdown</h6>
-                <p class="text-secondary fs-7 mb-0">
-                  {% if viaje.costos %}
-                  <a href="{{ url_for('budget', id_viaje=viaje.id_viaje) }}" class="text-brand text-decoration-none fw-bold">
-                    ${{ '{:,.0f}'.format(viaje.costos.get('costo_total_base') or 0) }}
-                    <i class="fa-solid fa-arrow-right ms-1"></i>
-                  </a>
-                  {% else %}
-                  <span data-i18n="budget_no_costs">No cost breakdown loaded.</span>
-                  {% endif %}
-                </p>
+                <h6 class="fw-bold mb-1 fs-7" data-i18n="iti_logistics_cost">Gasto del día</h6>
+                <p class="text-secondary fs-7 mb-0" id="logistics-gasto">—</p>
               </div>
             </div>
           </div>
@@ -458,6 +464,11 @@
           <label for="act-ubicacion" class="form-label fw-bold small text-uppercase" data-i18n="act_location">Location</label>
           <input type="text" id="act-ubicacion" class="form-control" maxlength="150" autocomplete="off" />
           <ul id="act-ubicacion-options" class="act-autocomplete-list"></ul>
+          <div class="form-text mt-1 mb-2" style="font-size:.75rem;">
+            <i class="fa-solid fa-circle-info me-1 text-brand"></i>
+            <span data-i18n="act_location_hint">También podés seleccionar el punto haciendo clic en el mapa</span>
+          </div>
+          <div id="act-ubicacion-map" class="act-ubicacion-map-container"></div>
         </div>
 
         <div class="mb-3">
@@ -498,6 +509,7 @@
 </div>
 {% endblock %} {% block scripts %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-polylinedecorator@1.6.0/dist/leaflet.polylineDecorator.js"></script>
 <script>
   const VIAJE = {
       id: {{ viaje.id_viaje }},
@@ -637,6 +649,7 @@
                   recordarDia(null);
                   dibujarMarcadores(null);
                   actualizarPresupuestoDia(null);
+                  actualizarLogisticaDiaria(null);
                   return;
               }
 
@@ -659,6 +672,7 @@
               recordarDia(dia);
               dibujarMarcadores(dia);
               actualizarPresupuestoDia(dia);
+              actualizarLogisticaDiaria(dia);
           });
       });
   }
@@ -743,8 +757,11 @@
 
   let mapa = null;
   let capaDestinos = null;
+  let capaRecorrido = null;
   let capaActividades = null;
   const cacheGeo = {};
+  const cacheRutas = {};
+  let idRecorridoActual = 0;
   const marcadoresDestinos = {};
   const marcadoresActividades = {};
   let actividadSeleccionadaId = null;
@@ -845,7 +862,7 @@
       });
   }
 
-  function crearIconoMarcador(categoria, esActivo = false) {
+  function crearIconoMarcador(categoria, esActivo = false, orden = null) {
       const catLower = (categoria || '').toLowerCase().trim();
       const [icono, color] = ESTILO_CATEGORIA[catLower] || ['fa-location-dot', '#006d5b'];
 
@@ -854,6 +871,7 @@
           html: `
               <div class="custom-map-pin ${esActivo ? 'pin-active' : ''}" style="--pin-color: ${color};">
                   <i class="fa-solid ${icono}"></i>
+                  ${orden ? `<span class="pin-order-badge">${orden}</span>` : ''}
               </div>
           `,
           iconSize: [36, 36],
@@ -956,6 +974,7 @@
       });
 
       capaDestinos = L.layerGroup().addTo(mapa);
+      capaRecorrido = L.layerGroup().addTo(mapa);
       capaActividades = L.layerGroup().addTo(mapa);
 
       // Crear marcadores permanentes para cada destino del viaje
@@ -992,7 +1011,8 @@
   async function dibujarMarcadores(dia) {
       if (!mapa || !capaActividades) return;
 
-      // Limpiar marcadores de actividades
+      // Limpiar marcadores de actividades y trazado de recorrido
+      if (capaRecorrido) capaRecorrido.clearLayers();
       capaActividades.clearLayers();
       Object.keys(marcadoresActividades).forEach(k => delete marcadoresActividades[k]);
       puntosDelDiaActual = [];
@@ -1062,8 +1082,10 @@
 
       const resultados = await Promise.all(tareas);
 
+      let ordenPunto = 1;
       resultados.forEach(({ act, coords }) => {
           if (!coords) return;
+          const orden = ordenPunto++;
           const actId = String(act.dataset.id);
           const nombre = act.dataset.nombre || '';
           const categoria = act.dataset.categoriaNombre || '';
@@ -1073,13 +1095,13 @@
           const [icono, color] = ESTILO_CATEGORIA[(categoria || '').toLowerCase()] || ['fa-location-dot', '#006d5b'];
 
           const marker = L.marker([coords.lat, coords.lon], {
-              icon: crearIconoMarcador(categoria, false)
+              icon: crearIconoMarcador(categoria, false, orden)
           });
 
           const popupHtml = `
               <div class="map-popup-card">
                   ${categoria ? `<span class="popup-category" style="background-color: ${color};"><i class="fa-solid ${icono} me-1"></i>${traducirCategoria(categoria)}</span>` : ''}
-                  <div class="popup-title">${nombre}</div>
+                  <div class="popup-title"><span class="badge text-white me-1 rounded-pill" style="background-color: var(--brand-color, #006d5b); font-size: 0.72rem; padding: 2px 6px;">#${orden}</span>${nombre}</div>
                   ${horario ? `<div class="popup-info"><i class="fa-regular fa-clock text-secondary"></i><span>${horario}</span></div>` : ''}
                   ${ubicacion ? `<div class="popup-info"><i class="fa-solid fa-map-pin text-secondary"></i><span class="text-truncate">${ubicacion}</span></div>` : ''}
                   ${precio > 0 ? `<div class="mt-1 fw-bold text-success" style="font-size: 0.85rem;">$${precio.toLocaleString()}</div>` : ''}
@@ -1102,7 +1124,8 @@
               lat: coords.lat,
               lon: coords.lon,
               categoria,
-              element: act
+              element: act,
+              orden: orden
           };
 
           puntosDelDiaActual.push([coords.lat, coords.lon]);
@@ -1112,21 +1135,124 @@
       actualizarVisibilidadDestinos(dia, destFiltro);
   }
 
+  function renderizarTrazoRecorrido(coordenadas) {
+      if (!capaRecorrido || !coordenadas || coordenadas.length < 2) return;
+      capaRecorrido.clearLayers();
+
+      // 1. Halo blanco sutil de base para asegurar alto contraste sobre cualquier mapa
+      L.polyline(coordenadas, {
+          color: '#ffffff',
+          weight: 7,
+          opacity: 0.85,
+          interactive: false,
+      }).addTo(capaRecorrido);
+
+      // 2. Línea principal del recorrido (verde de la marca, nítida y sobre la sombra blanca)
+      const linea = L.polyline(coordenadas, {
+          color: '#006d5b',
+          weight: 4.5,
+          opacity: 1,
+          interactive: false,
+      }).addTo(capaRecorrido);
+
+      // 3. Flechas de dirección más chicas, en blanco contrastante y menor densidad por distancia
+      if (typeof L.polylineDecorator === 'function') {
+          try {
+              L.polylineDecorator(linea, {
+                  patterns: [
+                      {
+                          offset: 40,
+                          repeat: 130,
+                          symbol: L.Symbol.arrowHead({
+                              pixelSize: 8,
+                              polygon: true,
+                              pathOptions: {
+                                  stroke: true,
+                                  color: '#00382e',
+                                  weight: 1,
+                                  fillColor: '#ffffff',
+                                  fillOpacity: 1
+                              }
+                          })
+                      }
+                  ]
+              }).addTo(capaRecorrido);
+          } catch (err) {
+              console.warn('Error al aplicar flechas al recorrido:', err);
+          }
+      }
+  }
+
+  async function obtenerRutaPorCalles(puntos) {
+      if (!puntos || puntos.length < 2) return null;
+
+      // Filtrar puntos consecutivos idénticos o excesivamente próximos (< 5 metros)
+      const puntosFiltrados = [puntos[0]];
+      for (let i = 1; i < puntos.length; i++) {
+          const ant = puntosFiltrados[puntosFiltrados.length - 1];
+          const act = puntos[i];
+          if (Math.abs(ant[0] - act[0]) > 0.00005 || Math.abs(ant[1] - act[1]) > 0.00005) {
+              puntosFiltrados.push(act);
+          }
+      }
+      if (puntosFiltrados.length < 2) return puntos;
+
+      const cacheKey = puntosFiltrados.map(p => `${p[0].toFixed(5)},${p[1].toFixed(5)}`).join(';');
+      if (cacheRutas[cacheKey]) {
+          return cacheRutas[cacheKey];
+      }
+
+      // OSRM perfil vehicular (driving): respeta el sentido de circulación y manos de las calles
+      const coordsQuery = puntosFiltrados.map(p => `${p[1]},${p[0]}`).join(';');
+      const url = `https://router.project-osrm.org/route/v1/driving/${coordsQuery}?overview=full&geometries=geojson`;
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      try {
+          const resp = await fetch(url, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          if (!resp.ok) return null;
+
+          const data = await resp.json();
+          if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+              const coordsOSRM = data.routes[0].geometry.coordinates;
+              // OSRM devuelve [lon, lat], Leaflet utiliza [lat, lon]
+              const coordsLeaflet = coordsOSRM.map(c => [c[1], c[0]]);
+              cacheRutas[cacheKey] = coordsLeaflet;
+              return coordsLeaflet;
+          }
+      } catch (err) {
+          clearTimeout(timeoutId);
+          console.warn('No se pudo obtener la ruta por calles de OSRM:', err);
+      }
+      return null;
+  }
+
   function dibujarRecorridoDelDia() {
       // El orden del array de actividades ES el recorrido: el flujo agrupa los
       // lugares por zona y después resuelve la ruta desde el hotel. Dibujar la
-      // línea hace visible que el día no cruza la ciudad de punta a punta, que
-      // es justamente el trabajo que hay detrás y no se nota en una lista.
-      if (!capaActividades || puntosDelDiaActual.length < 2) return;
+      // línea hace visible que el día no cruza la ciudad de punta a punta.
+      if (!capaActividades || puntosDelDiaActual.length < 2) {
+          if (capaRecorrido) capaRecorrido.clearLayers();
+          return;
+      }
 
-      L.polyline(puntosDelDiaActual, {
-          color: '#006d5b',
-          weight: 2,
-          opacity: 0.55,
-          dashArray: '6, 8',
-          // Debajo de los marcadores: es contexto, no el dato principal.
-          interactive: false,
-      }).addTo(capaActividades).bringToBack();
+      // 1. Trazado preliminar inmediato con L.polyline(puntosDelDiaActual)
+      // Asegura feedback visual instantáneo mientras se resuelve la red de calles
+      renderizarTrazoRecorrido(puntosDelDiaActual);
+
+      // 2. Consulta asíncrona de calles con OSRM (respetando manos y direcciones de calle)
+      const reqId = ++idRecorridoActual;
+      const puntosConsulta = [...puntosDelDiaActual];
+
+      obtenerRutaPorCalles(puntosConsulta).then(rutaCalles => {
+          if (reqId === idRecorridoActual && rutaCalles && rutaCalles.length >= 2) {
+              renderizarTrazoRecorrido(rutaCalles);
+          }
+      }).catch(err => {
+          console.warn('Error al trazar ruta por calles:', err);
+      });
   }
 
   function actualizarVisibilidadDestinos(dia, destFiltro) {
@@ -1245,7 +1371,7 @@
 
       // Restaurar íconos de marcadores previos
       Object.values(marcadoresActividades).forEach(m => {
-          if (m.marker) m.marker.setIcon(crearIconoMarcador(m.categoria, false));
+          if (m.marker) m.marker.setIcon(crearIconoMarcador(m.categoria, false, m.orden));
       });
 
       actividadSeleccionadaId = strId;
@@ -1254,7 +1380,7 @@
 
       const info = marcadoresActividades[strId];
       if (info && info.lat && info.lon) {
-          info.marker.setIcon(crearIconoMarcador(info.categoria, true));
+          info.marker.setIcon(crearIconoMarcador(info.categoria, true, info.orden));
           if (volarAlPunto) {
               mapa.flyTo([info.lat, info.lon], 15, { animate: true, duration: 0.7 });
           }
@@ -1281,7 +1407,7 @@
       });
 
       Object.values(marcadoresActividades).forEach(m => {
-          if (m.marker) m.marker.setIcon(crearIconoMarcador(m.categoria, false));
+          if (m.marker) m.marker.setIcon(crearIconoMarcador(m.categoria, false, m.orden));
       });
 
       if (mapa) {
@@ -1886,6 +2012,8 @@
                               lon: coords[0],
                               nombre: p.name || nombre
                           };
+                          // Mover el marcador del mini-mapa del modal
+                          colocarMarcadorUbicacion(coords[1], coords[0]);
                       }
                       cerrarSugerencias();
                   });
@@ -2247,6 +2375,226 @@
       }
   }
 
+  // ─── Mini-mapa de ubicación en el modal de actividad ──────────────────────────
+  let mapaUbicacionModal = null;
+  let marcadorUbicacionModal = null;
+
+  function inicializarMapaUbicacion() {
+      const contenedor = document.getElementById('act-ubicacion-map');
+      if (!contenedor) return;
+
+      // Se inicializa lazy la primera vez que se abre el modal
+      const modal = document.getElementById('activityModal');
+      if (!modal) return;
+
+      modal.addEventListener('shown.bs.modal', () => {
+          if (!mapaUbicacionModal) {
+              mapaUbicacionModal = L.map('act-ubicacion-map', {
+                  scrollWheelZoom: true,
+                  maxZoom: 19,
+                  attributionControl: false,
+                  zoomControl: true
+              }).setView([0, 0], 2);
+
+              L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+                  maxZoom: 19
+              }).addTo(mapaUbicacionModal);
+
+              // Click en el mapa → colocar marcador y geocodificación inversa
+              mapaUbicacionModal.on('click', async (e) => {
+                  const { lat, lng } = e.latlng;
+                  colocarMarcadorUbicacion(lat, lng);
+
+                  // Geocodificación inversa con Photon
+                  try {
+                      const resp = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}&limit=1`);
+                      if (resp.ok) {
+                          const datos = await resp.json();
+                          const lugar = (datos.features || [])[0];
+                          if (lugar) {
+                              const p = lugar.properties || {};
+                              const nombre = [p.name, p.street, p.city || p.town || p.village || p.state, p.country]
+                                  .filter(Boolean).join(', ').slice(0, 150);
+                              document.getElementById('act-ubicacion').value = nombre;
+
+                              // Guardar en cache de geocodificación
+                              cacheGeo[nombre.toLowerCase()] = {
+                                  lat: lat,
+                                  lon: lng,
+                                  nombre: p.name || nombre
+                              };
+                          }
+                      }
+                  } catch (err) {
+                      // Si falla la geocodificación inversa, al menos queda el marcador
+                      document.getElementById('act-ubicacion').value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+                  }
+              });
+          }
+
+          // Centrar en la ubicación actual del input o en el destino del viaje
+          setTimeout(() => {
+              mapaUbicacionModal.invalidateSize();
+              centrarMapaModalEnUbicacion();
+          }, 150);
+      });
+  }
+
+  async function centrarMapaModalEnUbicacion() {
+      if (!mapaUbicacionModal) return;
+
+      const ubicacionTexto = document.getElementById('act-ubicacion').value.trim();
+
+      if (ubicacionTexto) {
+          const punto = await geocodificar(ubicacionTexto);
+          if (punto) {
+              mapaUbicacionModal.setView([punto.lat, punto.lon], 15);
+              colocarMarcadorUbicacion(punto.lat, punto.lon);
+              return;
+          }
+      }
+
+      // Fallback: centrar en el primer destino del viaje
+      const puntoDestino = await geocodificar(VIAJE.destinos[0]);
+      if (puntoDestino) {
+          mapaUbicacionModal.setView([puntoDestino.lat, puntoDestino.lon], 13);
+      }
+      if (marcadorUbicacionModal) {
+          mapaUbicacionModal.removeLayer(marcadorUbicacionModal);
+          marcadorUbicacionModal = null;
+      }
+  }
+
+  function colocarMarcadorUbicacion(lat, lon) {
+      if (!mapaUbicacionModal) return;
+      if (marcadorUbicacionModal) {
+          marcadorUbicacionModal.setLatLng([lat, lon]);
+      } else {
+          marcadorUbicacionModal = L.marker([lat, lon], {
+              icon: crearIconoMarcador('', true)
+          }).addTo(mapaUbicacionModal);
+      }
+      mapaUbicacionModal.setView([lat, lon], Math.max(mapaUbicacionModal.getZoom(), 14));
+  }
+
+
+  // ─── Botón Google Maps: ruta del día ──────────────────────────────────────────
+  function abrirRutaGoogleMaps() {
+      const puntos = [];
+
+      // Recopilar las coordenadas de las actividades del día actual
+      Object.values(marcadoresActividades).forEach(m => {
+          if (m.lat && m.lon) {
+              puntos.push({ lat: m.lat, lon: m.lon });
+          }
+      });
+
+      if (puntos.length === 0) {
+          // Sin actividades con ubicación: buscar el destino
+          const activeBadge = document.querySelector('.dest-badge.active');
+          const dest = activeBadge && activeBadge.dataset.dest !== 'all'
+              ? activeBadge.dataset.dest : VIAJE.destinos[0];
+          window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dest)}`, '_blank');
+          return;
+      }
+
+      if (puntos.length === 1) {
+          window.open(`https://www.google.com/maps/search/?api=1&query=${puntos[0].lat},${puntos[0].lon}`, '_blank');
+          return;
+      }
+
+      // Construir URL de Google Maps Directions con waypoints
+      const origen = `${puntos[0].lat},${puntos[0].lon}`;
+      const destino = `${puntos[puntos.length - 1].lat},${puntos[puntos.length - 1].lon}`;
+      const waypoints = puntos.slice(1, -1).map(p => `${p.lat},${p.lon}`).join('|');
+
+      let url = `https://www.google.com/maps/dir/?api=1&origin=${origen}&destination=${destino}&travelmode=walking`;
+      if (waypoints) {
+          url += `&waypoints=${encodeURIComponent(waypoints)}`;
+      }
+
+      window.open(url, '_blank');
+  }
+
+  // ─── Logística Diaria dinámica ────────────────────────────────────────────────
+  const CATEGORIAS_ALOJAMIENTO = ['alojamiento', 'hospedaje', 'hotel', 'accommodation', 'lodging'];
+
+  function actualizarLogisticaDiaria(dia) {
+      const elDestino = document.getElementById('logistics-destino');
+      const elHorario = document.getElementById('logistics-horario');
+      const elAlojamiento = document.getElementById('logistics-alojamiento');
+      const elAlojamientoRow = document.getElementById('logistics-alojamiento-row');
+      const elGasto = document.getElementById('logistics-gasto');
+
+      if (!elDestino) return;
+
+      if (!dia) {
+          elDestino.textContent = '—';
+          elHorario.textContent = '—';
+          elAlojamiento.textContent = '—';
+          elGasto.textContent = '—';
+          if (elAlojamientoRow) elAlojamientoRow.style.display = '';
+          return;
+      }
+
+      const contenido = document.getElementById('day-content-' + dia);
+      if (!contenido) return;
+
+      const actividades = Array.from(contenido.querySelectorAll('.activity-item'));
+
+      // 1. Destino del día
+      const destDia = actividades.length > 0
+          ? (actividades[0].dataset.dest || VIAJE.destinos[0])
+          : VIAJE.destinos[0];
+      elDestino.textContent = destDia || '—';
+
+      // 2. Horario del día (rango de actividades)
+      let primeraHora = null, ultimaHora = null;
+      let cantActividades = actividades.length;
+      actividades.forEach(act => {
+          const horario = act.dataset.horario || '';
+          const partes = horario.split(' - ');
+          if (partes.length === 2) {
+              const inicio = partes[0].trim();
+              const fin = partes[1].trim();
+              if (!primeraHora || inicio < primeraHora) primeraHora = inicio;
+              if (!ultimaHora || fin > ultimaHora) ultimaHora = fin;
+          }
+      });
+      if (primeraHora && ultimaHora) {
+          elHorario.textContent = `${primeraHora} – ${ultimaHora} · ${cantActividades} actividad${cantActividades !== 1 ? 'es' : ''}`;
+      } else {
+          elHorario.textContent = `${cantActividades} actividad${cantActividades !== 1 ? 'es' : ''}`;
+      }
+
+      // 3. Alojamiento
+      let alojamientoNombre = null;
+      actividades.forEach(act => {
+          const cat = (act.dataset.categoriaNombre || '').toLowerCase().trim();
+          if (CATEGORIAS_ALOJAMIENTO.includes(cat)) {
+              alojamientoNombre = act.dataset.nombre || act.dataset.ubicacion || cat;
+          }
+      });
+      if (alojamientoNombre) {
+          elAlojamiento.textContent = alojamientoNombre;
+          if (elAlojamientoRow) elAlojamientoRow.style.display = '';
+      } else {
+          elAlojamiento.textContent = 'Sin alojamiento registrado';
+          if (elAlojamientoRow) elAlojamientoRow.style.display = '';
+      }
+
+      // 4. Gasto del día
+      const cotizadas = parseFloat(contenido.dataset.actividadesCotizadas) || 0;
+      const totalDia = parseFloat(contenido.dataset.totalDia) || 0;
+      const estimado = Math.max(0, totalDia - cotizadas);
+
+      let gastoTexto = `$${cotizadas.toLocaleString('es-AR', { minimumFractionDigits: 0 })}`;
+      if (estimado > 0) {
+          gastoTexto += ` + ~$${estimado.toLocaleString('es-AR', { minimumFractionDigits: 0 })} est.`;
+      }
+      elGasto.textContent = gastoTexto;
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
       pintarIconos();
       inicializarPestanas();
@@ -2271,7 +2619,10 @@
       const activeDayBtn = document.querySelector('.day-tab-btn.btn-brand');
       if(activeDayBtn) {
           actualizarPresupuestoDia(activeDayBtn.dataset.day);
+          actualizarLogisticaDiaria(activeDayBtn.dataset.day);
       }
+
+      inicializarMapaUbicacion();
 
       // Eventos para agrandar/reducir el mapa
       document.getElementById('btn-expand-map')?.addEventListener('click', alternarAgrandarMapa);
